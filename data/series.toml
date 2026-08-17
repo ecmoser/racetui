@@ -1,0 +1,376 @@
+# Series metadata and scraper configuration.
+# Colors are RGB values (0-255).
+# `requires_js` indicates whether the calendar page needs a headless browser.
+# Most series have JSON APIs or SSR HTML, so requires_js is false for almost all.
+
+[[series]]
+id = "f1"
+name = "Formula 1"
+short_name = "F1"
+car_style = "OpenWheel"
+region = "International"
+color = [255, 24, 1]
+calendar_url = "https://api.jolpi.ca/ergast/f1/current.json"
+requires_js = false
+
+[[series]]
+id = "f2"
+name = "Formula 2"
+short_name = "F2"
+car_style = "OpenWheel"
+region = "International"
+color = [0, 129, 210]
+calendar_url = "https://api.formula1.com/v1/core-editorial-races/f2/listing"
+requires_js = false
+
+[[series]]
+id = "f3"
+name = "Formula 3"
+short_name = "F3"
+car_style = "OpenWheel"
+region = "International"
+color = [228, 0, 43]
+calendar_url = "https://api.formula1.com/v1/core-editorial-races/f3/listing"
+requires_js = false
+
+[[series]]
+id = "formula_e"
+name = "Formula E"
+short_name = "FE"
+car_style = "OpenWheel"
+region = "International"
+color = [0, 174, 239]
+calendar_url = "https://api.formula-e.pulselive.com/formula-e/v1/"
+requires_js = false
+
+[[series]]
+id = "indycar"
+name = "IndyCar Series"
+short_name = "IndyCar"
+car_style = "OpenWheel"
+region = "USA"
+color = [0, 0, 128]
+calendar_url = "https://www.indycar.com/Schedule"
+requires_js = false
+
+[[series]]
+id = "nascar_cup"
+name = "NASCAR Cup Series"
+short_name = "Cup"
+car_style = "StockCar"
+region = "USA"
+color = [255, 200, 0]
+calendar_url = "https://cf.nascar.com/cacher/2026/1/race_list_basic.json"
+requires_js = false
+
+[[series]]
+id = "nascar_xfinity"
+name = "NASCAR Xfinity Series"
+short_name = "Xfinity"
+car_style = "StockCar"
+region = "USA"
+color = [0, 100, 200]
+calendar_url = "https://cf.nascar.com/cacher/2026/2/race_list_basic.json"
+requires_js = false
+
+[[series]]
+id = "nascar_trucks"
+name = "NASCAR Craftsman Truck Series"
+short_name = "Trucks"
+car_style = "StockCar"
+region = "USA"
+color = [200, 50, 50]
+calendar_url = "https://cf.nascar.com/cacher/2026/3/race_list_basic.json"
+requires_js = false
+
+[[series]]
+id = "imsa"
+name = "IMSA WeatherTech SportsCar Championship"
+short_name = "IMSA"
+car_style = "SportsCar"
+region = "USA"
+color = [0, 150, 68]
+calendar_url = "https://www.imsa.com/weathertech/schedule/"
+requires_js = false
+
+[[series]]
+id = "wec"
+name = "FIA World Endurance Championship"
+short_name = "WEC"
+car_style = "SportsCar"
+region = "International"
+color = [0, 85, 150]
+calendar_url = "https://www.fiawec.com/"
+requires_js = false
+
+[[series]]
+id = "motogp"
+name = "MotoGP"
+short_name = "MotoGP"
+car_style = "Motorcycle"
+region = "International"
+color = [190, 0, 50]
+calendar_url = "https://api.motogp.pulselive.com/motogp/v1/results/seasons"
+requires_js = false
+
+[[series]]
+id = "wrc"
+name = "World Rally Championship"
+short_name = "WRC"
+car_style = "Rally"
+region = "International"
+color = [37, 100, 200]
+calendar_url = "https://api.wrc.com/contel-page/83388/calendar/active-season/"
+requires_js = false
+
+[[series]]
+id = "btcc"
+name = "British Touring Car Championship"
+short_name = "BTCC"
+car_style = "Touring"
+region = "UK"
+color = [0, 60, 120]
+calendar_url = "https://www.btcc.net/calendar/"
+requires_js = false
+
+[[series]]
+id = "super_formula"
+name = "Super Formula"
+short_name = "SF"
+car_style = "OpenWheel"
+region = "Japan"
+color = [230, 0, 126]
+calendar_url = "https://superformula.net/sf3/race_taxonomy/2026/"
+requires_js = false
+
+[[series]]
+id = "super_gt"
+name = "Super GT"
+short_name = "SGT"
+car_style = "SportsCar"
+region = "Japan"
+color = [200, 160, 0]
+calendar_url = "https://supergt.net/en/"
+requires_js = false
+
+[[series]]
+id = "dtm"
+name = "DTM"
+short_name = "DTM"
+car_style = "Touring"
+region = "Europe"
+color = [130, 0, 200]
+calendar_url = "https://www.dtm.com/en/calendar"
+requires_js = true
+
+# ── Endurance / Sports Car ──
+
+[[series]]
+id = "elms"
+name = "European Le Mans Series"
+short_name = "ELMS"
+car_style = "SportsCar"
+region = "Europe"
+color = [0, 114, 206]
+calendar_url = "https://www.europeanlemansseries.com/calendar"
+requires_js = false
+
+[[series]]
+id = "aslms"
+name = "Asian Le Mans Series"
+short_name = "AsLMS"
+car_style = "SportsCar"
+region = "Asia"
+color = [230, 80, 20]
+calendar_url = "https://www.asianlemansseries.com/calendar"
+requires_js = false
+
+[[series]]
+id = "nls"
+name = "Nürburgring Langstrecken-Serie"
+short_name = "NLS"
+car_style = "SportsCar"
+region = "Europe"
+color = [20, 128, 60]
+calendar_url = "https://www.nuerburgring-langstrecken-serie.de/en/calendar-2026/"
+requires_js = false
+
+[[series]]
+id = "gtwc_eu"
+name = "GT World Challenge Europe"
+short_name = "GTWC Eu"
+car_style = "SportsCar"
+region = "Europe"
+color = [235, 90, 0]
+calendar_url = "https://www.gt-world-challenge-europe.com/calendar"
+requires_js = false
+
+[[series]]
+id = "gtwc_am"
+name = "GT World Challenge America"
+short_name = "GTWC Am"
+car_style = "SportsCar"
+region = "USA"
+color = [180, 30, 50]
+calendar_url = "https://www.gt-world-challenge-america.com/calendar"
+requires_js = false
+
+[[series]]
+id = "igtc"
+name = "Intercontinental GT Challenge"
+short_name = "IGTC"
+car_style = "SportsCar"
+region = "International"
+color = [212, 175, 55]
+calendar_url = "https://www.intercontinentalgtchallenge.com/calendar"
+requires_js = false
+
+# ── Touring Car ──
+
+[[series]]
+id = "supercars"
+name = "Repco Supercars Championship"
+short_name = "Supercars"
+car_style = "Touring"
+region = "Australia"
+color = [230, 50, 20]
+calendar_url = "https://www.supercars.com/calendar"
+requires_js = false
+
+[[series]]
+id = "tcr_world"
+name = "Kumho FIA TCR World Tour"
+short_name = "TCR World"
+car_style = "Touring"
+region = "International"
+color = [220, 30, 30]
+calendar_url = "https://www.fiatcrworldtour.com/calendar/"
+requires_js = false
+
+# ── Open Wheel ──
+
+[[series]]
+id = "indy_nxt"
+name = "INDY NXT by Firestone"
+short_name = "Indy NXT"
+car_style = "OpenWheel"
+region = "USA"
+color = [210, 25, 30]
+calendar_url = "https://www.indynxt.com/schedule"
+requires_js = false
+
+[[series]]
+id = "f1_academy"
+name = "F1 Academy"
+short_name = "F1A"
+car_style = "OpenWheel"
+region = "International"
+color = [140, 40, 200]
+calendar_url = "https://api.formula1.com/v1/core-editorial-races/f1academy/listing"
+requires_js = false
+
+# ── Motorcycle ──
+
+[[series]]
+id = "moto2"
+name = "Moto2 World Championship"
+short_name = "Moto2"
+car_style = "Motorcycle"
+region = "International"
+color = [70, 130, 200]
+calendar_url = "https://api.motogp.pulselive.com/motogp/v1/results/seasons"
+requires_js = false
+
+[[series]]
+id = "moto3"
+name = "Moto3 World Championship"
+short_name = "Moto3"
+car_style = "Motorcycle"
+region = "International"
+color = [240, 100, 0]
+calendar_url = "https://api.motogp.pulselive.com/motogp/v1/results/seasons"
+requires_js = false
+
+[[series]]
+id = "worldsbk"
+name = "FIM Superbike World Championship"
+short_name = "WorldSBK"
+car_style = "Motorcycle"
+region = "International"
+color = [210, 10, 10]
+calendar_url = "https://www.worldsbk.com/en/calendar"
+requires_js = false
+
+[[series]]
+id = "bsb"
+name = "British Superbike Championship"
+short_name = "BSB"
+car_style = "Motorcycle"
+region = "UK"
+color = [170, 15, 40]
+calendar_url = "https://www.britishsuperbike.com/calendar"
+requires_js = false
+
+# ── Rally ──
+
+[[series]]
+id = "wrc2"
+name = "WRC2"
+short_name = "WRC2"
+car_style = "Rally"
+region = "International"
+color = [100, 160, 220]
+calendar_url = "https://api.wrc.com/contel-page/83388/calendar/active-season/"
+requires_js = false
+
+[[series]]
+id = "dakar"
+name = "Dakar Rally"
+short_name = "Dakar"
+car_style = "Rally"
+region = "International"
+color = [215, 115, 30]
+calendar_url = "https://www.dakar.com/en/calendar"
+requires_js = false
+
+[[series]]
+id = "erc"
+name = "FIA European Rally Championship"
+short_name = "ERC"
+car_style = "Rally"
+region = "Europe"
+color = [255, 185, 0]
+calendar_url = "https://www.fiaerc.com/calendar"
+requires_js = false
+
+# ── Other ──
+
+[[series]]
+id = "porsche_supercup"
+name = "Porsche Mobil 1 Supercup"
+short_name = "Supercup"
+car_style = "SportsCar"
+region = "Europe"
+color = [180, 0, 30]
+calendar_url = "https://motorsports.porsche.com/international/en/category/mobil1supercup"
+requires_js = false
+
+[[series]]
+id = "arca"
+name = "ARCA Menards Series"
+short_name = "ARCA"
+car_style = "StockCar"
+region = "USA"
+color = [235, 235, 0]
+calendar_url = "https://cf.nascar.com/cacher/2026/4/race_list_basic.json"
+requires_js = false
+
+[[series]]
+id = "extreme_e"
+name = "Extreme E / Extreme H"
+short_name = "XE/XH"
+car_style = "Rally"
+region = "International"
+color = [50, 220, 180]
+calendar_url = "https://www.extreme-e.com/calendar"
+requires_js = false

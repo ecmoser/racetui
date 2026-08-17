@@ -413,7 +413,7 @@ fn main() {
 
 ---
 
-### Step 3: Series Registry and `series.toml` Configuration
+### [x] Step 3: Series Registry and `series.toml` Configuration
 
 **What to do**: Create the `data/series.toml` file containing metadata for all 16 racing series, and the Rust code to load it.
 
