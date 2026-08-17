@@ -1,3 +1,4 @@
+pub mod f1;
 pub mod fetcher;
 
 use anyhow::Result;
@@ -24,7 +25,7 @@ pub trait SeriesScraper: Send + Sync {
 /// Returns None if no scraper is implemented yet for this series.
 pub fn get_scraper(series_id: &str) -> Option<Box<dyn SeriesScraperBoxed>> {
     match series_id {
-        // Scrapers will be added here as implemented in subsequent steps
+        "f1" => Some(Box::new(f1::F1Scraper)),
         _ => None,
     }
 }
@@ -82,4 +83,11 @@ mod tests {
         assert!(res.is_ok());
         assert_eq!(res.unwrap().len(), 0);
     }
+
+    #[test]
+    fn test_get_scraper_f1() {
+        assert!(get_scraper("f1").is_some());
+        assert!(get_scraper("unknown_series").is_none());
+    }
 }
+

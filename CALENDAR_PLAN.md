@@ -2137,7 +2137,7 @@ pub async fn fetch_json<T: serde::de::DeserializeOwned>(client: &Client, url: &s
 
 ---
 
-### Step 10: F1 Scraper (Jolpica API)
+### [x] Step 10: F1 Scraper (Jolpica API)
 
 **What to do**: Implement the first scraper — Formula 1 using the Jolpica API (JSON, no scraping needed). This serves as the reference implementation for all other scrapers.
 
