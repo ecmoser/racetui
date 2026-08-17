@@ -108,8 +108,20 @@ fn spawn_data_loaders(
     }
 }
 
+fn setup_panic_hook() {
+    let original_hook = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let _ = disable_raw_mode();
+        let _ = stdout().execute(LeaveAlternateScreen);
+        let _ = stdout().execute(crossterm::cursor::Show);
+        original_hook(panic_info);
+    }));
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    setup_panic_hook();
+
     // Load series registry
     let registry = data::series_registry::load_series_registry(Path::new("data/series.toml"))?;
 
@@ -132,7 +144,10 @@ async fn main() -> Result<()> {
     let event_tx = tx.clone();
     tokio::spawn(async move {
         loop {
-            if crossterm_event::poll(std::time::Duration::from_millis(100)).unwrap_or(false) {
+            if event_tx.is_closed() {
+                break;
+            }
+            if crossterm_event::poll(std::time::Duration::from_millis(50)).unwrap_or(false) {
                 match crossterm_event::read() {
                     Ok(Event::Key(key)) => {
                         // Only handle key press events (not release/repeat)
@@ -158,6 +173,9 @@ async fn main() -> Result<()> {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
         loop {
+            if tick_tx.is_closed() {
+                break;
+            }
             interval.tick().await;
             if tick_tx.send(AppEvent::Tick).is_err() {
                 break;
@@ -209,18 +227,30 @@ async fn main() -> Result<()> {
         }
     }
 
-    // Restore terminal
-    disable_raw_mode()?;
-    stdout().execute(LeaveAlternateScreen)?;
+    // Drop communication channel
+    drop(rx);
+    drop(tx);
+
+    // Restore terminal cleanly
+    let _ = disable_raw_mode();
+    let _ = stdout().execute(LeaveAlternateScreen);
+    let _ = stdout().execute(crossterm::cursor::Show);
 
     // Save config on exit
-    app.config.save()?;
+    let _ = app.config.save();
 
-    Ok(())
+    std::process::exit(0);
 }
 
 /// Handle key events. Will be expanded in later steps.
 fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
+    // Global Ctrl+C handler to always cleanly exit
+    if key.modifiers.contains(KeyModifiers::CONTROL)
+        && matches!(key.code, KeyCode::Char('c') | KeyCode::Char('C'))
+    {
+        app.running = false;
+        return;
+    }
     // If search is active, handle search input
     if app.search_active {
         match key.code {
@@ -249,11 +279,57 @@ fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
         return;
     }
 
+    // If favorite confirmation dialog is active, handle confirm/cancel
+    if let Some(series_id) = app.pending_favorite_toggle.clone() {
+        match key.code {
+            KeyCode::Char('y') | KeyCode::Char('Y') | KeyCode::Enter => {
+                let was_fav = app.config.favorites.contains(&series_id);
+                app.config.toggle_favorite(&series_id);
+                let series_name = app
+                    .series_registry
+                    .get(&series_id)
+                    .map(|s| s.name.as_str())
+                    .unwrap_or(series_id.as_str());
+                let action = if was_fav { "Removed from" } else { "Added to" };
+                app.status_message = Some(format!("{} favorites: {}", action, series_name));
+                app.pending_favorite_toggle = None;
+            }
+            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                app.pending_favorite_toggle = None;
+            }
+            _ => {}
+        }
+        return;
+    }
+
     // If detail view is active, handle detail view keys
     if app.show_detail {
         match key.code {
             KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q') | KeyCode::Char('Q') => {
                 app.show_detail = false;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    // If filter panel is active, handle filter panel keys
+    if app.show_filter_panel {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter | KeyCode::Char('F') => {
+                app.show_filter_panel = false;
+            }
+            KeyCode::Char(' ') => {
+                app.toggle_selected_filter();
+            }
+            KeyCode::Char('a') | KeyCode::Char('A') => {
+                app.reset_filters();
+            }
+            KeyCode::Char('j') | KeyCode::Down => {
+                app.filter_select_next();
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                app.filter_select_previous();
             }
             _ => {}
         }
@@ -329,11 +405,10 @@ fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
         KeyCode::Enter => {
             app.show_detail = !app.show_detail;
         }
-        // Toggle favorite for selected event's series
+        // Prompt confirmation to toggle favorite for selected event's series
         KeyCode::Char('f') => {
             if let Some(event) = app.selected_event() {
-                let series_id = event.series_id.clone();
-                app.config.toggle_favorite(&series_id);
+                app.pending_favorite_toggle = Some(event.series_id.clone());
             }
         }
         // Filter panel
@@ -513,6 +588,110 @@ mod tests {
         assert!(!app.show_detail);
         assert!(app.running); // Should NOT exit app when closing popup
     }
+
+    #[test]
+    fn test_filter_panel_keybindings() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        assert!(!app.show_filter_panel);
+        assert!(app.active_filters.is_empty());
+
+        // Open with F
+        handle_key_event(&mut app, key(KeyCode::Char('F')));
+        assert!(app.show_filter_panel);
+
+        // Navigate down to Favorites Only (skipping headers)
+        handle_key_event(&mut app, key(KeyCode::Char('j')));
+        // Toggle with Space
+        handle_key_event(&mut app, key(KeyCode::Char(' ')));
+        assert!(app.show_filter_panel); // Panel stays open on toggle
+        assert!(app.active_filters.favorites_only);
+
+        // Reset filters with 'a'
+        handle_key_event(&mut app, key(KeyCode::Char('a')));
+        assert!(app.active_filters.is_empty());
+
+        // Toggle Favorites again
+        handle_key_event(&mut app, key(KeyCode::Char(' ')));
+        assert!(app.active_filters.favorites_only);
+
+        // Close with Enter
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(!app.show_filter_panel);
+        assert!(app.active_filters.favorites_only);
+    }
+
+    #[test]
+    fn test_favorite_confirmation_dialog_flow() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "International".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, config::UserConfig::default());
+        let event = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Monaco GP".to_string(),
+            circuit_name: "Circuit de Monaco".to_string(),
+            location: "Monte Carlo".to_string(),
+            country: "Monaco".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            round: Some(1),
+            sessions: vec![],
+            stream_links: vec![],
+            status: data::models::EventStatus::Upcoming,
+        };
+        app.update_series_data("f1".to_string(), vec![event]);
+
+        // Press 'f' -> opens confirmation dialog
+        handle_key_event(&mut app, key(KeyCode::Char('f')));
+        assert_eq!(app.pending_favorite_toggle.as_deref(), Some("f1"));
+        assert!(!app.config.favorites.contains("f1"));
+
+        // Press 'n' -> cancels without adding
+        handle_key_event(&mut app, key(KeyCode::Char('n')));
+        assert_eq!(app.pending_favorite_toggle, None);
+        assert!(!app.config.favorites.contains("f1"));
+
+        // Press 'f' and confirm with 'y'
+        handle_key_event(&mut app, key(KeyCode::Char('f')));
+        assert_eq!(app.pending_favorite_toggle.as_deref(), Some("f1"));
+        handle_key_event(&mut app, key(KeyCode::Char('y')));
+        assert_eq!(app.pending_favorite_toggle, None);
+        assert!(app.config.favorites.contains("f1"));
+        assert_eq!(app.status_message.as_deref(), Some("Added to favorites: Formula 1"));
+
+        // Press 'f' and confirm removal with Enter
+        handle_key_event(&mut app, key(KeyCode::Char('f')));
+        assert_eq!(app.pending_favorite_toggle.as_deref(), Some("f1"));
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert_eq!(app.pending_favorite_toggle, None);
+        assert!(!app.config.favorites.contains("f1"));
+        assert_eq!(app.status_message.as_deref(), Some("Removed from favorites: Formula 1"));
+    }
+
+    #[test]
+    fn test_handle_ctrl_c() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        assert!(app.running);
+        let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
+        handle_key_event(&mut app, ctrl_c);
+        assert!(!app.running);
+    }
 }
+
+
+
+
 
 

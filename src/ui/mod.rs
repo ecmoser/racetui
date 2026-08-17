@@ -1,5 +1,7 @@
 pub mod calendar_view;
+pub mod confirm_dialog;
 pub mod detail_view;
+pub mod filter_panel;
 pub mod list_view;
 pub mod status_bar;
 
@@ -26,9 +28,19 @@ pub fn draw(frame: &mut Frame, app: &App) {
     // Draw the status bar
     status_bar::draw(frame, app, chunks[1]);
 
+    // Draw filter panel overlay if visible
+    if app.show_filter_panel {
+        filter_panel::draw(frame, app);
+    }
+
     // Draw detail popup overlay if visible
     if app.show_detail {
         detail_view::draw(frame, app);
+    }
+
+    // Draw confirmation dialog on top of everything if active
+    if app.pending_favorite_toggle.is_some() {
+        confirm_dialog::draw(frame, app);
     }
 }
 
@@ -120,6 +132,60 @@ mod tests {
         assert!(content.contains("Monaco Grand Prix"));
         assert!(content.contains("Circuit de Monaco"));
     }
+
+    #[test]
+    fn test_draw_filter_panel() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+        app.show_filter_panel = true;
+
+        terminal.draw(|f| {
+            draw(f, &app);
+        }).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Filters"));
+        assert!(content.contains("All Events"));
+        assert!(content.contains("Favorites Only"));
+    }
+
+    #[test]
+    fn test_draw_confirm_dialog() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "International".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, UserConfig::default());
+        app.pending_favorite_toggle = Some("f1".to_string());
+
+        terminal.draw(|f| {
+            draw(f, &app);
+        }).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Add Favorite"));
+        assert!(content.contains("Formula 1"));
+        assert!(content.contains("Yes"));
+        assert!(content.contains("No"));
+    }
 }
+
+
 
 

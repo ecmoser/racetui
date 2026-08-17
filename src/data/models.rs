@@ -12,16 +12,22 @@ pub enum CarStyle {
     Motorcycle,
 }
 
+impl CarStyle {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            CarStyle::OpenWheel => "Open Wheel",
+            CarStyle::SportsCar => "Sports Car",
+            CarStyle::StockCar => "Stock Car",
+            CarStyle::Touring => "Touring",
+            CarStyle::Rally => "Rally",
+            CarStyle::Motorcycle => "Motorcycle",
+        }
+    }
+}
+
 impl std::fmt::Display for CarStyle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            CarStyle::OpenWheel => write!(f, "Open Wheel"),
-            CarStyle::SportsCar => write!(f, "Sports Car"),
-            CarStyle::StockCar => write!(f, "Stock Car"),
-            CarStyle::Touring => write!(f, "Touring"),
-            CarStyle::Rally => write!(f, "Rally"),
-            CarStyle::Motorcycle => write!(f, "Motorcycle"),
-        }
+        write!(f, "{}", self.as_str())
     }
 }
 

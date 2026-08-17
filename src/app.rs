@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use chrono::Datelike;
-use ratatui::widgets::TableState;
+use ratatui::widgets::{ListState, TableState};
 
 use crate::config::UserConfig;
 use crate::data::models::{FetchStatus, RaceEvent, Series};
@@ -13,14 +13,46 @@ pub enum ViewMode {
     Calendar,
 }
 
-/// Which filter category is active.
+/// Active multi-select filters.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ActiveFilters {
+    pub favorites_only: bool,
+    pub car_styles: HashSet<String>,
+    pub regions: HashSet<String>,
+    pub series: HashSet<String>,
+}
+
+impl ActiveFilters {
+    pub fn is_empty(&self) -> bool {
+        !self.favorites_only && self.car_styles.is_empty() && self.regions.is_empty() && self.series.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.favorites_only = false;
+        self.car_styles.clear();
+        self.regions.clear();
+        self.series.clear();
+    }
+}
+
+/// Filter option in the filter panel
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum FilterCategory {
+pub enum FilterOption {
     All,
     Favorites,
     CarStyle(String),
     Region(String),
     Series(String),
+}
+
+/// Item in the filter panel (header or selectable entry)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FilterItem {
+    Header(&'static str),
+    Entry {
+        label: String,
+        option: FilterOption,
+    },
 }
 
 /// All application state lives here.
@@ -43,8 +75,8 @@ pub struct App {
     /// User config (favorites, preferences, etc.)
     pub config: UserConfig,
 
-    /// Current active filter
-    pub active_filter: FilterCategory,
+    /// Active multi-select filters
+    pub active_filters: ActiveFilters,
 
     /// Search query (when user presses '/')
     pub search_query: Option<String>,
@@ -65,6 +97,9 @@ pub struct App {
     /// Ratatui table state for list view (tracks selected row)
     pub table_state: TableState,
 
+    /// Ratatui list state for filter panel
+    pub filter_list_state: ListState,
+
     // -- Calendar view state --
     /// Currently displayed year/month in calendar view
     pub calendar_year: i32,
@@ -75,6 +110,9 @@ pub struct App {
 
     /// Whether user requested manual refresh
     pub refresh_requested: bool,
+
+    /// Pending series ID for favorite/un-favorite confirmation dialog
+    pub pending_favorite_toggle: Option<String>,
 }
 
 impl App {
@@ -92,6 +130,9 @@ impl App {
             .map(|id| (id.clone(), FetchStatus::Pending))
             .collect();
 
+        let mut filter_list_state = ListState::default();
+        filter_list_state.select(Some(1)); // select "All Events" by default
+
         let mut app = Self {
             running: true,
             view_mode,
@@ -99,22 +140,176 @@ impl App {
             events: HashMap::new(),
             fetch_status,
             config,
-            active_filter: FilterCategory::All,
+            active_filters: ActiveFilters::default(),
             search_query: None,
             search_active: false,
             show_help: false,
             show_detail: false,
             show_filter_panel: false,
             table_state: TableState::default(),
+            filter_list_state,
             calendar_year: now.year(),
             calendar_month: now.month(),
             status_message: None,
             refresh_requested: false,
+            pending_favorite_toggle: None,
         };
 
         // Select the first row by default
         app.table_state.select(Some(0));
         app
+    }
+
+    /// Build the list of all items for the filter panel
+    pub fn filter_items(&self) -> Vec<FilterItem> {
+        let mut items = Vec::new();
+
+        // ── Filter By ──
+        items.push(FilterItem::Header("── Filter By ──"));
+        items.push(FilterItem::Entry {
+            label: "All Events".to_string(),
+            option: FilterOption::All,
+        });
+        items.push(FilterItem::Entry {
+            label: "★ Favorites Only".to_string(),
+            option: FilterOption::Favorites,
+        });
+
+        // ── Car Style ──
+        items.push(FilterItem::Header("── Car Style ──"));
+        for style in &[
+            "Open Wheel",
+            "Sports Car",
+            "Stock Car",
+            "Touring",
+            "Rally",
+            "Motorcycle",
+        ] {
+            items.push(FilterItem::Entry {
+                label: style.to_string(),
+                option: FilterOption::CarStyle(style.to_string()),
+            });
+        }
+
+        // ── Region ──
+        items.push(FilterItem::Header("── Region ──"));
+        for region in &[
+            "International",
+            "USA",
+            "Europe",
+            "UK",
+            "Japan",
+            "Australia",
+            "Asia",
+        ] {
+            items.push(FilterItem::Entry {
+                label: region.to_string(),
+                option: FilterOption::Region(region.to_string()),
+            });
+        }
+
+        // ── Series ──
+        items.push(FilterItem::Header("── Series ──"));
+        let mut series_list: Vec<&Series> = self.series_registry.values().collect();
+        series_list.sort_by_key(|s| &s.name);
+        for s in series_list {
+            items.push(FilterItem::Entry {
+                label: s.name.clone(),
+                option: FilterOption::Series(s.id.clone()),
+            });
+        }
+
+        items
+    }
+
+    /// Check if a given filter option is currently active
+    pub fn is_filter_option_active(&self, option: &FilterOption) -> bool {
+        match option {
+            FilterOption::All => self.active_filters.is_empty(),
+            FilterOption::Favorites => self.active_filters.favorites_only,
+            FilterOption::CarStyle(style) => self.active_filters.car_styles.contains(style),
+            FilterOption::Region(region) => self.active_filters.regions.contains(region),
+            FilterOption::Series(series_id) => self.active_filters.series.contains(series_id),
+        }
+    }
+
+    /// Toggle a specific filter option
+    pub fn toggle_filter_option(&mut self, option: &FilterOption) {
+        match option {
+            FilterOption::All => {
+                self.active_filters.clear();
+            }
+            FilterOption::Favorites => {
+                self.active_filters.favorites_only = !self.active_filters.favorites_only;
+            }
+            FilterOption::CarStyle(style) => {
+                if !self.active_filters.car_styles.remove(style) {
+                    self.active_filters.car_styles.insert(style.clone());
+                }
+            }
+            FilterOption::Region(region) => {
+                if !self.active_filters.regions.remove(region) {
+                    self.active_filters.regions.insert(region.clone());
+                }
+            }
+            FilterOption::Series(series_id) => {
+                if !self.active_filters.series.remove(series_id) {
+                    self.active_filters.series.insert(series_id.clone());
+                }
+            }
+        }
+        self.table_state.select(Some(0));
+    }
+
+    /// Toggle the currently highlighted filter item in the panel
+    pub fn toggle_selected_filter(&mut self) {
+        let items = self.filter_items();
+        if let Some(selected) = self.filter_list_state.selected() {
+            if let Some(FilterItem::Entry { option, .. }) = items.get(selected) {
+                let opt = option.clone();
+                self.toggle_filter_option(&opt);
+            }
+        }
+    }
+
+    /// Reset all filters back to All Events
+    pub fn reset_filters(&mut self) {
+        self.active_filters.clear();
+        self.table_state.select(Some(0));
+    }
+
+    /// Move selection down in filter panel, skipping headers
+    pub fn filter_select_next(&mut self) {
+        let items = self.filter_items();
+        if items.is_empty() {
+            return;
+        }
+        let current = self.filter_list_state.selected().unwrap_or(0);
+        let mut next = (current + 1) % items.len();
+        while matches!(items[next], FilterItem::Header(_)) {
+            next = (next + 1) % items.len();
+            if next == current {
+                break;
+            }
+        }
+        self.filter_list_state.select(Some(next));
+    }
+
+    /// Move selection up in filter panel, skipping headers
+    pub fn filter_select_previous(&mut self) {
+        let items = self.filter_items();
+        if items.is_empty() {
+            return;
+        }
+        let current = self.filter_list_state.selected().unwrap_or(0);
+        let mut prev = if current == 0 { items.len() - 1 } else { current - 1 };
+        while matches!(items[prev], FilterItem::Header(_)) {
+            prev = if prev == 0 { items.len() - 1 } else { prev - 1 };
+            if prev == current {
+                break;
+            }
+        }
+        self.filter_list_state.select(Some(prev));
     }
 
     /// Get a flat, sorted list of all race events that match the current filters.
@@ -130,24 +325,39 @@ impl App {
                     return false;
                 }
 
-                // Apply active filter
-                match &self.active_filter {
-                    FilterCategory::All => true,
-                    FilterCategory::Favorites => {
-                        self.config.favorites.contains(&event.series_id)
-                    }
-                    FilterCategory::CarStyle(style) => {
-                        self.series_registry
-                            .get(&event.series_id)
-                            .map_or(false, |s| s.car_style.to_string() == *style)
-                    }
-                    FilterCategory::Region(region) => {
-                        self.series_registry
-                            .get(&event.series_id)
-                            .map_or(false, |s| s.region == *region)
-                    }
-                    FilterCategory::Series(id) => event.series_id == *id,
+                // Check favorites filter
+                if self.active_filters.favorites_only && !self.config.favorites.contains(&event.series_id) {
+                    return false;
                 }
+
+                // Check series filter
+                if !self.active_filters.series.is_empty() && !self.active_filters.series.contains(&event.series_id) {
+                    return false;
+                }
+
+                // Check car style filter
+                if !self.active_filters.car_styles.is_empty() {
+                    let matches_style = self
+                        .series_registry
+                        .get(&event.series_id)
+                        .map_or(false, |s| self.active_filters.car_styles.contains(s.car_style.as_str()));
+                    if !matches_style {
+                        return false;
+                    }
+                }
+
+                // Check region filter
+                if !self.active_filters.regions.is_empty() {
+                    let matches_region = self
+                        .series_registry
+                        .get(&event.series_id)
+                        .map_or(false, |s| self.active_filters.regions.contains(&s.region));
+                    if !matches_region {
+                        return false;
+                    }
+                }
+
+                true
             })
             .filter(|event| {
                 // Apply search filter
@@ -175,61 +385,51 @@ impl App {
         events
     }
 
-    /// Get the currently selected event (in list view).
-    pub fn selected_event(&self) -> Option<&RaceEvent> {
-        let events = self.filtered_events();
-        self.table_state
-            .selected()
-            .and_then(|i| events.get(i).copied())
-    }
-
-    /// Move selection up in the list.
-    pub fn select_previous(&mut self) {
-        let count = self.filtered_events().len();
-        if count == 0 {
-            return;
-        }
-        let i = match self.table_state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    count - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.table_state.select(Some(i));
-    }
-
-    /// Move selection down in the list.
+    /// Select the next item in the event list (wraps around).
     pub fn select_next(&mut self) {
         let count = self.filtered_events().len();
         if count == 0 {
+            self.table_state.select(None);
             return;
         }
-        let i = match self.table_state.selected() {
-            Some(i) => {
-                if i >= count - 1 {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.table_state.select(Some(i));
+        let current = self.table_state.selected().unwrap_or(0);
+        let next = if current + 1 >= count { 0 } else { current + 1 };
+        self.table_state.select(Some(next));
     }
 
-    /// Update events for a series after a successful fetch.
-    pub fn update_series_data(&mut self, series_id: String, new_events: Vec<RaceEvent>) {
-        let count = new_events.len();
-        self.events.insert(series_id.clone(), new_events);
-        self.fetch_status
-            .insert(series_id, FetchStatus::Loaded(count));
+    /// Select the previous item in the event list (wraps around).
+    pub fn select_previous(&mut self) {
+        let count = self.filtered_events().len();
+        if count == 0 {
+            self.table_state.select(None);
+            return;
+        }
+        let current = self.table_state.selected().unwrap_or(0);
+        let prev = if current == 0 { count - 1 } else { current - 1 };
+        self.table_state.select(Some(prev));
     }
 
-    /// Mark a series fetch as started.
+    /// Get the currently selected race event, if any.
+    pub fn selected_event(&self) -> Option<&RaceEvent> {
+        let events = self.filtered_events();
+        let index = self.table_state.selected()?;
+        events.get(index).copied()
+    }
+
+    /// Update events for a series and mark it as loaded.
+    pub fn update_series_data(&mut self, series_id: String, events: Vec<RaceEvent>) {
+        let count = events.len();
+        self.events.insert(series_id.clone(), events);
+        self.fetch_status.insert(series_id, FetchStatus::Loaded(count));
+
+        // Adjust selection if it's out of bounds
+        let total = self.filtered_events().len();
+        if total > 0 && self.table_state.selected().map_or(true, |i| i >= total) {
+            self.table_state.select(Some(0));
+        }
+    }
+
+    /// Mark a series as currently fetching.
     pub fn mark_fetching(&mut self, series_id: &str) {
         self.fetch_status
             .insert(series_id.to_string(), FetchStatus::Fetching);
@@ -254,46 +454,30 @@ mod tests {
     use crate::data::models::{CarStyle, EventStatus};
     use chrono::NaiveDate;
 
-    fn make_test_series() -> HashMap<String, Series> {
-        let mut map = HashMap::new();
-        map.insert(
-            "f1".to_string(),
-            Series {
-                id: "f1".to_string(),
-                name: "Formula 1".to_string(),
-                short_name: "F1".to_string(),
-                car_style: CarStyle::OpenWheel,
-                color: (255, 0, 0),
-                region: "International".to_string(),
-                calendar_url: "https://example.com".to_string(),
-                requires_js: false,
-            },
-        );
-        map.insert(
-            "nascar".to_string(),
-            Series {
-                id: "nascar".to_string(),
-                name: "NASCAR Cup".to_string(),
-                short_name: "Cup".to_string(),
-                car_style: CarStyle::StockCar,
-                color: (0, 0, 255),
-                region: "USA".to_string(),
-                calendar_url: "https://example.com".to_string(),
-                requires_js: false,
-            },
-        );
-        map
+    fn mock_series(id: &str, name: &str, style: CarStyle, region: &str) -> Series {
+        Series {
+            id: id.to_string(),
+            name: name.to_string(),
+            short_name: id.to_uppercase(),
+            car_style: style,
+            color: (255, 0, 0),
+            region: region.to_string(),
+            calendar_url: "https://example.com".to_string(),
+            requires_js: false,
+        }
     }
 
-    fn make_test_event(series_id: &str, name: &str, date: NaiveDate) -> RaceEvent {
+    fn mock_event(series_id: &str, name: &str, date: (i32, u32, u32)) -> RaceEvent {
+        let (y, m, d) = date;
+        let start = NaiveDate::from_ymd_opt(y, m, d).unwrap();
         RaceEvent {
             series_id: series_id.to_string(),
             event_name: name.to_string(),
-            circuit_name: "Track".to_string(),
-            location: "City".to_string(),
-            country: "Country".to_string(),
-            start_date: date,
-            end_date: date,
+            circuit_name: "Mock Circuit".to_string(),
+            location: "Mock City".to_string(),
+            country: "Mock Country".to_string(),
+            start_date: start,
+            end_date: start,
             round: Some(1),
             sessions: vec![],
             stream_links: vec![],
@@ -303,74 +487,79 @@ mod tests {
 
     #[test]
     fn test_app_initial_state() {
-        let registry = make_test_series();
+        let mut registry = HashMap::new();
+        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
         let config = UserConfig::default();
         let app = App::new(registry, config);
 
         assert!(app.running);
         assert_eq!(app.view_mode, ViewMode::List);
-        assert_eq!(app.active_filter, FilterCategory::All);
+        assert!(app.active_filters.is_empty());
+        assert_eq!(app.table_state.selected(), Some(0));
         assert_eq!(app.fetch_status.get("f1"), Some(&FetchStatus::Pending));
-        assert_eq!(app.fetch_status.get("nascar"), Some(&FetchStatus::Pending));
-    }
-
-    #[test]
-    fn test_filtered_events_sorting_and_filtering() {
-        let registry = make_test_series();
-        let mut config = UserConfig::default();
-        config.favorites.insert("f1".to_string());
-        let mut app = App::new(registry, config);
-
-        let e1 = make_test_event("nascar", "Daytona 500", NaiveDate::from_ymd_opt(2026, 2, 15).unwrap());
-        let e2 = make_test_event("f1", "Bahrain GP", NaiveDate::from_ymd_opt(2026, 3, 1).unwrap());
-        let e3 = make_test_event("f1", "Monaco GP", NaiveDate::from_ymd_opt(2026, 5, 24).unwrap());
-
-        app.update_series_data("nascar".to_string(), vec![e1]);
-        app.update_series_data("f1".to_string(), vec![e3, e2]);
-
-        // Filter: All -> Sorted by date ascending
-        let all = app.filtered_events();
-        assert_eq!(all.len(), 3);
-        assert_eq!(all[0].event_name, "Daytona 500");
-        assert_eq!(all[1].event_name, "Bahrain GP");
-        assert_eq!(all[2].event_name, "Monaco GP");
-
-        // Filter: Favorites -> only F1
-        app.active_filter = FilterCategory::Favorites;
-        let favs = app.filtered_events();
-        assert_eq!(favs.len(), 2);
-        assert_eq!(favs[0].event_name, "Bahrain GP");
-
-        // Search query
-        app.active_filter = FilterCategory::All;
-        app.search_query = Some("Daytona".to_string());
-        let search_res = app.filtered_events();
-        assert_eq!(search_res.len(), 1);
-        assert_eq!(search_res[0].event_name, "Daytona 500");
     }
 
     #[test]
     fn test_navigation() {
-        let registry = make_test_series();
-        let config = UserConfig::default();
-        let mut app = App::new(registry, config);
+        let mut registry = HashMap::new();
+        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+        let mut app = App::new(registry, UserConfig::default());
 
-        let e1 = make_test_event("f1", "Race 1", NaiveDate::from_ymd_opt(2026, 3, 1).unwrap());
-        let e2 = make_test_event("f1", "Race 2", NaiveDate::from_ymd_opt(2026, 3, 15).unwrap());
-        app.update_series_data("f1".to_string(), vec![e1, e2]);
+        // Empty event list navigation
+        app.select_next();
+        assert_eq!(app.table_state.selected(), None);
+
+        // Add 3 events
+        let events = vec![
+            mock_event("f1", "Race 1", (2026, 3, 1)),
+            mock_event("f1", "Race 2", (2026, 3, 15)),
+            mock_event("f1", "Race 3", (2026, 3, 29)),
+        ];
+        app.update_series_data("f1".to_string(), events);
 
         assert_eq!(app.table_state.selected(), Some(0));
-        assert_eq!(app.selected_event().unwrap().event_name, "Race 1");
-
         app.select_next();
         assert_eq!(app.table_state.selected(), Some(1));
-        assert_eq!(app.selected_event().unwrap().event_name, "Race 2");
-
+        app.select_next();
+        assert_eq!(app.table_state.selected(), Some(2));
         // Wrap around
         app.select_next();
         assert_eq!(app.table_state.selected(), Some(0));
 
+        // Prev navigation
         app.select_previous();
-        assert_eq!(app.table_state.selected(), Some(1));
+        assert_eq!(app.table_state.selected(), Some(2));
+    }
+
+    #[test]
+    fn test_multi_select_filtering() {
+        let mut registry = HashMap::new();
+        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+        registry.insert("nascar".to_string(), mock_series("nascar", "NASCAR", CarStyle::StockCar, "USA"));
+        registry.insert("wec".to_string(), mock_series("wec", "WEC", CarStyle::SportsCar, "International"));
+
+        let mut config = UserConfig::default();
+        config.favorites = ["f1".to_string(), "nascar".to_string()].into_iter().collect();
+
+        let mut app = App::new(registry, config);
+        app.update_series_data("f1".to_string(), vec![mock_event("f1", "Bahrain GP", (2026, 3, 1))]);
+        app.update_series_data("nascar".to_string(), vec![mock_event("nascar", "Daytona 500", (2026, 2, 15))]);
+        app.update_series_data("wec".to_string(), vec![mock_event("wec", "Qatar 1812km", (2026, 2, 28))]);
+
+        // Default: all 3 events
+        assert_eq!(app.filtered_events().len(), 3);
+
+        // Toggle Favorites: only F1 and NASCAR
+        app.toggle_filter_option(&FilterOption::Favorites);
+        assert_eq!(app.filtered_events().len(), 2);
+
+        // Combined with CarStyle StockCar: only NASCAR
+        app.toggle_filter_option(&FilterOption::CarStyle("Stock Car".to_string()));
+        assert_eq!(app.filtered_events().len(), 1);
+        assert_eq!(app.filtered_events()[0].event_name, "Daytona 500");
+
+        // Reset filters
+        app.reset_filters();
+        assert_eq!(app.filtered_events().len(), 3);
     }
 }

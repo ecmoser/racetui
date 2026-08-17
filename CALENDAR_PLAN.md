@@ -2593,7 +2593,7 @@ When `app.view_mode == ViewMode::Calendar` AND NOT in search mode:
 
 ---
 
-### Step 14: Filter Panel
+### [x] Step 14: Filter Panel
 
 **What to do**: Implement the filter panel overlay that lets users filter events by category (car style, region, series, favorites only).
 
