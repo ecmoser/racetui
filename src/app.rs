@@ -4,7 +4,7 @@ use chrono::Datelike;
 use ratatui::widgets::{ListState, TableState};
 
 use crate::config::UserConfig;
-use crate::data::models::{FetchStatus, RaceEvent, Series};
+use crate::data::models::{EventStatus, FetchStatus, RaceEvent, Series};
 
 /// Which view the user is currently looking at.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,24 +14,45 @@ pub enum ViewMode {
 }
 
 /// Active multi-select filters.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveFilters {
     pub favorites_only: bool,
+    pub statuses: HashSet<EventStatus>,
     pub car_styles: HashSet<String>,
     pub regions: HashSet<String>,
     pub series: HashSet<String>,
 }
 
+impl Default for ActiveFilters {
+    fn default() -> Self {
+        let mut statuses = HashSet::new();
+        statuses.insert(EventStatus::Upcoming);
+        statuses.insert(EventStatus::Live);
+        Self {
+            favorites_only: false,
+            statuses,
+            car_styles: HashSet::new(),
+            regions: HashSet::new(),
+            series: HashSet::new(),
+        }
+    }
+}
+
 impl ActiveFilters {
-    pub fn is_empty(&self) -> bool {
-        !self.favorites_only && self.car_styles.is_empty() && self.regions.is_empty() && self.series.is_empty()
+    /// Returns true if active filters match the default state (Upcoming + Live, no category filters).
+    pub fn is_default(&self) -> bool {
+        !self.favorites_only
+            && self.car_styles.is_empty()
+            && self.regions.is_empty()
+            && self.series.is_empty()
+            && self.statuses.len() == 2
+            && self.statuses.contains(&EventStatus::Upcoming)
+            && self.statuses.contains(&EventStatus::Live)
     }
 
-    pub fn clear(&mut self) {
-        self.favorites_only = false;
-        self.car_styles.clear();
-        self.regions.clear();
-        self.series.clear();
+    /// Reset filters back to default state (Upcoming + Live, no category filters).
+    pub fn reset_to_default(&mut self) {
+        *self = Self::default();
     }
 }
 
@@ -40,6 +61,7 @@ impl ActiveFilters {
 pub enum FilterOption {
     All,
     Favorites,
+    Status(EventStatus),
     CarStyle(String),
     Region(String),
     Series(String),
@@ -167,12 +189,27 @@ impl App {
         // ── Filter By ──
         items.push(FilterItem::Header("── Filter By ──"));
         items.push(FilterItem::Entry {
-            label: "All Events".to_string(),
+            label: "All Events (Default)".to_string(),
             option: FilterOption::All,
         });
         items.push(FilterItem::Entry {
             label: "★ Favorites Only".to_string(),
             option: FilterOption::Favorites,
+        });
+
+        // ── Status ──
+        items.push(FilterItem::Header("── Status ──"));
+        items.push(FilterItem::Entry {
+            label: "Upcoming".to_string(),
+            option: FilterOption::Status(EventStatus::Upcoming),
+        });
+        items.push(FilterItem::Entry {
+            label: "In Progress (Live)".to_string(),
+            option: FilterOption::Status(EventStatus::Live),
+        });
+        items.push(FilterItem::Entry {
+            label: "Completed".to_string(),
+            option: FilterOption::Status(EventStatus::Completed),
         });
 
         // ── Car Style ──
@@ -225,8 +262,9 @@ impl App {
     /// Check if a given filter option is currently active
     pub fn is_filter_option_active(&self, option: &FilterOption) -> bool {
         match option {
-            FilterOption::All => self.active_filters.is_empty(),
+            FilterOption::All => self.active_filters.is_default(),
             FilterOption::Favorites => self.active_filters.favorites_only,
+            FilterOption::Status(status) => self.active_filters.statuses.contains(status),
             FilterOption::CarStyle(style) => self.active_filters.car_styles.contains(style),
             FilterOption::Region(region) => self.active_filters.regions.contains(region),
             FilterOption::Series(series_id) => self.active_filters.series.contains(series_id),
@@ -237,10 +275,15 @@ impl App {
     pub fn toggle_filter_option(&mut self, option: &FilterOption) {
         match option {
             FilterOption::All => {
-                self.active_filters.clear();
+                self.active_filters.reset_to_default();
             }
             FilterOption::Favorites => {
                 self.active_filters.favorites_only = !self.active_filters.favorites_only;
+            }
+            FilterOption::Status(status) => {
+                if !self.active_filters.statuses.remove(status) {
+                    self.active_filters.statuses.insert(status.clone());
+                }
             }
             FilterOption::CarStyle(style) => {
                 if !self.active_filters.car_styles.remove(style) {
@@ -274,7 +317,7 @@ impl App {
 
     /// Reset all filters back to All Events
     pub fn reset_filters(&mut self) {
-        self.active_filters.clear();
+        self.active_filters.reset_to_default();
         self.table_state.select(Some(0));
     }
 
@@ -322,6 +365,11 @@ impl App {
             .filter(|event| {
                 // Don't show events from hidden series
                 if self.config.hidden_series.contains(&event.series_id) {
+                    return false;
+                }
+
+                // Check status filter (only applies in List view)
+                if self.view_mode == ViewMode::List && !self.active_filters.statuses.contains(&event.status) {
                     return false;
                 }
 
@@ -494,7 +542,7 @@ mod tests {
 
         assert!(app.running);
         assert_eq!(app.view_mode, ViewMode::List);
-        assert!(app.active_filters.is_empty());
+        assert!(app.active_filters.is_default());
         assert_eq!(app.table_state.selected(), Some(0));
         assert_eq!(app.fetch_status.get("f1"), Some(&FetchStatus::Pending));
     }
@@ -561,5 +609,44 @@ mod tests {
         // Reset filters
         app.reset_filters();
         assert_eq!(app.filtered_events().len(), 3);
+    }
+
+    #[test]
+    fn test_status_filtering() {
+        let mut registry = HashMap::new();
+        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+
+        let mut app = App::new(registry, UserConfig::default());
+        let mut upcoming = mock_event("f1", "Upcoming Race", (2026, 6, 1));
+        upcoming.status = EventStatus::Upcoming;
+        let mut live = mock_event("f1", "Live Race", (2026, 5, 1));
+        live.status = EventStatus::Live;
+        let mut completed = mock_event("f1", "Past Race", (2026, 3, 1));
+        completed.status = EventStatus::Completed;
+
+        app.update_series_data("f1".to_string(), vec![upcoming, live, completed]);
+
+        // By default in List view: completed is hidden (only Upcoming + Live -> 2 events)
+        assert_eq!(app.filtered_events().len(), 2);
+
+        // In Calendar view: all 3 events are returned
+        app.view_mode = ViewMode::Calendar;
+        assert_eq!(app.filtered_events().len(), 3);
+        app.view_mode = ViewMode::List;
+
+        // Toggle Completed: now 3 events in list view
+        app.toggle_filter_option(&FilterOption::Status(EventStatus::Completed));
+        assert_eq!(app.filtered_events().len(), 3);
+
+        // Toggle Upcoming off: now Live + Completed -> 2 events
+        app.toggle_filter_option(&FilterOption::Status(EventStatus::Upcoming));
+        assert_eq!(app.filtered_events().len(), 2);
+        assert_eq!(app.filtered_events()[0].event_name, "Past Race");
+        assert_eq!(app.filtered_events()[1].event_name, "Live Race");
+
+        // Reset filters: restores Upcoming + Live default
+        app.reset_filters();
+        assert_eq!(app.filtered_events().len(), 2);
+        assert!(app.active_filters.is_default());
     }
 }

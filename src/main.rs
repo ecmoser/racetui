@@ -696,7 +696,7 @@ mod tests {
     fn test_filter_panel_keybindings() {
         let mut app = App::new(HashMap::new(), config::UserConfig::default());
         assert!(!app.show_filter_panel);
-        assert!(app.active_filters.is_empty());
+        assert!(app.active_filters.is_default());
 
         // Open with F
         handle_key_event(&mut app, key(KeyCode::Char('F')));
@@ -711,7 +711,7 @@ mod tests {
 
         // Reset filters with 'a'
         handle_key_event(&mut app, key(KeyCode::Char('a')));
-        assert!(app.active_filters.is_empty());
+        assert!(app.active_filters.is_default());
 
         // Toggle Favorites again
         handle_key_event(&mut app, key(KeyCode::Char(' ')));

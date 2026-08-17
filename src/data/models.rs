@@ -126,7 +126,7 @@ pub struct StreamLink {
 }
 
 /// The current status of a race event.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EventStatus {
     /// Event is in the future
     Upcoming,
