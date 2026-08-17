@@ -2789,7 +2789,7 @@ if app.show_detail {
 
 ---
 
-### Step 17: Implement Remaining Scrapers — NASCAR (All 3 Series)
+### [x] Step 17: Implement Remaining Scrapers — NASCAR (All 3 Series)
 
 **What to do**: Implement the NASCAR scraper for Cup, Xfinity, and Trucks. All three use the same NASCAR internal API/CDN (`cf.nascar.com`).
 
