@@ -1069,7 +1069,7 @@ fn main() {
 
 ---
 
-### Step 5: Cache System
+### [x] Step 5: Cache System
 
 **What to do**: Create the cache module that stores/loads scraped race event data as JSON files in `~/.local/share/racetui/cache/`.
 
