@@ -1,5 +1,8 @@
+pub mod btcc;
 pub mod f1;
 pub mod fetcher;
+pub mod imsa;
+pub mod indycar;
 pub mod nascar;
 
 use anyhow::Result;
@@ -27,6 +30,9 @@ pub trait SeriesScraper: Send + Sync {
 pub fn get_scraper(series_id: &str) -> Option<Box<dyn SeriesScraperBoxed>> {
     match series_id {
         "f1" => Some(Box::new(f1::F1Scraper)),
+        "indycar" => Some(Box::new(indycar::IndyCarScraper)),
+        "imsa" => Some(Box::new(imsa::ImsaScraper)),
+        "btcc" => Some(Box::new(btcc::BtccScraper)),
         "nascar_cup" => Some(Box::new(nascar::NascarScraper {
             nascar_series_id: 1,
             racetui_series_id: "nascar_cup",
@@ -100,6 +106,9 @@ mod tests {
     #[test]
     fn test_get_scraper() {
         assert!(get_scraper("f1").is_some());
+        assert!(get_scraper("indycar").is_some());
+        assert!(get_scraper("imsa").is_some());
+        assert!(get_scraper("btcc").is_some());
         assert!(get_scraper("nascar_cup").is_some());
         assert!(get_scraper("nascar_xfinity").is_some());
         assert!(get_scraper("nascar_trucks").is_some());

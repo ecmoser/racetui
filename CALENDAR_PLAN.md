@@ -2825,7 +2825,7 @@ if app.show_detail {
 
 ---
 
-### Step 18: Implement Remaining Scrapers — IndyCar, IMSA, BTCC
+### [x] Step 18: Implement Remaining Scrapers — IndyCar, IMSA, BTCC
 
 **What to do**: Implement scrapers for series whose websites are likely server-rendered HTML (can use `reqwest + scraper` without a headless browser).
 
