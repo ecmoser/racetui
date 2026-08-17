@@ -2538,7 +2538,7 @@ When `app.view_mode == ViewMode::Calendar` AND NOT in search mode:
 
 ---
 
-### Step 13: Event Detail View
+### [x] Step 13: Event Detail View
 
 **What to do**: When the user presses `Enter` on a selected event, show a detailed panel/popup with all session times, stream links, circuit info, and a countdown to the next session.
 

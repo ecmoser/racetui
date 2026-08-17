@@ -249,6 +249,17 @@ fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
         return;
     }
 
+    // If detail view is active, handle detail view keys
+    if app.show_detail {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                app.show_detail = false;
+            }
+            _ => {}
+        }
+        return;
+    }
+
     // Normal mode keybindings
     match key.code {
         // Quit
@@ -481,5 +492,27 @@ mod tests {
         handle_key_event(&mut app, key(KeyCode::Char('L')));
         assert_eq!(app.calendar_year, 2026);
     }
+
+    #[test]
+    fn test_detail_view_keybindings() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        assert!(!app.show_detail);
+
+        // Open with Enter
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.show_detail);
+
+        // Close with Esc
+        handle_key_event(&mut app, key(KeyCode::Esc));
+        assert!(!app.show_detail);
+
+        // Open and close with q
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.show_detail);
+        handle_key_event(&mut app, key(KeyCode::Char('q')));
+        assert!(!app.show_detail);
+        assert!(app.running); // Should NOT exit app when closing popup
+    }
 }
+
 
