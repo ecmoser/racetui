@@ -174,7 +174,7 @@ cargo check
 
 ---
 
-### Step 2: Core Data Models
+### [x] Step 2: Core Data Models
 
 **What to do**: Define the core data structures that represent racing series, events, and sessions. These structs will be used throughout the entire application.
 
