@@ -899,7 +899,7 @@ fn main() {
 
 ---
 
-### Step 4: User Configuration System
+### [x] Step 4: User Configuration System
 
 **What to do**: Create the config module that loads/saves user preferences from `~/.config/racetui/config.toml`.
 

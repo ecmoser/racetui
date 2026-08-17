@@ -63,3 +63,27 @@ pub fn load_series_registry(path: &Path) -> Result<HashMap<String, Series>> {
     }
     Ok(map)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_series_toml() {
+        let registry = load_series_registry(Path::new("data/series.toml"))
+            .expect("Should load data/series.toml");
+        assert_eq!(registry.len(), 36);
+
+        let f1 = registry.get("f1").expect("F1 should exist");
+        assert_eq!(f1.name, "Formula 1");
+        assert_eq!(f1.short_name, "F1");
+        assert_eq!(f1.car_style, CarStyle::OpenWheel);
+        assert_eq!(f1.color, (255, 24, 1));
+        assert!(!f1.requires_js);
+
+        let dtm = registry.get("dtm").expect("DTM should exist");
+        assert_eq!(dtm.car_style, CarStyle::Touring);
+        assert!(dtm.requires_js);
+    }
+}
+
