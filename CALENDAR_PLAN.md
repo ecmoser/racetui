@@ -1502,7 +1502,7 @@ fn main() {
 
 ---
 
-### Step 7: Terminal Setup and Basic Event Loop
+### [x] Step 7: Terminal Setup and Basic Event Loop
 
 **What to do**: Set up the ratatui terminal, crossterm backend, and the main event loop with the async tokio runtime. At this step, the TUI will show a blank screen with "RaceTUI" title and respond to `q` to quit.
 
