@@ -243,7 +243,7 @@ async fn main() -> Result<()> {
 }
 
 /// Handle key events. Will be expanded in later steps.
-fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
+fn handle_key_event(app: &mut App, key: KeyEvent) {
     // Global Ctrl+C handler to always cleanly exit
     if key.modifiers.contains(KeyModifiers::CONTROL)
         && matches!(key.code, KeyCode::Char('c') | KeyCode::Char('C'))
@@ -296,6 +296,17 @@ fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
             }
             KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
                 app.pending_favorite_toggle = None;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    // If help popup is active, handle help keys
+    if app.show_help {
+        match key.code {
+            KeyCode::Esc | KeyCode::Enter | KeyCode::Char('?') | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                app.show_help = false;
             }
             _ => {}
         }
@@ -678,6 +689,39 @@ mod tests {
         assert_eq!(app.pending_favorite_toggle, None);
         assert!(!app.config.favorites.contains("f1"));
         assert_eq!(app.status_message.as_deref(), Some("Removed from favorites: Formula 1"));
+    }
+
+    #[test]
+    fn test_help_popup_keybindings() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        assert!(!app.show_help);
+
+        // Open with ?
+        handle_key_event(&mut app, key(KeyCode::Char('?')));
+        assert!(app.show_help);
+
+        // Close with Esc
+        handle_key_event(&mut app, key(KeyCode::Esc));
+        assert!(!app.show_help);
+
+        // Open with ? and close with ?
+        handle_key_event(&mut app, key(KeyCode::Char('?')));
+        assert!(app.show_help);
+        handle_key_event(&mut app, key(KeyCode::Char('?')));
+        assert!(!app.show_help);
+
+        // Open with ? and close with q without quitting app
+        handle_key_event(&mut app, key(KeyCode::Char('?')));
+        assert!(app.show_help);
+        handle_key_event(&mut app, key(KeyCode::Char('q')));
+        assert!(!app.show_help);
+        assert!(app.running);
+
+        // Open with ? and close with Enter
+        handle_key_event(&mut app, key(KeyCode::Char('?')));
+        assert!(app.show_help);
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(!app.show_help);
     }
 
     #[test]

@@ -2664,7 +2664,7 @@ When `app.show_filter_panel` is true, intercept `j`/`k`/`↑`/`↓`/`Enter`/`Esc
 
 ---
 
-### Step 15: Help Popup
+### [x] Step 15: Help Popup
 
 **What to do**: Implement the help popup that shows all keybindings.
 

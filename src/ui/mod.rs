@@ -2,6 +2,7 @@ pub mod calendar_view;
 pub mod confirm_dialog;
 pub mod detail_view;
 pub mod filter_panel;
+pub mod help;
 pub mod list_view;
 pub mod status_bar;
 
@@ -41,6 +42,11 @@ pub fn draw(frame: &mut Frame, app: &App) {
     // Draw confirmation dialog on top of everything if active
     if app.pending_favorite_toggle.is_some() {
         confirm_dialog::draw(frame, app);
+    }
+
+    // Draw help popup on top of all other overlays if visible
+    if app.show_help {
+        help::draw(frame, app);
     }
 }
 
@@ -183,6 +189,25 @@ mod tests {
         assert!(content.contains("Formula 1"));
         assert!(content.contains("Yes"));
         assert!(content.contains("No"));
+    }
+
+    #[test]
+    fn test_draw_help_popup() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+        app.show_help = true;
+
+        terminal.draw(|f| {
+            draw(f, &app);
+        }).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Keybindings"));
+        assert!(content.contains("Navigation"));
+        assert!(content.contains("Actions"));
+        assert!(content.contains("General"));
     }
 }
 
