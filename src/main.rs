@@ -255,6 +255,37 @@ fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.running = false;
         }
+        // Calendar navigation (only active in Calendar view)
+        KeyCode::Char('h') | KeyCode::Left => {
+            if app.view_mode == app::ViewMode::Calendar {
+                if app.calendar_month == 1 {
+                    app.calendar_month = 12;
+                    app.calendar_year -= 1;
+                } else {
+                    app.calendar_month -= 1;
+                }
+            }
+        }
+        KeyCode::Char('l') | KeyCode::Right => {
+            if app.view_mode == app::ViewMode::Calendar {
+                if app.calendar_month == 12 {
+                    app.calendar_month = 1;
+                    app.calendar_year += 1;
+                } else {
+                    app.calendar_month += 1;
+                }
+            }
+        }
+        KeyCode::Char('H') => {
+            if app.view_mode == app::ViewMode::Calendar {
+                app.calendar_year -= 1;
+            }
+        }
+        KeyCode::Char('L') => {
+            if app.view_mode == app::ViewMode::Calendar {
+                app.calendar_year += 1;
+            }
+        }
         // Navigation (vim + arrows)
         KeyCode::Char('j') | KeyCode::Down => {
             app.select_next();
@@ -416,4 +447,39 @@ mod tests {
             Some(&data::models::FetchStatus::Error("No scraper implemented yet".to_string()))
         );
     }
+
+    #[test]
+    fn test_calendar_navigation() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        app.view_mode = app::ViewMode::Calendar;
+        app.calendar_year = 2026;
+        app.calendar_month = 5;
+
+        // Next month
+        handle_key_event(&mut app, key(KeyCode::Char('l')));
+        assert_eq!(app.calendar_month, 6);
+        assert_eq!(app.calendar_year, 2026);
+
+        // Prev month
+        handle_key_event(&mut app, key(KeyCode::Char('h')));
+        assert_eq!(app.calendar_month, 5);
+
+        // Prev month wrap at Jan
+        app.calendar_month = 1;
+        handle_key_event(&mut app, key(KeyCode::Char('h')));
+        assert_eq!(app.calendar_month, 12);
+        assert_eq!(app.calendar_year, 2025);
+
+        // Next month wrap at Dec
+        handle_key_event(&mut app, key(KeyCode::Char('l')));
+        assert_eq!(app.calendar_month, 1);
+        assert_eq!(app.calendar_year, 2026);
+
+        // Year navigation
+        handle_key_event(&mut app, key(KeyCode::Char('H')));
+        assert_eq!(app.calendar_year, 2025);
+        handle_key_event(&mut app, key(KeyCode::Char('L')));
+        assert_eq!(app.calendar_year, 2026);
+    }
 }
+

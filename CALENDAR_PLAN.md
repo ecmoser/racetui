@@ -2499,7 +2499,7 @@ KeyCode::Char('r') | KeyCode::Char('R') => {
 
 ---
 
-### Step 12: Calendar Grid View
+### [x] Step 12: Calendar Grid View
 
 **What to do**: Implement the calendar grid view — a traditional month calendar with race events shown on their respective days. Navigate months with `h/l` or left/right arrows.
 

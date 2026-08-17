@@ -1,3 +1,4 @@
+pub mod calendar_view;
 pub mod list_view;
 pub mod status_bar;
 
@@ -18,12 +19,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     // Draw the main content based on view mode
     match app.view_mode {
         ViewMode::List => list_view::draw(frame, app, chunks[0]),
-        ViewMode::Calendar => {
-            // Placeholder for calendar view (Step 12)
-            let placeholder = ratatui::widgets::Paragraph::new("Calendar view coming soon. Press Tab to switch back.")
-                .alignment(Alignment::Center);
-            frame.render_widget(placeholder, chunks[0]);
-        }
+        ViewMode::Calendar => calendar_view::draw(frame, app, chunks[0]),
     }
 
     // Draw the status bar
@@ -55,7 +51,7 @@ mod tests {
     }
 
     #[test]
-    fn test_draw_calendar_placeholder() {
+    fn test_draw_calendar_view() {
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).unwrap();
         let mut app = App::new(HashMap::new(), UserConfig::default());
@@ -67,6 +63,7 @@ mod tests {
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
-        assert!(content.contains("Calendar view coming soon"));
+        assert!(content.contains("Mon") && content.contains("Sun"));
     }
 }
+
