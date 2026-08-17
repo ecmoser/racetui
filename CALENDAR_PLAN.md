@@ -103,7 +103,7 @@ These decisions have been made. Do not deviate from them.
 
 ---
 
-### Step 1: Initialize Rust Project with Dependencies
+### [x] Step 1: Initialize Rust Project with Dependencies
 
 **What to do**: Create a new Rust binary project with all required dependencies.
 
