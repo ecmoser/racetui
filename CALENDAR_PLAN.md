@@ -2712,7 +2712,7 @@ When `app.show_filter_panel` is true, intercept `j`/`k`/`↑`/`↓`/`Enter`/`Esc
 
 ---
 
-### Step 16: Livestream Opening
+### [x] Step 16: Livestream Opening
 
 **What to do**: Implement the action to open livestream URLs using the configured command.
 

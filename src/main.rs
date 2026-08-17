@@ -1,3 +1,4 @@
+mod action;
 mod app;
 mod config;
 mod data;
@@ -318,10 +319,44 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         match key.code {
             KeyCode::Esc | KeyCode::Enter | KeyCode::Char('q') | KeyCode::Char('Q') => {
                 app.show_detail = false;
+                return;
             }
-            _ => {}
+            KeyCode::Char('o') | KeyCode::Char('O') => {
+                // Open first stream link
+                if let Some(event) = app.selected_event() {
+                    if let Some(link) = event.stream_links.first() {
+                        if let Err(e) = action::open_url(&app.config.open_command, &link.url) {
+                            app.status_message = Some(format!("Error: {}", e));
+                        } else {
+                            app.status_message = Some(format!(
+                                "Opened {} in {}",
+                                link.platform, app.config.open_command
+                            ));
+                        }
+                    }
+                }
+                return;
+            }
+            KeyCode::Char(c) if c.is_ascii_digit() && c != '0' => {
+                let index = (c as u8 - b'1') as usize;
+                if let Some(event) = app.selected_event() {
+                    if let Some(link) = event.stream_links.get(index) {
+                        if let Err(e) = action::open_url(&app.config.open_command, &link.url) {
+                            app.status_message = Some(format!("Error: {}", e));
+                        } else {
+                            app.status_message = Some(format!(
+                                "Opened {} in {}",
+                                link.platform, app.config.open_command
+                            ));
+                        }
+                    }
+                }
+                return;
+            }
+            _ => {
+                return;
+            }
         }
-        return;
     }
 
     // If filter panel is active, handle filter panel keys
@@ -581,12 +616,69 @@ mod tests {
 
     #[test]
     fn test_detail_view_keybindings() {
-        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "International".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+        let mut config = config::UserConfig::default();
+        config.open_command = "true".to_string(); // Use "true" so open_url succeeds in test
+        let mut app = App::new(registry, config);
+
+        let event = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Monaco Grand Prix".to_string(),
+            circuit_name: "Circuit de Monaco".to_string(),
+            location: "Monte Carlo".to_string(),
+            country: "Monaco".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            round: Some(8),
+            sessions: vec![],
+            stream_links: vec![
+                data::models::StreamLink {
+                    platform: "F1TV".to_string(),
+                    url: "https://f1tv.formula1.com".to_string(),
+                    access: data::models::StreamAccess::Paid,
+                },
+                data::models::StreamLink {
+                    platform: "YouTube".to_string(),
+                    url: "https://youtube.com".to_string(),
+                    access: data::models::StreamAccess::Free,
+                },
+            ],
+            status: data::models::EventStatus::Upcoming,
+        };
+        app.update_series_data("f1".to_string(), vec![event]);
+
         assert!(!app.show_detail);
 
         // Open with Enter
         handle_key_event(&mut app, key(KeyCode::Enter));
         assert!(app.show_detail);
+
+        // Press 'o' to open first link
+        handle_key_event(&mut app, key(KeyCode::Char('o')));
+        assert_eq!(
+            app.status_message.as_deref(),
+            Some("Opened F1TV in true")
+        );
+
+        // Press '2' to open second link
+        handle_key_event(&mut app, key(KeyCode::Char('2')));
+        assert_eq!(
+            app.status_message.as_deref(),
+            Some("Opened YouTube in true")
+        );
 
         // Close with Esc
         handle_key_event(&mut app, key(KeyCode::Esc));
