@@ -2372,7 +2372,7 @@ impl SeriesScraper for F1Scraper {
 
 ---
 
-### Step 11: Data Fetch Orchestration
+### [x] Step 11: Data Fetch Orchestration
 
 **What to do**: Wire up the scraper system to the main event loop. On startup, load cached data first, then spawn async tasks to refresh stale data in the background. The TUI remains interactive while data loads.
 

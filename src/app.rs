@@ -72,6 +72,9 @@ pub struct App {
 
     /// Status bar message (temporary messages like "Refreshing F1...")
     pub status_message: Option<String>,
+
+    /// Whether user requested manual refresh
+    pub refresh_requested: bool,
 }
 
 impl App {
@@ -106,6 +109,7 @@ impl App {
             calendar_year: now.year(),
             calendar_month: now.month(),
             status_message: None,
+            refresh_requested: false,
         };
 
         // Select the first row by default

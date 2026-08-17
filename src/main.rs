@@ -18,6 +18,96 @@ use std::io::stdout;
 use std::path::Path;
 use tokio::sync::mpsc;
 
+/// Spawn background tasks to load data for all series.
+/// For each series:
+/// 1. Try to load from cache first (instant, non-blocking).
+/// 2. If cache is fresh (within TTL), use it.
+/// 3. If cache is stale or missing, spawn an async task to scrape/fetch.
+fn spawn_data_loaders(
+    app: &mut App,
+    tx: mpsc::UnboundedSender<AppEvent>,
+    force_refresh: bool,
+) {
+    let series_list: Vec<(String, data::models::Series)> = app
+        .series_registry
+        .iter()
+        .map(|(id, s)| (id.clone(), s.clone()))
+        .collect();
+
+    for (series_id, series) in series_list {
+        // 1. Try loading from cache (unless forced refresh)
+        if !force_refresh {
+            match data::cache::read_cache(&series_id) {
+                Ok(Some((events, fetched_at))) => {
+                    let age_hours = chrono::Utc::now()
+                        .signed_duration_since(fetched_at)
+                        .num_hours() as u64;
+                    let count = events.len();
+
+                    // Load cached data immediately so user can browse
+                    app.update_series_data(series_id.clone(), events);
+                    app.mark_cached_load(&series_id, count, age_hours);
+
+                    // If cache is still fresh, skip fetching
+                    if age_hours < app.config.cache_ttl_hours {
+                        continue;
+                    }
+                    // Otherwise, fall through to refresh in background
+                }
+                Ok(None) => {
+                    // No cache, will fetch
+                }
+                Err(e) => {
+                    tracing::warn!("Failed to read cache for {}: {}", series_id, e);
+                }
+            }
+        }
+
+        // 2. Check if we have a scraper for this series
+        let scraper_impl = match scraper::get_scraper(&series_id) {
+            Some(s) => s,
+            None => {
+                app.mark_fetch_error(
+                    &series_id,
+                    "No scraper implemented yet".to_string(),
+                );
+                continue;
+            }
+        };
+
+        // 3. Spawn async fetch task
+        let fetch_tx = tx.clone();
+        let sid = series_id.clone();
+        let series_clone = series.clone();
+
+        // Notify that fetching has started
+        let _ = tx.send(AppEvent::FetchStarted {
+            series_id: sid.clone(),
+        });
+
+        tokio::spawn(async move {
+            match scraper_impl.scrape_boxed(&series_clone).await {
+                Ok(events) => {
+                    // Write to cache
+                    if let Err(e) = data::cache::write_cache(&sid, &events) {
+                        tracing::warn!("Failed to write cache for {}: {}", sid, e);
+                    }
+                    let _ = fetch_tx.send(AppEvent::SeriesDataFetched {
+                        series_id: sid,
+                        events,
+                    });
+                }
+                Err(e) => {
+                    let _ = fetch_tx.send(AppEvent::FetchError {
+                        series_id: sid,
+                        error: e.to_string(),
+                    });
+                }
+            }
+        });
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Load series registry
@@ -75,12 +165,21 @@ async fn main() -> Result<()> {
         }
     });
 
+    // Start loading data (cached first, then async fetch)
+    spawn_data_loaders(&mut app, tx.clone(), false);
+
     // Main loop
     while app.running {
         // Draw
         terminal.draw(|frame| {
             ui::draw(frame, &app);
         })?;
+
+        // Handle refresh requested from app
+        if app.refresh_requested {
+            app.refresh_requested = false;
+            spawn_data_loaders(&mut app, tx.clone(), true);
+        }
 
         // Wait for next event
         if let Some(event) = rx.recv().await {
@@ -93,6 +192,9 @@ async fn main() -> Result<()> {
                 }
                 AppEvent::Tick => {
                     // Will be used for countdown timers later
+                }
+                AppEvent::RefreshRequested => {
+                    spawn_data_loaders(&mut app, tx.clone(), true);
                 }
                 AppEvent::SeriesDataFetched { series_id, events } => {
                     app.update_series_data(series_id, events);
@@ -116,7 +218,6 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-
 
 /// Handle key events. Will be expanded in later steps.
 fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
@@ -172,6 +273,11 @@ fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
         KeyCode::Char('/') => {
             app.search_active = true;
             app.search_query = Some(String::new());
+        }
+        // Refresh
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            app.status_message = Some("Refreshing...".to_string());
+            app.refresh_requested = true;
         }
         // Help
         KeyCode::Char('?') => {
@@ -273,5 +379,41 @@ mod tests {
         assert!(app.show_filter_panel);
         handle_key_event(&mut app, key(KeyCode::Esc));
         assert!(!app.show_filter_panel);
+    }
+
+    #[test]
+    fn test_handle_refresh_key() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        assert!(!app.refresh_requested);
+        handle_key_event(&mut app, key(KeyCode::Char('r')));
+        assert!(app.refresh_requested);
+        assert_eq!(app.status_message.as_deref(), Some("Refreshing..."));
+    }
+
+    #[tokio::test]
+    async fn test_spawn_data_loaders_with_unimplemented_scraper() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "unimplemented_series".to_string(),
+            data::models::Series {
+                id: "unimplemented_series".to_string(),
+                name: "Unimplemented".to_string(),
+                short_name: "Unimp".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (0, 0, 0),
+                region: "Global".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+        let mut app = App::new(registry, config::UserConfig::default());
+        let (tx, _rx) = mpsc::unbounded_channel::<AppEvent>();
+
+        spawn_data_loaders(&mut app, tx, false);
+
+        assert_eq!(
+            app.fetch_status.get("unimplemented_series"),
+            Some(&data::models::FetchStatus::Error("No scraper implemented yet".to_string()))
+        );
     }
 }

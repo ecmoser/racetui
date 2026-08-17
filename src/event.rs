@@ -25,4 +25,7 @@ pub enum AppEvent {
     },
     /// Periodic tick for updating time-sensitive displays (e.g., countdowns)
     Tick,
+    /// User requested a data refresh
+    RefreshRequested,
 }
+
