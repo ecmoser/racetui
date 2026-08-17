@@ -1,5 +1,6 @@
 pub mod calendar_view;
 pub mod confirm_dialog;
+pub mod day_events;
 pub mod detail_view;
 pub mod filter_panel;
 pub mod help;
@@ -32,6 +33,11 @@ pub fn draw(frame: &mut Frame, app: &App) {
     // Draw filter panel overlay if visible
     if app.show_filter_panel {
         filter_panel::draw(frame, app);
+    }
+
+    // Draw day events selection popup if visible
+    if app.show_day_events {
+        day_events::draw(frame, app);
     }
 
     // Draw detail popup overlay if visible
@@ -73,6 +79,7 @@ mod tests {
         // Check that Race Calendar and status hints are rendered
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
         assert!(content.contains("Race Calendar"));
+        assert!(content.contains("Date") && content.contains("Time") && content.contains("Series"));
         assert!(content.contains("Quit"));
     }
 

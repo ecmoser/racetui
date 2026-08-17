@@ -123,6 +123,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             };
 
             let is_today = cell_date == today;
+            let is_selected = day == app.calendar_selected_day;
 
             // Collect events for this day
             let day_events: Vec<_> = events
@@ -134,7 +135,9 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             let mut lines: Vec<Line> = Vec::new();
 
             // Day number header
-            let day_style = if is_today {
+            let day_style = if is_selected {
+                Style::default().bold().fg(Color::Black).bg(Color::Cyan)
+            } else if is_today {
                 Style::default().bold().fg(Color::Black).bg(Color::Green)
             } else if !day_events.is_empty() {
                 Style::default().bold().fg(Color::White)
@@ -146,7 +149,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 Span::styled(format!(" {:2} ", day), day_style),
             ]));
 
-            // Add up to 3 event labels
+            // Add up to 3 event labels with time on the left in neutral color
             let max_display_events = if cell_rect.height > 4 { 3 } else { 1 };
             for event in day_events.iter().take(max_display_events) {
                 let series_color = app
@@ -163,13 +166,21 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
                 let is_fav = app.config.favorites.contains(&event.series_id);
                 let star = if is_fav { "★" } else { " " };
+                let compact_time = event.format_local_time_compact();
 
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("{}{}", star, short_name),
-                        Style::default().fg(series_color).bold(),
-                    ),
-                ]));
+                let mut spans = Vec::new();
+                if !compact_time.is_empty() {
+                    spans.push(Span::styled(
+                        format!("{:<5} ", compact_time),
+                        Style::default().fg(Color::DarkGray),
+                    ));
+                }
+                spans.push(Span::styled(
+                    format!("{}{}", star, short_name),
+                    Style::default().fg(series_color).bold(),
+                ));
+
+                lines.push(Line::from(spans));
             }
 
             if day_events.len() > max_display_events {
@@ -181,15 +192,19 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 ]));
             }
 
+            let border_style = if is_selected {
+                Style::default().fg(Color::Cyan).bold()
+            } else if is_today {
+                Style::default().fg(Color::Green)
+            } else if !day_events.is_empty() {
+                Style::default().fg(Color::Rgb(80, 80, 100))
+            } else {
+                Style::default().fg(Color::Rgb(40, 40, 50))
+            };
+
             let cell_block = Block::default()
                 .borders(Borders::ALL)
-                .border_style(if is_today {
-                    Style::default().fg(Color::Green)
-                } else if !day_events.is_empty() {
-                    Style::default().fg(Color::Rgb(80, 80, 100))
-                } else {
-                    Style::default().fg(Color::Rgb(40, 40, 50))
-                });
+                .border_style(border_style);
 
             let day_paragraph = Paragraph::new(lines).block(cell_block);
             frame.render_widget(day_paragraph, cell_rect);

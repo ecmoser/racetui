@@ -198,6 +198,41 @@ impl RaceEvent {
             .filter(|s| s.start_time.map_or(false, |t| t > now))
             .min_by_key(|s| s.start_time)
     }
+
+    /// Get the primary race start time (or next session start time if race time not known).
+    pub fn race_start_time(&self) -> Option<DateTime<Utc>> {
+        self.sessions
+            .iter()
+            .find(|s| s.session_type == SessionType::Race)
+            .and_then(|s| s.start_time)
+            .or_else(|| self.next_session_time())
+            .or_else(|| self.sessions.iter().filter_map(|s| s.start_time).next())
+    }
+
+    /// Format race start time in local time (e.g. " 3:00 PM" or "TBD").
+    pub fn format_local_time(&self) -> String {
+        match self.race_start_time() {
+            Some(t) => t.with_timezone(&chrono::Local).format("%l:%M %p").to_string(),
+            None => "TBD".to_string(),
+        }
+    }
+
+    /// Format race start time compact in local time (e.g. "3:00P" or "").
+    pub fn format_local_time_compact(&self) -> String {
+        match self.race_start_time() {
+            Some(t) => {
+                let local = t.with_timezone(&chrono::Local);
+                let hour_min = local.format("%l:%M").to_string().trim().to_string();
+                let am_pm = if local.format("%p").to_string().to_uppercase() == "AM" {
+                    "A"
+                } else {
+                    "P"
+                };
+                format!("{}{}", hour_min, am_pm)
+            }
+            None => String::new(),
+        }
+    }
 }
 
 /// The status of a data fetch for a series.

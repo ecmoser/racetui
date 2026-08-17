@@ -126,6 +126,13 @@ pub struct App {
     /// Currently displayed year/month in calendar view
     pub calendar_year: i32,
     pub calendar_month: u32,
+    /// Currently selected day in calendar view (1..=31)
+    pub calendar_selected_day: u32,
+
+    /// Whether the day events selection popup is visible (for days with multiple races)
+    pub show_day_events: bool,
+    /// Ratatui list state for day events selection popup
+    pub day_events_state: ListState,
 
     /// Status bar message (temporary messages like "Refreshing F1...")
     pub status_message: Option<String>,
@@ -155,6 +162,9 @@ impl App {
         let mut filter_list_state = ListState::default();
         filter_list_state.select(Some(1)); // select "All Events" by default
 
+        let mut day_events_state = ListState::default();
+        day_events_state.select(Some(0));
+
         let mut app = Self {
             running: true,
             view_mode,
@@ -168,10 +178,13 @@ impl App {
             show_help: false,
             show_detail: false,
             show_filter_panel: false,
+            show_day_events: false,
             table_state: TableState::default(),
             filter_list_state,
             calendar_year: now.year(),
             calendar_month: now.month(),
+            calendar_selected_day: now.day(),
+            day_events_state,
             status_message: None,
             refresh_requested: false,
             pending_favorite_toggle: None,
@@ -429,7 +442,7 @@ impl App {
             })
             .collect();
 
-        events.sort_by_key(|e| e.start_date);
+        events.sort_by_key(|e| (e.start_date, &e.series_id, &e.event_name));
         events
     }
 
@@ -493,6 +506,146 @@ impl App {
     pub fn mark_cached_load(&mut self, series_id: &str, count: usize, age_hours: u64) {
         self.fetch_status
             .insert(series_id.to_string(), FetchStatus::CachedLoad(count, age_hours));
+    }
+
+    /// Days in the currently displayed calendar month
+    pub fn calendar_days_in_current_month(&self) -> u32 {
+        crate::ui::calendar_view::days_in_month(self.calendar_year, self.calendar_month)
+    }
+
+    /// Move calendar day selection to the next day (advances month if past end of month).
+    pub fn calendar_select_next_day(&mut self) {
+        let max_days = self.calendar_days_in_current_month();
+        if self.calendar_selected_day < max_days {
+            self.calendar_selected_day += 1;
+        } else {
+            self.calendar_select_next_month();
+            self.calendar_selected_day = 1;
+        }
+    }
+
+    /// Move calendar day selection to the previous day (decrements month if before day 1).
+    pub fn calendar_select_prev_day(&mut self) {
+        if self.calendar_selected_day > 1 {
+            self.calendar_selected_day -= 1;
+        } else {
+            self.calendar_select_prev_month();
+            self.calendar_selected_day = self.calendar_days_in_current_month();
+        }
+    }
+
+    /// Move calendar day selection down by 1 week (+7 days).
+    pub fn calendar_select_next_week(&mut self) {
+        let max_days = self.calendar_days_in_current_month();
+        if self.calendar_selected_day + 7 <= max_days {
+            self.calendar_selected_day += 7;
+        } else {
+            let overflow = (self.calendar_selected_day + 7) - max_days;
+            self.calendar_select_next_month();
+            let new_max = self.calendar_days_in_current_month();
+            self.calendar_selected_day = overflow.min(new_max);
+        }
+    }
+
+    /// Move calendar day selection up by 1 week (-7 days).
+    pub fn calendar_select_prev_week(&mut self) {
+        if self.calendar_selected_day > 7 {
+            self.calendar_selected_day -= 7;
+        } else {
+            let underflow = 7 - self.calendar_selected_day;
+            self.calendar_select_prev_month();
+            let prev_max = self.calendar_days_in_current_month();
+            self.calendar_selected_day = prev_max.saturating_sub(underflow).max(1);
+        }
+    }
+
+    /// Advance calendar to next month, keeping day bounded.
+    pub fn calendar_select_next_month(&mut self) {
+        if self.calendar_month == 12 {
+            self.calendar_month = 1;
+            self.calendar_year += 1;
+        } else {
+            self.calendar_month += 1;
+        }
+        let max_days = self.calendar_days_in_current_month();
+        self.calendar_selected_day = self.calendar_selected_day.min(max_days);
+    }
+
+    /// Decrement calendar to previous month, keeping day bounded.
+    pub fn calendar_select_prev_month(&mut self) {
+        if self.calendar_month == 1 {
+            self.calendar_month = 12;
+            self.calendar_year -= 1;
+        } else {
+            self.calendar_month -= 1;
+        }
+        let max_days = self.calendar_days_in_current_month();
+        self.calendar_selected_day = self.calendar_selected_day.min(max_days);
+    }
+
+    /// Advance calendar to next year.
+    pub fn calendar_select_next_year(&mut self) {
+        self.calendar_year += 1;
+        let max_days = self.calendar_days_in_current_month();
+        self.calendar_selected_day = self.calendar_selected_day.min(max_days);
+    }
+
+    /// Decrement calendar to previous year.
+    pub fn calendar_select_prev_year(&mut self) {
+        self.calendar_year -= 1;
+        let max_days = self.calendar_days_in_current_month();
+        self.calendar_selected_day = self.calendar_selected_day.min(max_days);
+    }
+
+    /// Get all events on a specific date.
+    pub fn events_on_date(&self, date: chrono::NaiveDate) -> Vec<&RaceEvent> {
+        let events = self.filtered_events();
+        events
+            .into_iter()
+            .filter(|e| e.start_date <= date && date <= e.end_date)
+            .collect()
+    }
+
+    /// Get all events on the currently selected calendar day.
+    pub fn events_on_selected_calendar_day(&self) -> Vec<&RaceEvent> {
+        if let Some(date) = chrono::NaiveDate::from_ymd_opt(
+            self.calendar_year,
+            self.calendar_month,
+            self.calendar_selected_day,
+        ) {
+            self.events_on_date(date)
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Select next event in day events popup
+    pub fn day_events_select_next(&mut self) {
+        let count = self.events_on_selected_calendar_day().len();
+        if count == 0 {
+            return;
+        }
+        let current = self.day_events_state.selected().unwrap_or(0);
+        let next = (current + 1) % count;
+        self.day_events_state.select(Some(next));
+    }
+
+    /// Select previous event in day events popup
+    pub fn day_events_select_prev(&mut self) {
+        let count = self.events_on_selected_calendar_day().len();
+        if count == 0 {
+            return;
+        }
+        let current = self.day_events_state.selected().unwrap_or(0);
+        let prev = if current == 0 { count - 1 } else { current - 1 };
+        self.day_events_state.select(Some(prev));
+    }
+
+    /// Get currently selected event in day events popup
+    pub fn selected_day_event(&self) -> Option<&RaceEvent> {
+        let events = self.events_on_selected_calendar_day();
+        let idx = self.day_events_state.selected()?;
+        events.get(idx).copied()
     }
 }
 

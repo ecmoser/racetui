@@ -23,23 +23,27 @@ pub fn draw(frame: &mut Frame, _app: &App) {
     ]));
     lines.push(Line::from(vec![
         Span::styled("   j / ↓             ", Style::default().bold().fg(Color::Yellow)),
-        Span::styled("Move down", Style::default().fg(Color::White)),
+        Span::styled("Move down / Next week (calendar)", Style::default().fg(Color::White)),
     ]));
     lines.push(Line::from(vec![
         Span::styled("   k / ↑             ", Style::default().bold().fg(Color::Yellow)),
-        Span::styled("Move up", Style::default().fg(Color::White)),
+        Span::styled("Move up / Prev week (calendar)", Style::default().fg(Color::White)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled("   h / ← (calendar)  ", Style::default().bold().fg(Color::Yellow)),
+        Span::styled("Previous day", Style::default().fg(Color::White)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled("   l / → (calendar)  ", Style::default().bold().fg(Color::Yellow)),
+        Span::styled("Next day", Style::default().fg(Color::White)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled("   H / L (calendar)  ", Style::default().bold().fg(Color::Yellow)),
+        Span::styled("Previous / Next month", Style::default().fg(Color::White)),
     ]));
     lines.push(Line::from(vec![
         Span::styled("   Tab               ", Style::default().bold().fg(Color::Yellow)),
         Span::styled("Toggle List / Calendar view", Style::default().fg(Color::White)),
-    ]));
-    lines.push(Line::from(vec![
-        Span::styled("   h / ← (calendar)  ", Style::default().bold().fg(Color::Yellow)),
-        Span::styled("Previous month", Style::default().fg(Color::White)),
-    ]));
-    lines.push(Line::from(vec![
-        Span::styled("   l / → (calendar)  ", Style::default().bold().fg(Color::Yellow)),
-        Span::styled("Next month", Style::default().fg(Color::White)),
     ]));
 
     // Separator

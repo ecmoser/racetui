@@ -314,6 +314,34 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         return;
     }
 
+    // If day events popup is active, handle day selection keys
+    if app.show_day_events {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                app.show_day_events = false;
+            }
+            KeyCode::Char('j') | KeyCode::Down => {
+                app.day_events_select_next();
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                app.day_events_select_prev();
+            }
+            KeyCode::Enter => {
+                if let Some(event) = app.selected_day_event().cloned() {
+                    app.show_day_events = false;
+                    // Find this event in filtered_events to set table_state
+                    let filtered = app.filtered_events();
+                    if let Some(idx) = filtered.iter().position(|e| e.series_id == event.series_id && e.event_name == event.event_name) {
+                        app.table_state.select(Some(idx));
+                    }
+                    app.show_detail = true;
+                }
+            }
+            _ => {}
+        }
+        return;
+    }
+
     // If detail view is active, handle detail view keys
     if app.show_detail {
         match key.code {
@@ -388,43 +416,40 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.running = false;
         }
-        // Calendar navigation (only active in Calendar view)
+        // Calendar navigation
         KeyCode::Char('h') | KeyCode::Left => {
             if app.view_mode == app::ViewMode::Calendar {
-                if app.calendar_month == 1 {
-                    app.calendar_month = 12;
-                    app.calendar_year -= 1;
-                } else {
-                    app.calendar_month -= 1;
-                }
+                app.calendar_select_prev_day();
             }
         }
         KeyCode::Char('l') | KeyCode::Right => {
             if app.view_mode == app::ViewMode::Calendar {
-                if app.calendar_month == 12 {
-                    app.calendar_month = 1;
-                    app.calendar_year += 1;
-                } else {
-                    app.calendar_month += 1;
-                }
+                app.calendar_select_next_day();
             }
         }
-        KeyCode::Char('H') => {
-            if app.view_mode == app::ViewMode::Calendar {
-                app.calendar_year -= 1;
-            }
-        }
-        KeyCode::Char('L') => {
-            if app.view_mode == app::ViewMode::Calendar {
-                app.calendar_year += 1;
-            }
-        }
-        // Navigation (vim + arrows)
         KeyCode::Char('j') | KeyCode::Down => {
-            app.select_next();
+            if app.view_mode == app::ViewMode::Calendar {
+                app.calendar_select_next_week();
+            } else {
+                app.select_next();
+            }
         }
         KeyCode::Char('k') | KeyCode::Up => {
-            app.select_previous();
+            if app.view_mode == app::ViewMode::Calendar {
+                app.calendar_select_prev_week();
+            } else {
+                app.select_previous();
+            }
+        }
+        KeyCode::Char('H') | KeyCode::PageUp => {
+            if app.view_mode == app::ViewMode::Calendar {
+                app.calendar_select_prev_month();
+            }
+        }
+        KeyCode::Char('L') | KeyCode::PageDown => {
+            if app.view_mode == app::ViewMode::Calendar {
+                app.calendar_select_next_month();
+            }
         }
         // Toggle view mode
         KeyCode::Tab => {
@@ -447,9 +472,31 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('?') => {
             app.show_help = !app.show_help;
         }
-        // Toggle detail view
+        // Toggle detail view / View day races in calendar
         KeyCode::Enter => {
-            app.show_detail = !app.show_detail;
+            if app.view_mode == app::ViewMode::Calendar {
+                let day_events = app.events_on_selected_calendar_day();
+                if day_events.is_empty() {
+                    app.status_message = Some(format!(
+                        "No races on {} {}, {}",
+                        crate::ui::calendar_view::month_name(app.calendar_month),
+                        app.calendar_selected_day,
+                        app.calendar_year
+                    ));
+                } else if day_events.len() == 1 {
+                    let event = day_events[0];
+                    let filtered = app.filtered_events();
+                    if let Some(idx) = filtered.iter().position(|e| e.series_id == event.series_id && e.event_name == event.event_name) {
+                        app.table_state.select(Some(idx));
+                    }
+                    app.show_detail = true;
+                } else {
+                    app.show_day_events = true;
+                    app.day_events_state.select(Some(0));
+                }
+            } else {
+                app.show_detail = !app.show_detail;
+            }
         }
         // Prompt confirmation to toggle favorite for selected event's series
         KeyCode::Char('f') => {
@@ -467,6 +514,8 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 app.show_help = false;
             } else if app.show_detail {
                 app.show_detail = false;
+            } else if app.show_day_events {
+                app.show_day_events = false;
             } else if app.show_filter_panel {
                 app.show_filter_panel = false;
             } else if app.search_query.is_some() {
@@ -586,32 +635,113 @@ mod tests {
         app.view_mode = app::ViewMode::Calendar;
         app.calendar_year = 2026;
         app.calendar_month = 5;
+        app.calendar_selected_day = 15;
 
-        // Next month
+        // Next day
         handle_key_event(&mut app, key(KeyCode::Char('l')));
-        assert_eq!(app.calendar_month, 6);
-        assert_eq!(app.calendar_year, 2026);
+        assert_eq!(app.calendar_selected_day, 16);
 
-        // Prev month
+        // Prev day
         handle_key_event(&mut app, key(KeyCode::Char('h')));
-        assert_eq!(app.calendar_month, 5);
+        assert_eq!(app.calendar_selected_day, 15);
 
-        // Prev month wrap at Jan
-        app.calendar_month = 1;
-        handle_key_event(&mut app, key(KeyCode::Char('h')));
-        assert_eq!(app.calendar_month, 12);
-        assert_eq!(app.calendar_year, 2025);
+        // Next week (+7 days)
+        handle_key_event(&mut app, key(KeyCode::Char('j')));
+        assert_eq!(app.calendar_selected_day, 22);
 
-        // Next month wrap at Dec
-        handle_key_event(&mut app, key(KeyCode::Char('l')));
-        assert_eq!(app.calendar_month, 1);
-        assert_eq!(app.calendar_year, 2026);
+        // Prev week (-7 days)
+        handle_key_event(&mut app, key(KeyCode::Char('k')));
+        assert_eq!(app.calendar_selected_day, 15);
 
-        // Year navigation
-        handle_key_event(&mut app, key(KeyCode::Char('H')));
-        assert_eq!(app.calendar_year, 2025);
+        // Next month with L
         handle_key_event(&mut app, key(KeyCode::Char('L')));
-        assert_eq!(app.calendar_year, 2026);
+        assert_eq!(app.calendar_month, 6);
+
+        // Prev month with H
+        handle_key_event(&mut app, key(KeyCode::Char('H')));
+        assert_eq!(app.calendar_month, 5);
+    }
+
+    #[test]
+    fn test_calendar_day_selection_and_events_popup() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "International".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+        registry.insert(
+            "indycar".to_string(),
+            data::models::Series {
+                id: "indycar".to_string(),
+                name: "IndyCar".to_string(),
+                short_name: "IndyCar".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (0, 0, 255),
+                region: "USA".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, config::UserConfig::default());
+        app.view_mode = app::ViewMode::Calendar;
+        app.calendar_year = 2026;
+        app.calendar_month = 5;
+        app.calendar_selected_day = 24;
+
+        let event1 = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Monaco Grand Prix".to_string(),
+            circuit_name: "Circuit de Monaco".to_string(),
+            location: "Monte Carlo".to_string(),
+            country: "Monaco".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            round: Some(8),
+            sessions: vec![],
+            stream_links: vec![],
+            status: data::models::EventStatus::Upcoming,
+        };
+        let event2 = data::models::RaceEvent {
+            series_id: "indycar".to_string(),
+            event_name: "Indy 500".to_string(),
+            circuit_name: "Indianapolis Motor Speedway".to_string(),
+            location: "Indianapolis".to_string(),
+            country: "USA".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 5, 24).unwrap(),
+            round: Some(6),
+            sessions: vec![],
+            stream_links: vec![],
+            status: data::models::EventStatus::Upcoming,
+        };
+
+        app.update_series_data("f1".to_string(), vec![event1]);
+        app.update_series_data("indycar".to_string(), vec![event2]);
+
+        // Press Enter on day 24 (has 2 events) -> opens day events popup
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.show_day_events);
+        assert!(!app.show_detail);
+
+        // Navigate in popup
+        handle_key_event(&mut app, key(KeyCode::Char('j')));
+        assert_eq!(app.day_events_state.selected(), Some(1));
+
+        // Press Enter to select Indy 500 -> opens detail view
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(!app.show_day_events);
+        assert!(app.show_detail);
+        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Indy 500"));
     }
 
     #[test]

@@ -11,6 +11,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     // Build header row
     let header = Row::new(vec![
         Cell::from("Date").style(Style::default().bold().fg(Color::White)),
+        Cell::from("Time").style(Style::default().bold().fg(Color::White)),
         Cell::from("Series").style(Style::default().bold().fg(Color::White)),
         Cell::from("Event").style(Style::default().bold().fg(Color::White)),
         Cell::from("Circuit").style(Style::default().bold().fg(Color::White)),
@@ -40,6 +41,9 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
             // Format date in local timezone
             let date_str = event.start_date.format("%b %d").to_string();
+
+            // Format time in local timezone
+            let time_str = event.format_local_time();
 
             // Determine if this is a favorited series
             let is_favorite = app.config.favorites.contains(&event.series_id);
@@ -71,6 +75,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
             Row::new(vec![
                 Cell::from(date_str),
+                Cell::from(time_str).style(Style::default().fg(Color::Gray)),
                 Cell::from(format!("{}{}", favorite_marker, series_name))
                     .style(Style::default().fg(series_color)),
                 Cell::from(event.event_name.as_str()),
@@ -84,6 +89,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     // Column widths
     let widths = [
         Constraint::Length(7),   // Date (e.g. "Aug 16")
+        Constraint::Length(9),   // Time (e.g. " 3:00 PM")
         Constraint::Length(12),  // Series (e.g. "★ IndyCar")
         Constraint::Min(20),     // Event name (flexible)
         Constraint::Length(25),  // Circuit
