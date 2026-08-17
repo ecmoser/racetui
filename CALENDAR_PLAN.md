@@ -2005,7 +2005,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
 ---
 
-### Step 9: Scraper Trait and HTTP Fetcher
+### [x] Step 9: Scraper Trait and HTTP Fetcher
 
 **What to do**: Define the `SeriesScraper` trait that all per-series scrapers will implement, and create the shared HTTP fetcher module.
 

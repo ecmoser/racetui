@@ -2,6 +2,7 @@ mod app;
 mod config;
 mod data;
 mod event;
+mod scraper;
 mod ui;
 
 use anyhow::Result;
