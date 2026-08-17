@@ -2,6 +2,7 @@ mod app;
 mod config;
 mod data;
 mod event;
+mod ui;
 
 use anyhow::Result;
 use app::App;
@@ -77,7 +78,7 @@ async fn main() -> Result<()> {
     while app.running {
         // Draw
         terminal.draw(|frame| {
-            draw_ui(frame, &app);
+            ui::draw(frame, &app);
         })?;
 
         // Wait for next event
@@ -115,20 +116,6 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-/// Placeholder draw function. Will be replaced in Step 8.
-fn draw_ui(frame: &mut Frame, _app: &App) {
-    let area = frame.area();
-    let block = ratatui::widgets::Block::default()
-        .title(" RaceTUI ")
-        .borders(ratatui::widgets::Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan));
-
-    let text = ratatui::widgets::Paragraph::new("Loading... Press 'q' to quit, '?' for help")
-        .block(block)
-        .alignment(Alignment::Center);
-
-    frame.render_widget(text, area);
-}
 
 /// Handle key events. Will be expanded in later steps.
 fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {

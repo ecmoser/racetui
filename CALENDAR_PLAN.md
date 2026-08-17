@@ -1738,7 +1738,7 @@ fn handle_key_event(app: &mut App, key: crossterm::event::KeyEvent) {
 
 ---
 
-### Step 8: List View UI
+### [x] Step 8: List View UI
 
 **What to do**: Implement the list view — a table showing all race events sorted by date with columns for Date, Series, Event, Circuit, Country, and Status. Series names are colored with their unique color.
 
