@@ -3,6 +3,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::App;
+use crate::data::models::EventStatus;
 
 /// Days in a given year and month
 pub fn days_in_month(year: i32, month: u32) -> u32 {
@@ -93,7 +94,6 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     }
 
     let today = Local::now().date_naive();
-    let events = app.filtered_events();
 
     // Render each week
     let mut day_counter: u32 = 1;
@@ -125,11 +125,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             let is_today = cell_date == today;
             let is_selected = day == app.calendar_selected_day;
 
-            // Collect events for this day
-            let day_events: Vec<_> = events
-                .iter()
-                .filter(|e| e.start_date <= cell_date && cell_date <= e.end_date)
-                .collect();
+            // Collect events for this day (already sorted with TBD at the bottom)
+            let day_events = app.events_on_date(cell_date);
 
             // Build day cell lines
             let mut lines: Vec<Line> = Vec::new();
@@ -149,9 +146,16 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 Span::styled(format!(" {:2} ", day), day_style),
             ]));
 
-            // Add up to 3 event labels with time on the left in neutral color
-            let max_display_events = if cell_rect.height > 4 { 3 } else { 1 };
-            for event in day_events.iter().take(max_display_events) {
+            // Calculate dynamic capacity for event lines in this cell
+            let available_lines = (cell_rect.height.saturating_sub(3)) as usize;
+            let show_more = day_events.len() > available_lines;
+            let display_count = if show_more {
+                available_lines.saturating_sub(1)
+            } else {
+                day_events.len()
+            };
+
+            for event in day_events.iter().take(display_count) {
                 let series_color = app
                     .series_registry
                     .get(&event.series_id)
@@ -169,6 +173,12 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 let compact_time = event.format_local_time_compact();
 
                 let mut spans = Vec::new();
+
+                // Live red dot indicator
+                if event.status == EventStatus::Live {
+                    spans.push(Span::styled("● ", Style::default().bold().fg(Color::Red)));
+                }
+
                 if !compact_time.is_empty() {
                     spans.push(Span::styled(
                         format!("{:<5} ", compact_time),
@@ -183,10 +193,11 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 lines.push(Line::from(spans));
             }
 
-            if day_events.len() > max_display_events {
+            if show_more && available_lines > 0 {
+                let remaining = day_events.len() - display_count;
                 lines.push(Line::from(vec![
                     Span::styled(
-                        format!("+{} more", day_events.len() - max_display_events),
+                        format!("+{} more", remaining),
                         Style::default().fg(Color::DarkGray),
                     ),
                 ]));

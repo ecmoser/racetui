@@ -42,6 +42,10 @@ pub fn draw(frame: &mut Frame, _app: &App) {
         Span::styled("Previous / Next month", Style::default().fg(Color::White)),
     ]));
     lines.push(Line::from(vec![
+        Span::styled("   t / T (calendar)  ", Style::default().bold().fg(Color::Yellow)),
+        Span::styled("Jump to today", Style::default().fg(Color::White)),
+    ]));
+    lines.push(Line::from(vec![
         Span::styled("   Tab               ", Style::default().bold().fg(Color::Yellow)),
         Span::styled("Toggle List / Calendar view", Style::default().fg(Color::White)),
     ]));

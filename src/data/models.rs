@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Represents a type/category of racing (used for filtering).
@@ -81,7 +81,7 @@ impl std::fmt::Display for SessionType {
 }
 
 /// A single session (e.g., "FP1", "Qualifying", "Race") within a race event.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Session {
     /// Name of the session, e.g. "Free Practice 1", "Race"
     pub name: String,
@@ -115,7 +115,7 @@ impl std::fmt::Display for StreamAccess {
 }
 
 /// A link to watch a session live or on replay.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StreamLink {
     /// Name of the platform, e.g. "F1TV", "YouTube", "Peacock"
     pub platform: String,
@@ -151,7 +151,7 @@ impl std::fmt::Display for EventStatus {
 
 /// A single race event/weekend (e.g., "2026 Monaco Grand Prix").
 /// This is the primary unit of data displayed in the calendar.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RaceEvent {
     /// The series this event belongs to (series ID, e.g. "f1")
     pub series_id: String,
@@ -231,6 +231,15 @@ impl RaceEvent {
                 format!("{}{}", hour_min, am_pm)
             }
             None => String::new(),
+        }
+    }
+
+    /// Get the event's primary date in local timezone.
+    pub fn local_start_date(&self) -> NaiveDate {
+        if let Some(dt) = self.race_start_time() {
+            dt.with_timezone(&chrono::Local).date_naive()
+        } else {
+            self.start_date
         }
     }
 }

@@ -329,9 +329,12 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
             KeyCode::Enter => {
                 if let Some(event) = app.selected_day_event().cloned() {
                     app.show_day_events = false;
-                    // Find this event in filtered_events to set table_state
-                    let filtered = app.filtered_events();
-                    if let Some(idx) = filtered.iter().position(|e| e.series_id == event.series_id && e.event_name == event.event_name) {
+                    // Find this event in list_table_items to set table_state
+                    let items = app.list_table_items();
+                    if let Some(idx) = items.iter().position(|item| match item {
+                        app::ListTableItem::Event(e) => e.series_id == event.series_id && e.event_name == event.event_name,
+                        _ => false,
+                    }) {
                         app.table_state.select(Some(idx));
                     }
                     app.show_detail = true;
@@ -451,6 +454,12 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 app.calendar_select_next_month();
             }
         }
+        // Jump to today in calendar
+        KeyCode::Char('t') | KeyCode::Char('T') => {
+            if app.view_mode == app::ViewMode::Calendar {
+                app.calendar_jump_to_today();
+            }
+        }
         // Toggle view mode
         KeyCode::Tab => {
             app.view_mode = match app.view_mode {
@@ -485,8 +494,11 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                     ));
                 } else if day_events.len() == 1 {
                     let event = day_events[0];
-                    let filtered = app.filtered_events();
-                    if let Some(idx) = filtered.iter().position(|e| e.series_id == event.series_id && e.event_name == event.event_name) {
+                    let items = app.list_table_items();
+                    if let Some(idx) = items.iter().position(|item| match item {
+                        app::ListTableItem::Event(e) => e.series_id == event.series_id && e.event_name == event.event_name,
+                        _ => false,
+                    }) {
                         app.table_state.select(Some(idx));
                     }
                     app.show_detail = true;
@@ -529,6 +541,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Datelike;
     use std::collections::HashMap;
 
     fn key(code: KeyCode) -> KeyEvent {
@@ -660,6 +673,13 @@ mod tests {
         // Prev month with H
         handle_key_event(&mut app, key(KeyCode::Char('H')));
         assert_eq!(app.calendar_month, 5);
+
+        // Jump to today with 't'
+        handle_key_event(&mut app, key(KeyCode::Char('t')));
+        let now = chrono::Local::now();
+        assert_eq!(app.calendar_year, now.year());
+        assert_eq!(app.calendar_month, now.month());
+        assert_eq!(app.calendar_selected_day, now.day());
     }
 
     #[test]

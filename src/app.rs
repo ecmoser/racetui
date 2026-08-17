@@ -77,6 +77,13 @@ pub enum FilterItem {
     },
 }
 
+/// Item in the main list table (day section header or race event entry)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ListTableItem<'a> {
+    Header(chrono::NaiveDate),
+    Event(&'a RaceEvent),
+}
+
 /// All application state lives here.
 pub struct App {
     /// Whether the app should keep running
@@ -190,8 +197,8 @@ impl App {
             pending_favorite_toggle: None,
         };
 
-        // Select the first row by default
-        app.table_state.select(Some(0));
+        // Select the first event by default
+        app.select_first_event();
         app
     }
 
@@ -314,7 +321,7 @@ impl App {
                 }
             }
         }
-        self.table_state.select(Some(0));
+        self.select_first_event();
     }
 
     /// Toggle the currently highlighted filter item in the panel
@@ -331,7 +338,7 @@ impl App {
     /// Reset all filters back to All Events
     pub fn reset_filters(&mut self) {
         self.active_filters.reset_to_default();
-        self.table_state.select(Some(0));
+        self.select_first_event();
     }
 
     /// Move selection down in filter panel, skipping headers
@@ -442,39 +449,114 @@ impl App {
             })
             .collect();
 
-        events.sort_by_key(|e| (e.start_date, &e.series_id, &e.event_name));
+        // Sort chronologically by date, then known times before TBD, then actual UTC start time, then series_id & event_name
+        events.sort_by_key(|e| {
+            let local_date = e.local_start_date();
+            let is_undetermined = if e.race_start_time().is_some() { 0 } else { 1 };
+            let start_utc = e.race_start_time();
+            (local_date, is_undetermined, start_utc, e.series_id.clone(), e.event_name.clone())
+        });
+
         events
     }
 
-    /// Select the next item in the event list (wraps around).
-    pub fn select_next(&mut self) {
-        let count = self.filtered_events().len();
-        if count == 0 {
-            self.table_state.select(None);
-            return;
+    /// Build the list of table items (blank day separators and race event entries)
+    pub fn list_table_items(&self) -> Vec<ListTableItem<'_>> {
+        let events = self.filtered_events();
+        let mut items = Vec::new();
+        let mut current_date: Option<chrono::NaiveDate> = None;
+
+        for event in events {
+            let event_date = event.local_start_date();
+            if let Some(prev_date) = current_date {
+                if prev_date != event_date {
+                    current_date = Some(event_date);
+                    items.push(ListTableItem::Header(event_date));
+                }
+            } else {
+                current_date = Some(event_date);
+            }
+            items.push(ListTableItem::Event(event));
         }
-        let current = self.table_state.selected().unwrap_or(0);
-        let next = if current + 1 >= count { 0 } else { current + 1 };
-        self.table_state.select(Some(next));
+
+        items
     }
 
-    /// Select the previous item in the event list (wraps around).
-    pub fn select_previous(&mut self) {
-        let count = self.filtered_events().len();
-        if count == 0 {
+    /// Select the next event in the table (skips headers, wraps around).
+    pub fn select_next(&mut self) {
+        let items = self.list_table_items();
+        if items.is_empty() {
             self.table_state.select(None);
             return;
         }
+
         let current = self.table_state.selected().unwrap_or(0);
-        let prev = if current == 0 { count - 1 } else { current - 1 };
-        self.table_state.select(Some(prev));
+        let mut next = (current + 1) % items.len();
+        while matches!(items.get(next), Some(ListTableItem::Header(_))) {
+            next = (next + 1) % items.len();
+            if next == current {
+                break;
+            }
+        }
+        if matches!(items.get(next), Some(ListTableItem::Event(_))) {
+            self.table_state.select(Some(next));
+        }
+    }
+
+    /// Select the previous event in the table (skips headers, wraps around).
+    pub fn select_previous(&mut self) {
+        let items = self.list_table_items();
+        if items.is_empty() {
+            self.table_state.select(None);
+            return;
+        }
+
+        let current = self.table_state.selected().unwrap_or(0);
+        let mut prev = if current == 0 { items.len() - 1 } else { current - 1 };
+        while matches!(items.get(prev), Some(ListTableItem::Header(_))) {
+            prev = if prev == 0 { items.len() - 1 } else { prev - 1 };
+            if prev == current {
+                break;
+            }
+        }
+        if matches!(items.get(prev), Some(ListTableItem::Event(_))) {
+            self.table_state.select(Some(prev));
+        }
     }
 
     /// Get the currently selected race event, if any.
     pub fn selected_event(&self) -> Option<&RaceEvent> {
-        let events = self.filtered_events();
-        let index = self.table_state.selected()?;
-        events.get(index).copied()
+        let items = self.list_table_items();
+        if items.is_empty() {
+            return None;
+        }
+
+        if let Some(index) = self.table_state.selected() {
+            if let Some(ListTableItem::Event(event)) = items.get(index) {
+                return Some(*event);
+            }
+        }
+
+        // If selection is None or pointing to a header, fallback to first event
+        for (_idx, item) in items.iter().enumerate() {
+            if let ListTableItem::Event(event) = item {
+                return Some(*event);
+            }
+        }
+
+        None
+    }
+
+    /// Select the first event row in the table (skipping any initial header).
+    pub fn select_first_event(&mut self) {
+        let items = self.list_table_items();
+        for (idx, item) in items.iter().enumerate() {
+            if let ListTableItem::Event(_) = item {
+                self.table_state.select(Some(idx));
+                return;
+            }
+        }
+        self.table_state.select(None);
     }
 
     /// Update events for a series and mark it as loaded.
@@ -483,10 +565,16 @@ impl App {
         self.events.insert(series_id.clone(), events);
         self.fetch_status.insert(series_id, FetchStatus::Loaded(count));
 
-        // Adjust selection if it's out of bounds
-        let total = self.filtered_events().len();
-        if total > 0 && self.table_state.selected().map_or(true, |i| i >= total) {
-            self.table_state.select(Some(0));
+        // Adjust selection if it's out of bounds or on a header
+        let total = self.list_table_items().len();
+        if total > 0 {
+            if self.table_state.selected().map_or(true, |i| i >= total) {
+                self.select_first_event();
+            } else if let Some(idx) = self.table_state.selected() {
+                if matches!(self.list_table_items().get(idx), Some(ListTableItem::Header(_))) {
+                    self.select_first_event();
+                }
+            }
         }
     }
 
@@ -597,13 +685,27 @@ impl App {
         self.calendar_selected_day = self.calendar_selected_day.min(max_days);
     }
 
-    /// Get all events on a specific date.
+    /// Jump calendar selection and month/year to today.
+    pub fn calendar_jump_to_today(&mut self) {
+        let now = chrono::Local::now();
+        self.calendar_year = now.year();
+        self.calendar_month = now.month();
+        self.calendar_selected_day = now.day();
+    }
+
+    /// Get all events on a specific date, sorted chronologically with TBD at the bottom.
     pub fn events_on_date(&self, date: chrono::NaiveDate) -> Vec<&RaceEvent> {
         let events = self.filtered_events();
-        events
+        let mut day_events: Vec<_> = events
             .into_iter()
-            .filter(|e| e.start_date <= date && date <= e.end_date)
-            .collect()
+            .filter(|e| e.local_start_date() == date || (e.start_date <= date && date <= e.end_date))
+            .collect();
+        day_events.sort_by_key(|e| {
+            let is_undetermined = if e.race_start_time().is_some() { 0 } else { 1 };
+            let start_utc = e.race_start_time();
+            (is_undetermined, start_utc, e.series_id.clone(), e.event_name.clone())
+        });
+        day_events
     }
 
     /// Get all events on the currently selected calendar day.
@@ -653,7 +755,7 @@ impl App {
 mod tests {
     use super::*;
     use crate::data::models::{CarStyle, EventStatus};
-    use chrono::NaiveDate;
+    use chrono::{NaiveDate, TimeZone};
 
     fn mock_series(id: &str, name: &str, style: CarStyle, region: &str) -> Series {
         Series {
@@ -696,7 +798,7 @@ mod tests {
         assert!(app.running);
         assert_eq!(app.view_mode, ViewMode::List);
         assert!(app.active_filters.is_default());
-        assert_eq!(app.table_state.selected(), Some(0));
+        assert_eq!(app.table_state.selected(), None);
         assert_eq!(app.fetch_status.get("f1"), Some(&FetchStatus::Pending));
     }
 
@@ -710,7 +812,7 @@ mod tests {
         app.select_next();
         assert_eq!(app.table_state.selected(), None);
 
-        // Add 3 events
+        // Add 3 events on different dates
         let events = vec![
             mock_event("f1", "Race 1", (2026, 3, 1)),
             mock_event("f1", "Race 2", (2026, 3, 15)),
@@ -718,18 +820,76 @@ mod tests {
         ];
         app.update_series_data("f1".to_string(), events);
 
+        // Initial selection should be on first event (index 0)
         assert_eq!(app.table_state.selected(), Some(0));
-        app.select_next();
-        assert_eq!(app.table_state.selected(), Some(1));
-        app.select_next();
-        assert_eq!(app.table_state.selected(), Some(2));
-        // Wrap around
-        app.select_next();
-        assert_eq!(app.table_state.selected(), Some(0));
+        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 1"));
 
-        // Prev navigation
-        app.select_previous();
+        // Select next: skips separator at index 1, moves to index 2 (Race 2)
+        app.select_next();
         assert_eq!(app.table_state.selected(), Some(2));
+        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 2"));
+
+        // Select next: skips separator at index 3, moves to index 4 (Race 3)
+        app.select_next();
+        assert_eq!(app.table_state.selected(), Some(4));
+        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 3"));
+
+        // Wrap around: wraps to index 0 (Race 1)
+        app.select_next();
+        assert_eq!(app.table_state.selected(), Some(0));
+        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 1"));
+
+        // Prev navigation: wraps to index 4 (Race 3)
+        app.select_previous();
+        assert_eq!(app.table_state.selected(), Some(4));
+        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 3"));
+    }
+
+    #[test]
+    fn test_chronological_time_sorting_and_tbd_at_bottom() {
+        let mut registry = HashMap::new();
+        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+        registry.insert("nascar".to_string(), mock_series("nascar", "NASCAR", CarStyle::StockCar, "USA"));
+        registry.insert("indycar".to_string(), mock_series("indycar", "IndyCar", CarStyle::OpenWheel, "USA"));
+
+        let mut app = App::new(registry, UserConfig::default());
+
+        let mut ev_7pm = mock_event("nascar", "NASCAR 7PM", (2026, 5, 24));
+        ev_7pm.sessions = vec![crate::data::models::Session {
+            name: "Race".to_string(),
+            session_type: crate::data::models::SessionType::Race,
+            start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 5, 24, 23, 0, 0).unwrap()), // 7 PM EDT
+            end_time: None,
+        }];
+
+        let mut ev_12pm = mock_event("indycar", "IndyCar 12PM", (2026, 5, 24));
+        ev_12pm.sessions = vec![crate::data::models::Session {
+            name: "Race".to_string(),
+            session_type: crate::data::models::SessionType::Race,
+            start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 5, 24, 16, 0, 0).unwrap()), // 12 PM EDT
+            end_time: None,
+        }];
+
+        let mut ev_230pm = mock_event("f1", "F1 2:30PM", (2026, 5, 24));
+        ev_230pm.sessions = vec![crate::data::models::Session {
+            name: "Race".to_string(),
+            session_type: crate::data::models::SessionType::Race,
+            start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 5, 24, 18, 30, 0).unwrap()), // 2:30 PM EDT
+            end_time: None,
+        }];
+
+        let ev_tbd = mock_event("nascar", "NASCAR TBD", (2026, 5, 24)); // No sessions (TBD)
+
+        app.update_series_data("nascar".to_string(), vec![ev_7pm, ev_tbd]);
+        app.update_series_data("indycar".to_string(), vec![ev_12pm]);
+        app.update_series_data("f1".to_string(), vec![ev_230pm]);
+
+        let filtered = app.filtered_events();
+        assert_eq!(filtered.len(), 4);
+        assert_eq!(filtered[0].event_name, "IndyCar 12PM");
+        assert_eq!(filtered[1].event_name, "F1 2:30PM");
+        assert_eq!(filtered[2].event_name, "NASCAR 7PM");
+        assert_eq!(filtered[3].event_name, "NASCAR TBD"); // TBD at bottom of the day
     }
 
     #[test]
@@ -794,12 +954,16 @@ mod tests {
         // Toggle Upcoming off: now Live + Completed -> 2 events
         app.toggle_filter_option(&FilterOption::Status(EventStatus::Upcoming));
         assert_eq!(app.filtered_events().len(), 2);
-        assert_eq!(app.filtered_events()[0].event_name, "Past Race");
-        assert_eq!(app.filtered_events()[1].event_name, "Live Race");
+        assert_eq!(filtered_name(&app, 0), "Past Race");
+        assert_eq!(filtered_name(&app, 1), "Live Race");
 
         // Reset filters: restores Upcoming + Live default
         app.reset_filters();
         assert_eq!(app.filtered_events().len(), 2);
         assert!(app.active_filters.is_default());
+    }
+
+    fn filtered_name(app: &App, idx: usize) -> String {
+        app.filtered_events()[idx].event_name.clone()
     }
 }

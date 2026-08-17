@@ -1,12 +1,12 @@
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Cell, HighlightSpacing, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table};
 
-use crate::app::App;
+use crate::app::{App, ListTableItem};
 use crate::data::models::EventStatus;
 
-/// Draw the list view — a table of race events.
+/// Draw the list view — a table of race events grouped by day.
 pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
-    let events = app.filtered_events();
+    let items = app.list_table_items();
 
     // Build header row
     let header = Row::new(vec![
@@ -22,74 +22,101 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     .bottom_margin(1);
 
     // Build data rows
-    let rows: Vec<Row> = events
+    let rows: Vec<Row> = items
         .iter()
-        .map(|event| {
-            // Get series color
-            let series_color = app
-                .series_registry
-                .get(&event.series_id)
-                .map(|s| Color::Rgb(s.color.0, s.color.1, s.color.2))
-                .unwrap_or(Color::White);
+        .map(|item| match item {
+            ListTableItem::Header(_) => {
+                Row::new(vec![
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                    Cell::from(""),
+                ])
+            }
+            ListTableItem::Event(event) => {
+                // Get series color
+                let series_color = app
+                    .series_registry
+                    .get(&event.series_id)
+                    .map(|s| Color::Rgb(s.color.0, s.color.1, s.color.2))
+                    .unwrap_or(Color::White);
 
-            // Get series short name
-            let series_name = app
-                .series_registry
-                .get(&event.series_id)
-                .map(|s| s.short_name.as_str())
-                .unwrap_or(&event.series_id);
+                // Get series short name
+                let series_name = app
+                    .series_registry
+                    .get(&event.series_id)
+                    .map(|s| s.short_name.as_str())
+                    .unwrap_or(&event.series_id);
 
-            // Format date in local timezone
-            let date_str = event.start_date.format("%b %d").to_string();
+                // Format date in local timezone
+                let date_str = event.local_start_date().format("%b %d").to_string();
 
-            // Format time in local timezone
-            let time_str = event.format_local_time();
+                // Format time in local timezone with live indicator if currently live
+                let raw_time = event.format_local_time();
+                let (time_cell, is_live) = if event.status == EventStatus::Live {
+                    (
+                        Cell::from(format!("● {:>8}", raw_time))
+                            .style(Style::default().bold().fg(Color::Red)),
+                        true,
+                    )
+                } else {
+                    (
+                        Cell::from(format!("  {:>8}", raw_time))
+                            .style(Style::default().fg(Color::Gray)),
+                        false,
+                    )
+                };
 
-            // Determine if this is a favorited series
-            let is_favorite = app.config.favorites.contains(&event.series_id);
-            let favorite_marker = if is_favorite { "★ " } else { "  " };
+                // Determine if this is a favorited series
+                let is_favorite = app.config.favorites.contains(&event.series_id);
+                let favorite_marker = if is_favorite { "★ " } else { "  " };
 
-            // Status styling
-            let (status_text, status_color) = match &event.status {
-                EventStatus::Live => ("● LIVE", Color::Red),
-                EventStatus::Upcoming => {
-                    // Check if event is within notification threshold
-                    if let Some(next_time) = event.next_session_time() {
-                        let hours_until = next_time
-                            .signed_duration_since(chrono::Utc::now())
-                            .num_hours();
-                        if hours_until <= app.config.notification_threshold_hours as i64
-                            && hours_until >= 0
-                        {
-                            ("⚡ SOON", Color::Yellow)
+                // Status styling
+                let (status_text, status_color) = match &event.status {
+                    EventStatus::Live => ("● LIVE", Color::Red),
+                    EventStatus::Upcoming => {
+                        // Check if event is within notification threshold
+                        if let Some(next_time) = event.next_session_time() {
+                            let hours_until = next_time
+                                .signed_duration_since(chrono::Utc::now())
+                                .num_hours();
+                            if hours_until <= app.config.notification_threshold_hours as i64
+                                && hours_until >= 0
+                            {
+                                ("⚡ SOON", Color::Yellow)
+                            } else {
+                                ("Upcoming", Color::DarkGray)
+                            }
                         } else {
                             ("Upcoming", Color::DarkGray)
                         }
-                    } else {
-                        ("Upcoming", Color::DarkGray)
                     }
-                }
-                EventStatus::Completed => ("Done", Color::DarkGray),
-                EventStatus::Cancelled => ("Cancelled", Color::DarkGray),
-            };
+                    EventStatus::Completed => ("Done", Color::DarkGray),
+                    EventStatus::Cancelled => ("Cancelled", Color::DarkGray),
+                };
 
-            Row::new(vec![
-                Cell::from(date_str),
-                Cell::from(time_str).style(Style::default().fg(Color::Gray)),
-                Cell::from(format!("{}{}", favorite_marker, series_name))
-                    .style(Style::default().fg(series_color)),
-                Cell::from(event.event_name.as_str()),
-                Cell::from(event.circuit_name.as_str()),
-                Cell::from(event.country.as_str()),
-                Cell::from(status_text).style(Style::default().fg(status_color)),
-            ])
+                let _ = is_live;
+                Row::new(vec![
+                    Cell::from(date_str),
+                    time_cell,
+                    Cell::from(format!("{}{}", favorite_marker, series_name))
+                        .style(Style::default().fg(series_color)),
+                    Cell::from(event.event_name.as_str()),
+                    Cell::from(event.circuit_name.as_str()),
+                    Cell::from(event.country.as_str()),
+                    Cell::from(status_text).style(Style::default().fg(status_color)),
+                ])
+            }
         })
         .collect();
 
     // Column widths
     let widths = [
         Constraint::Length(7),   // Date (e.g. "Aug 16")
-        Constraint::Length(9),   // Time (e.g. " 3:00 PM")
+        Constraint::Length(11),  // Time (e.g. "● 12:00 PM")
         Constraint::Length(12),  // Series (e.g. "★ IndyCar")
         Constraint::Min(20),     // Event name (flexible)
         Constraint::Length(25),  // Circuit
@@ -124,9 +151,9 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_stateful_widget(table, area, &mut table_state);
 
     // Draw scrollbar if there are enough items
-    if events.len() > area.height as usize {
+    if items.len() > area.height as usize {
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-        let mut scrollbar_state = ScrollbarState::new(events.len())
+        let mut scrollbar_state = ScrollbarState::new(items.len())
             .position(app.table_state.selected().unwrap_or(0));
         frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
     }
