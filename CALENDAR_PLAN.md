@@ -1197,7 +1197,7 @@ pub mod series_registry;
 
 ---
 
-### Step 6: Event System and App State
+### [x] Step 6: Event System and App State
 
 **What to do**: Create the `AppEvent` enum for the unified event channel, and the `App` struct that holds all application state.
 
