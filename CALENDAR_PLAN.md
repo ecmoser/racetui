@@ -3132,7 +3132,7 @@ if let Some(ref series_id) = cli.series {
 
 ---
 
-### Step 24: Notification Highlights for Favorites
+### [x] Step 24: Notification Highlights for Favorites
 
 **What to do**: Implement visual highlights for favorited series with events happening soon.
 

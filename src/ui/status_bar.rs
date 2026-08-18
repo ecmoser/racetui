@@ -52,22 +52,18 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         .filter(|s| matches!(s, FetchStatus::Error(_)))
         .count();
 
-    let status_text = if let Some(ref msg) = app.status_message {
-        msg.clone()
+    let notifications = app.get_notifications();
+    let (status_text, status_color) = if let Some(ref msg) = app.status_message {
+        (msg.clone(), Color::White)
+    } else if !notifications.is_empty() {
+        let idx = app.notification_cycle_index % notifications.len();
+        (format!("{} ", notifications[idx]), Color::Yellow)
     } else if fetching > 0 {
-        format!("Fetching... {}/{} loaded ", loaded, total)
+        (format!("Fetching... {}/{} loaded ", loaded, total), Color::Yellow)
     } else if errors > 0 {
-        format!("{}/{} loaded, {} errors ", loaded, total, errors)
+        (format!("{}/{} loaded, {} errors ", loaded, total, errors), Color::Red)
     } else {
-        format!("{}/{} series loaded ", loaded, total)
-    };
-
-    let status_color = if fetching > 0 {
-        Color::Yellow
-    } else if errors > 0 {
-        Color::Red
-    } else {
-        Color::Green
+        (format!("{}/{} series loaded ", loaded, total), Color::Green)
     };
 
     let status_widget = Paragraph::new(status_text)

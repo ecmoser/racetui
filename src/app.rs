@@ -160,6 +160,12 @@ pub struct App {
 
     /// Pending series ID for favorite/un-favorite confirmation dialog
     pub pending_favorite_toggle: Option<String>,
+
+    /// Index for cycling through notification messages
+    pub notification_cycle_index: usize,
+
+    /// Tick counter for timing notification cycles
+    pub tick_count: u64,
 }
 
 impl App {
@@ -206,11 +212,54 @@ impl App {
             status_message: None,
             refresh_requested: false,
             pending_favorite_toggle: None,
+            notification_cycle_index: 0,
+            tick_count: 0,
         };
 
         // Select the first event by default
         app.select_first_event();
         app
+    }
+
+    /// Get notification messages for upcoming favorited events.
+    /// Returns a Vec of (series_short_name, session_name, time_until_string).
+    pub fn get_notifications(&self) -> Vec<String> {
+        let now = chrono::Utc::now();
+        let threshold = chrono::Duration::hours(self.config.notification_threshold_hours as i64);
+        let mut notifications = Vec::new();
+
+        for (series_id, events) in &self.events {
+            if !self.config.favorites.contains(series_id) {
+                continue;
+            }
+            let series_name = self
+                .series_registry
+                .get(series_id)
+                .map(|s| s.short_name.as_str())
+                .unwrap_or(series_id);
+
+            for event in events {
+                if let Some(next_session) = event.next_session() {
+                    if let Some(start_time) = next_session.start_time {
+                        let time_until = start_time.signed_duration_since(now);
+                        if time_until > chrono::Duration::zero() && time_until <= threshold {
+                            let hours = time_until.num_hours();
+                            let minutes = time_until.num_minutes() % 60;
+                            let time_str = if hours > 0 {
+                                format!("{}h {}m", hours, minutes)
+                            } else {
+                                format!("{}m", minutes)
+                            };
+                            notifications.push(format!(
+                                "★ {} {} in {}",
+                                series_name, next_session.name, time_str
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        notifications
     }
 
     /// Build the list of all items for the filter panel
@@ -1104,6 +1153,40 @@ mod tests {
         // Reset filters: all 3 sessions return
         app.reset_filters();
         assert_eq!(app.filtered_sessions().len(), 3);
+    }
+
+    #[test]
+    fn test_notifications_for_favorites() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
+
+        let mut config = UserConfig::default();
+        config.favorites.insert("f1".to_string());
+        config.notification_threshold_hours = 2;
+
+        let mut app = App::new(registry, config);
+
+        // Session 1 hour in the future (within 2h threshold)
+        let soon_time = chrono::Utc::now() + chrono::Duration::minutes(75);
+        let mut event = mock_event("f1", "Monaco GP", (2026, 5, 24));
+        event.sessions = vec![crate::data::models::Session {
+            name: "Race".to_string(),
+            session_type: crate::data::models::SessionType::Race,
+            start_time: Some(soon_time),
+            end_time: None,
+        }];
+        app.update_series_data("f1".to_string(), vec![event]);
+
+        let notifs = app.get_notifications();
+        assert_eq!(notifs.len(), 1);
+        assert!(notifs[0].starts_with("★ F1 Race in 1h "));
+
+        // If not a favorite, no notification
+        app.config.favorites.clear();
+        assert!(app.get_notifications().is_empty());
     }
 
     fn filtered_name(app: &App, idx: usize) -> String {

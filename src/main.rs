@@ -256,7 +256,15 @@ async fn main() -> Result<()> {
                         // Terminal auto-redraws on resize
                     }
                     AppEvent::Tick => {
-                        // For countdown timers
+                        app.tick_count += 1;
+                        // Cycle notifications every 3 seconds
+                        if app.tick_count % 3 == 0 {
+                            let notification_count = app.get_notifications().len();
+                            if notification_count > 0 {
+                                app.notification_cycle_index =
+                                    (app.notification_cycle_index + 1) % notification_count;
+                            }
+                        }
                     }
                     AppEvent::RefreshRequested => {
                         spawn_data_loaders(&mut app, tx.clone(), true);

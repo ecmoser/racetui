@@ -99,6 +99,22 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                     EventStatus::Cancelled => ("Cancelled", Color::DarkGray),
                 };
 
+                let is_soon = is_favorite
+                    && session.start_time.map_or(false, |t| {
+                        let until = t.signed_duration_since(chrono::Utc::now());
+                        until > chrono::Duration::zero()
+                            && until
+                                <= chrono::Duration::hours(
+                                    app.config.notification_threshold_hours as i64,
+                                )
+                    });
+
+                let row_style = if is_soon {
+                    Style::default().bg(Color::Rgb(50, 40, 20))
+                } else {
+                    Style::default()
+                };
+
                 let _ = is_live;
                 Row::new(vec![
                     Cell::from(date_str),
@@ -110,6 +126,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                     Cell::from(event.country.as_str()),
                     Cell::from(status_text).style(Style::default().fg(status_color)),
                 ])
+                .style(row_style)
             }
         })
         .collect();
