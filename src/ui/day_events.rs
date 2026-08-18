@@ -5,7 +5,7 @@ use crate::app::App;
 use crate::ui::calendar_view::month_name;
 
 /// Draw the day events selection popup (when multiple races occur on a selected calendar day).
-pub fn draw(frame: &mut Frame, app: &App) {
+pub fn draw(frame: &mut Frame, app: &mut App) {
     let events = app.events_on_selected_calendar_day();
     if events.is_empty() {
         return;
@@ -70,8 +70,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    let mut state = app.day_events_state.clone();
-    frame.render_stateful_widget(list, popup_area, &mut state);
+    frame.render_stateful_widget(list, popup_area, &mut app.day_events_state);
 }
 
 #[cfg(test)]
@@ -125,7 +124,7 @@ mod tests {
         app.show_day_events = true;
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();

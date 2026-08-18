@@ -11,7 +11,7 @@ use ratatui::prelude::*;
 use crate::app::{App, ViewMode};
 
 /// Main draw function — dispatches to the appropriate view.
-pub fn draw(frame: &mut Frame, app: &App) {
+pub fn draw(frame: &mut Frame, app: &mut App) {
     // Layout: main content area + status bar at the bottom
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -73,7 +73,7 @@ mod tests {
 
         // 1. Empty state
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -100,7 +100,7 @@ mod tests {
         app.update_series_data("f1".to_string(), vec![event]);
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -130,7 +130,7 @@ mod tests {
         app.update_series_data("f1".to_string(), vec![event]);
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -147,7 +147,7 @@ mod tests {
         app.view_mode = ViewMode::Calendar;
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -193,7 +193,7 @@ mod tests {
         app.show_detail = true;
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -210,7 +210,7 @@ mod tests {
         app.show_filter_panel = true;
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -243,7 +243,7 @@ mod tests {
         app.pending_favorite_toggle = Some("f1".to_string());
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
@@ -262,7 +262,7 @@ mod tests {
         app.show_help = true;
 
         terminal.draw(|f| {
-            draw(f, &app);
+            draw(f, &mut app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();

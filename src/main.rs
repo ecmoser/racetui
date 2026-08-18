@@ -254,7 +254,7 @@ async fn main() -> Result<()> {
     while app.running {
         // Draw
         terminal.draw(|frame| {
-            ui::draw(frame, &app);
+            ui::draw(frame, &mut app);
         })?;
 
         // Handle refresh requested from app

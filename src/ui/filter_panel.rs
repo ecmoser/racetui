@@ -5,7 +5,7 @@ use crate::app::{App, FilterItem, FilterOption};
 use crate::data::models::FetchStatus;
 
 /// Draw the filter panel overlay.
-pub fn draw(frame: &mut Frame, app: &App) {
+pub fn draw(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
     let panel_width = (area.width * 35 / 100).max(32).min(area.width);
     let panel_area = Rect::new(0, 0, panel_width, area.height);
@@ -67,6 +67,5 @@ pub fn draw(frame: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    let mut state = app.filter_list_state.clone();
-    frame.render_stateful_widget(list, panel_area, &mut state);
+    frame.render_stateful_widget(list, panel_area, &mut app.filter_list_state);
 }

@@ -8,7 +8,7 @@ use crate::app::{App, ListTableItem};
 use crate::data::models::EventStatus;
 
 /// Draw the list view — a table of race events grouped by day.
-pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
+pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     let items = app.list_table_items();
 
     // Build the title with filter/search info
@@ -156,14 +156,17 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                     Cell::from(format!("{}{}", favorite_marker, series_name))
                         .style(Style::default().fg(series_color)),
                     Cell::from(session.display_title()),
-                    Cell::from(event.circuit_name.as_str()),
-                    Cell::from(event.country.as_str()),
+                    Cell::from(event.circuit_name.clone()),
+                    Cell::from(event.country.clone()),
                     Cell::from(status_text).style(Style::default().fg(status_color)),
                 ])
                 .style(row_style)
             }
         })
         .collect();
+
+    let items_count = items.len();
+    drop(items);
 
     // Column widths
     let widths = [
@@ -187,14 +190,13 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         )
         .highlight_spacing(HighlightSpacing::Always);
 
-    // Render table with state (for selection tracking)
-    let mut table_state = app.table_state.clone();
-    frame.render_stateful_widget(table, area, &mut table_state);
+    // Render table with state (for selection tracking and persistent scroll offset)
+    frame.render_stateful_widget(table, area, &mut app.table_state);
 
     // Draw scrollbar if there are enough items
-    if items.len() > area.height as usize {
+    if items_count > area.height as usize {
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-        let mut scrollbar_state = ScrollbarState::new(items.len())
+        let mut scrollbar_state = ScrollbarState::new(items_count)
             .position(app.table_state.selected().unwrap_or(0));
         frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
     }

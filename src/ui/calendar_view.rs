@@ -95,6 +95,15 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
     let today = Local::now().date_naive();
 
+    // Pre-group filtered sessions by date to avoid calling filtered_sessions() for each cell
+    let all_sessions = app.filtered_sessions();
+    let mut events_by_date: std::collections::HashMap<NaiveDate, Vec<&crate::data::models::ScheduledSession<'_>>> =
+        std::collections::HashMap::new();
+    for session in &all_sessions {
+        events_by_date.entry(session.date).or_default().push(session);
+    }
+    let empty_events: Vec<&crate::data::models::ScheduledSession<'_>> = Vec::new();
+
     // Render each week
     let mut day_counter: u32 = 1;
     for week_idx in 0..num_weeks {
@@ -125,8 +134,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             let is_today = cell_date == today;
             let is_selected = day == app.calendar_selected_day;
 
-            // Collect events for this day (already sorted with TBD at the bottom)
-            let day_events = app.events_on_date(cell_date);
+            // Collect events for this day from the pre-grouped map (O(1) lookup)
+            let day_events = events_by_date.get(&cell_date).unwrap_or(&empty_events);
 
             // Build day cell lines
             let mut lines: Vec<Line> = Vec::new();

@@ -656,6 +656,9 @@ impl App {
             }
         }
         if matches!(items.get(next), Some(ListTableItem::Session(_))) {
+            if next < current {
+                *self.table_state.offset_mut() = 0;
+            }
             self.table_state.select(Some(next));
         }
     }
