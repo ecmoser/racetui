@@ -63,7 +63,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         None => return,
     };
 
-    let start_col = first_day.weekday().num_days_from_monday() as usize; // Mon=0 .. Sun=6
+    let start_col = first_day.weekday().num_days_from_sunday() as usize; // Sun=0 .. Sat=6
     let total_days = days_in_month(app.calendar_year, app.calendar_month);
     let num_weeks = ((start_col as u32 + total_days + 6) / 7) as usize;
 
@@ -85,7 +85,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         .constraints(col_constraints.clone())
         .split(rows[0]);
 
-    let day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    let day_names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     for (i, &name) in day_names.iter().enumerate() {
         let p = Paragraph::new(name)
             .alignment(Alignment::Center)

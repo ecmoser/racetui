@@ -52,8 +52,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                     .map(|s| s.short_name.as_str())
                     .unwrap_or(&event.series_id);
 
-                // Format date in local timezone
-                let date_str = session.date.format("%b %d").to_string();
+                // Format date in local timezone (including day of week)
+                let date_str = session.date.format("%a, %b %d").to_string();
 
                 // Format time in local timezone with live indicator if currently live
                 let raw_time = session.format_local_time();
@@ -133,7 +133,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
     // Column widths
     let widths = [
-        Constraint::Length(7),   // Date (e.g. "Aug 16")
+        Constraint::Length(12),  // Date (e.g. "Sat, Aug 16")
         Constraint::Length(11),  // Time (e.g. "● 12:00 PM")
         Constraint::Length(12),  // Series (e.g. "★ IndyCar")
         Constraint::Min(20),     // Event name (flexible)
