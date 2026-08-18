@@ -3237,7 +3237,7 @@ let row_style = if app.config.favorites.contains(&event.series_id)
 
 ---
 
-### Step 25: Polish and Error Handling
+### [x] Step 25: Polish and Error Handling
 
 **What to do**: Final polish pass — improve error handling, add graceful degradation, and clean up the UI.
 

@@ -130,6 +130,23 @@ fn spawn_data_loaders(
     }
 }
 
+fn setup_logging() {
+    if let Some(data_dir) = dirs::data_dir() {
+        let log_dir = data_dir.join("racetui");
+        std::fs::create_dir_all(&log_dir).ok();
+        if let Ok(log_file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_dir.join("racetui.log"))
+        {
+            let _ = tracing_subscriber::fmt()
+                .with_writer(log_file)
+                .with_ansi(false)
+                .try_init();
+        }
+    }
+}
+
 fn setup_panic_hook() {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
@@ -152,6 +169,7 @@ async fn main() -> Result<()> {
     }
 
     setup_panic_hook();
+    setup_logging();
 
     // Load series registry
     let registry = data::series_registry::load_series_registry(Path::new("data/series.toml"))?;
@@ -265,6 +283,13 @@ async fn main() -> Result<()> {
                                     (app.notification_cycle_index + 1) % notification_count;
                             }
                         }
+                        // Auto-clear status message after 3 seconds
+                        if let Some(set_at) = app.status_message_set_at {
+                            if set_at.elapsed() >= std::time::Duration::from_secs(3) {
+                                app.status_message = None;
+                                app.status_message_set_at = None;
+                            }
+                        }
                     }
                     AppEvent::RefreshRequested => {
                         spawn_data_loaders(&mut app, tx.clone(), true);
@@ -273,6 +298,7 @@ async fn main() -> Result<()> {
                         app.update_series_data(series_id, events);
                     }
                     AppEvent::FetchError { series_id, error } => {
+                        tracing::warn!("Failed to fetch series {}: {}", series_id, error);
                         app.mark_fetch_error(&series_id, error);
                     }
                     AppEvent::FetchStarted { series_id } => {
@@ -356,7 +382,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                     .map(|s| s.name.as_str())
                     .unwrap_or(series_id.as_str());
                 let action = if was_fav { "Removed from" } else { "Added to" };
-                app.status_message = Some(format!("{} favorites: {}", action, series_name));
+                app.set_status_message(format!("{} favorites: {}", action, series_name));
                 app.pending_favorite_toggle = None;
             }
             KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
@@ -421,9 +447,9 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 if let Some(event) = app.selected_event() {
                     if let Some(link) = event.stream_links.first() {
                         if let Err(e) = action::open_url(&app.config.open_command, &link.url) {
-                            app.status_message = Some(format!("Error: {}", e));
+                            app.set_status_message(format!("Error: {}", e));
                         } else {
-                            app.status_message = Some(format!(
+                            app.set_status_message(format!(
                                 "Opened {} in {}",
                                 link.platform, app.config.open_command
                             ));
@@ -437,9 +463,9 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 if let Some(event) = app.selected_event() {
                     if let Some(link) = event.stream_links.get(index) {
                         if let Err(e) = action::open_url(&app.config.open_command, &link.url) {
-                            app.status_message = Some(format!("Error: {}", e));
+                            app.set_status_message(format!("Error: {}", e));
                         } else {
-                            app.status_message = Some(format!(
+                            app.set_status_message(format!(
                                 "Opened {} in {}",
                                 link.platform, app.config.open_command
                             ));
@@ -538,7 +564,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         }
         // Refresh
         KeyCode::Char('r') | KeyCode::Char('R') => {
-            app.status_message = Some("Refreshing...".to_string());
+            app.set_status_message("Refreshing...".to_string());
             app.refresh_requested = true;
         }
         // Help
@@ -550,7 +576,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
             if app.view_mode == app::ViewMode::Calendar {
                 let day_events = app.events_on_selected_calendar_day();
                 if day_events.is_empty() {
-                    app.status_message = Some(format!(
+                    app.set_status_message(format!(
                         "No races on {} {}, {}",
                         crate::ui::calendar_view::month_name(app.calendar_month),
                         app.calendar_selected_day,
@@ -1134,6 +1160,39 @@ mod tests {
         assert!(!clear_cli.refresh);
         assert!(!clear_cli.calendar);
         assert!(clear_cli.series.is_none());
+    }
+
+    #[test]
+    fn test_status_message_timeout() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        app.set_status_message("Test message".to_string());
+        assert_eq!(app.status_message.as_deref(), Some("Test message"));
+        assert!(app.status_message_set_at.is_some());
+
+        // Simulate set_at 4 seconds in the past
+        app.status_message_set_at = Some(std::time::Instant::now() - std::time::Duration::from_secs(4));
+        if let Some(set_at) = app.status_message_set_at {
+            if set_at.elapsed() >= std::time::Duration::from_secs(3) {
+                app.status_message = None;
+                app.status_message_set_at = None;
+            }
+        }
+        assert!(app.status_message.is_none());
+        assert!(app.status_message_set_at.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_all_scrapers_execution() {
+        let registry = data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
+        assert_eq!(registry.len(), 36);
+        for (id, series) in &registry {
+            let scraper = scraper::get_scraper(id);
+            assert!(scraper.is_some(), "No scraper registered for {}", id);
+            let res = scraper.unwrap().scrape_boxed(series).await;
+            assert!(res.is_ok(), "Scraper failed for {}: {:?}", id, res.err());
+            let events = res.unwrap();
+            assert!(!events.is_empty(), "Scraper returned 0 events for {}", id);
+        }
     }
 }
 

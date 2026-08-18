@@ -67,20 +67,45 @@ mod tests {
 
     #[test]
     fn test_draw_list_view() {
-        let backend = TestBackend::new(80, 24);
+        let backend = TestBackend::new(120, 24);
         let mut terminal = Terminal::new(backend).unwrap();
-        let app = App::new(HashMap::new(), UserConfig::default());
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+
+        // 1. Empty state
+        terminal.draw(|f| {
+            draw(f, &app);
+        }).unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Race Calendar"));
+        assert!(content.contains("No events found"));
+        assert!(content.contains("Try adjusting your filters"));
+        assert!(content.contains("Quit"));
+
+        // 2. Populated state
+        let event = RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Bahrain Grand Prix".to_string(),
+            circuit_name: "Bahrain International Circuit".to_string(),
+            location: "Sakhir".to_string(),
+            country: "Bahrain".to_string(),
+            start_date: NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            end_date: NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            round: Some(1),
+            sessions: vec![],
+            stream_links: vec![],
+            status: EventStatus::Upcoming,
+        };
+        app.update_series_data("f1".to_string(), vec![event]);
 
         terminal.draw(|f| {
             draw(f, &app);
         }).unwrap();
 
         let buffer = terminal.backend().buffer();
-        // Check that Race Calendar and status hints are rendered
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
-        assert!(content.contains("Race Calendar"));
         assert!(content.contains("Date") && content.contains("Time") && content.contains("Series"));
-        assert!(content.contains("Quit"));
     }
 
     #[test]

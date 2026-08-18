@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use scraper::{Html, Selector};
 

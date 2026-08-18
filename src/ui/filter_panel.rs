@@ -1,7 +1,8 @@
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem};
 
-use crate::app::{App, FilterItem};
+use crate::app::{App, FilterItem, FilterOption};
+use crate::data::models::FetchStatus;
 
 /// Draw the filter panel overlay.
 pub fn draw(frame: &mut Frame, app: &App) {
@@ -32,10 +33,23 @@ pub fn draw(frame: &mut Frame, app: &App) {
                     (" ○ ", Style::default().fg(Color::White))
                 };
 
-                ListItem::new(Line::from(vec![
+                let is_error = match option {
+                    FilterOption::Series(series_id) => {
+                        matches!(app.fetch_status.get(series_id), Some(FetchStatus::Error(_)))
+                    }
+                    _ => false,
+                };
+
+                let mut spans = vec![
                     Span::styled(prefix, text_style),
                     Span::styled(label.as_str(), text_style),
-                ]))
+                ];
+
+                if is_error {
+                    spans.push(Span::styled(" ⚠", Style::default().fg(Color::Red).bold()));
+                }
+
+                ListItem::new(Line::from(spans))
             }
         })
         .collect();

@@ -1,5 +1,8 @@
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, Cell, HighlightSpacing, Row, Scrollbar, ScrollbarOrientation, ScrollbarState, Table};
+use ratatui::widgets::{
+    Block, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
+    ScrollbarState, Table,
+};
 
 use crate::app::{App, ListTableItem};
 use crate::data::models::EventStatus;
@@ -7,6 +10,37 @@ use crate::data::models::EventStatus;
 /// Draw the list view — a table of race events grouped by day.
 pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let items = app.list_table_items();
+
+    // Build the title with filter/search info
+    let mut title = String::from(" Race Calendar ");
+    if let Some(ref query) = app.search_query {
+        title = format!(" Search: {} ", query);
+    }
+
+    let block = Block::default()
+        .title(title)
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray));
+
+    if items.is_empty() {
+        let empty_text = vec![
+            Line::from(""),
+            Line::from(Span::styled(
+                "No events found.",
+                Style::default().fg(Color::DarkGray).bold(),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "Try adjusting your filters or press 'r' to refresh data.",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let empty_p = Paragraph::new(empty_text)
+            .block(block)
+            .alignment(Alignment::Center);
+        frame.render_widget(empty_p, area);
+        return;
+    }
 
     // Build header row
     let header = Row::new(vec![
@@ -137,26 +171,15 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         Constraint::Length(11),  // Time (e.g. "● 12:00 PM")
         Constraint::Length(12),  // Series (e.g. "★ IndyCar")
         Constraint::Min(20),     // Event name (flexible)
-        Constraint::Length(25),  // Circuit
-        Constraint::Length(15),  // Country
+        Constraint::Max(25),     // Circuit
+        Constraint::Max(15),     // Country
         Constraint::Length(10),  // Status
     ];
-
-    // Build the title with filter/search info
-    let mut title = String::from(" Race Calendar ");
-    if let Some(ref query) = app.search_query {
-        title = format!(" Search: {} ", query);
-    }
 
     // Build table
     let table = Table::new(rows, widths)
         .header(header)
-        .block(
-            Block::default()
-                .title(title)
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)),
-        )
+        .block(block)
         .row_highlight_style(
             Style::default()
                 .bg(Color::Rgb(40, 40, 60))

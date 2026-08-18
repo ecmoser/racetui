@@ -61,7 +61,20 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     } else if fetching > 0 {
         (format!("Fetching... {}/{} loaded ", loaded, total), Color::Yellow)
     } else if errors > 0 {
-        (format!("{}/{} loaded, {} errors ", loaded, total, errors), Color::Red)
+        let mut failed_names: Vec<&str> = app
+            .fetch_status
+            .iter()
+            .filter(|(_, s)| matches!(s, FetchStatus::Error(_)))
+            .map(|(id, _)| {
+                app.series_registry
+                    .get(id)
+                    .map(|s| s.short_name.as_str())
+                    .unwrap_or(id.as_str())
+            })
+            .collect();
+        failed_names.sort();
+        let failed_str = failed_names.join(", ");
+        (format!("{}/{} loaded, {} failed ({}) ", loaded, total, errors, failed_str), Color::Red)
     } else {
         (format!("{}/{} series loaded ", loaded, total), Color::Green)
     };

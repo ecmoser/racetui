@@ -154,6 +154,8 @@ pub struct App {
 
     /// Status bar message (temporary messages like "Refreshing F1...")
     pub status_message: Option<String>,
+    /// Timestamp when the status bar message was set (for auto-clearing after 3s)
+    pub status_message_set_at: Option<std::time::Instant>,
 
     /// Whether user requested manual refresh
     pub refresh_requested: bool,
@@ -210,6 +212,7 @@ impl App {
             calendar_selected_day: now.day(),
             day_events_state,
             status_message: None,
+            status_message_set_at: None,
             refresh_requested: false,
             pending_favorite_toggle: None,
             notification_cycle_index: 0,
@@ -219,6 +222,12 @@ impl App {
         // Select the first event by default
         app.select_first_event();
         app
+    }
+
+    /// Set a status bar message and record its timestamp for auto-clearing.
+    pub fn set_status_message(&mut self, msg: String) {
+        self.status_message = Some(msg);
+        self.status_message_set_at = Some(std::time::Instant::now());
     }
 
     /// Get notification messages for upcoming favorited events.
