@@ -3308,7 +3308,7 @@ let row_style = if app.config.favorites.contains(&event.series_id)
 
 ---
 
-### Step 26: README
+### [x] Step 26: README
 
 **What to do**: Create a comprehensive `README.md` in the project root.
 
