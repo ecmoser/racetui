@@ -8,6 +8,7 @@ mod ui;
 
 use anyhow::Result;
 use app::App;
+use clap::Parser;
 use crossterm::{
     event::{self as crossterm_event, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
@@ -18,6 +19,26 @@ use ratatui::prelude::*;
 use std::io::stdout;
 use std::path::Path;
 use tokio::sync::mpsc;
+
+#[derive(Parser, Debug)]
+#[command(name = "racetui", about = "TUI for racing series calendars")]
+struct Cli {
+    /// Force refresh all data (ignore cache)
+    #[arg(long)]
+    refresh: bool,
+
+    /// Clear all cached data and exit
+    #[arg(long)]
+    clear_cache: bool,
+
+    /// Only show events from this series (e.g., "f1", "nascar_cup")
+    #[arg(long)]
+    series: Option<String>,
+
+    /// Start in calendar view instead of list view
+    #[arg(long)]
+    calendar: bool,
+}
 
 /// Spawn background tasks to load data for all series.
 /// For each series:
@@ -121,16 +142,40 @@ fn setup_panic_hook() {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    // Handle --clear-cache
+    if cli.clear_cache {
+        data::cache::clear_all_cache()?;
+        println!("Cache cleared.");
+        return Ok(());
+    }
+
     setup_panic_hook();
 
     // Load series registry
     let registry = data::series_registry::load_series_registry(Path::new("data/series.toml"))?;
 
     // Load user config
-    let config = config::UserConfig::load()?;
+    let mut config = config::UserConfig::load()?;
+
+    // Handle --refresh: set TTL to 0 so everything is re-fetched
+    if cli.refresh {
+        config.cache_ttl_hours = 0;
+    }
+
+    // Handle --calendar: override default view
+    if cli.calendar {
+        config.default_view = "calendar".to_string();
+    }
 
     // Create app state
     let mut app = App::new(registry, config);
+
+    // Handle --series: set initial filter
+    if let Some(ref series_id) = cli.series {
+        app.active_filters.series.insert(series_id.clone());
+    }
 
     // Setup terminal
     enable_raw_mode()?;
@@ -185,7 +230,7 @@ async fn main() -> Result<()> {
     });
 
     // Start loading data (cached first, then async fetch)
-    spawn_data_loaders(&mut app, tx.clone(), false);
+    spawn_data_loaders(&mut app, tx.clone(), cli.refresh);
 
     // Main loop
     while app.running {
@@ -1066,6 +1111,21 @@ mod tests {
         assert_eq!(wrc_events.len(), 14);
         assert!(wrc_events.iter().all(|e| e.start_date.year() == 2027));
         assert!(wrc_events.iter().all(|e| !e.sessions.is_empty() && e.sessions.iter().all(|s| s.start_time.is_some())));
+    }
+
+    #[test]
+    fn test_cli_parsing() {
+        let cli = Cli::try_parse_from(["racetui", "--refresh", "--calendar", "--series", "f1"]).unwrap();
+        assert!(cli.refresh);
+        assert!(cli.calendar);
+        assert_eq!(cli.series.as_deref(), Some("f1"));
+        assert!(!cli.clear_cache);
+
+        let clear_cli = Cli::try_parse_from(["racetui", "--clear-cache"]).unwrap();
+        assert!(clear_cli.clear_cache);
+        assert!(!clear_cli.refresh);
+        assert!(!clear_cli.calendar);
+        assert!(clear_cli.series.is_none());
     }
 }
 

@@ -3061,7 +3061,7 @@ pub async fn fetch_with_browser(_url: &str) -> Result<String> {
 
 ---
 
-### Step 23: CLI Arguments
+### [x] Step 23: CLI Arguments
 
 **What to do**: Add command-line arguments using `clap` for common operations.
 
