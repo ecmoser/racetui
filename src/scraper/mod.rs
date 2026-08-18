@@ -1,19 +1,31 @@
+pub mod bsb;
 pub mod btcc;
+pub mod dakar;
 pub mod dtm;
+pub mod extreme_e;
 pub mod f1;
+pub mod f1_academy;
 pub mod f2;
 pub mod f3;
 pub mod fetcher;
 pub mod formula_e;
 pub mod imsa;
+pub mod indy_nxt;
 pub mod indycar;
 pub mod json_ld;
+pub mod lmem;
 pub mod motogp;
 pub mod nascar;
+pub mod nls;
+pub mod porsche;
 pub mod sportstimes;
+pub mod sro;
 pub mod super_formula;
 pub mod super_gt;
+pub mod supercars;
+pub mod tcr;
 pub mod wec;
+pub mod worldsbk;
 pub mod wrc;
 
 use anyhow::Result;
@@ -52,10 +64,26 @@ pub fn get_scraper(series_id: &str) -> Option<Box<dyn SeriesScraperBoxed>> {
         "moto3" => Some(Box::new(motogp::MotoGpScraper { category: "moto3" })),
         "wrc" => Some(Box::new(wrc::WrcScraper)),
         "wrc2" => Some(Box::new(wrc::WrcScraper)),
+        "erc" => Some(Box::new(wrc::WrcScraper)),
         "btcc" => Some(Box::new(btcc::BtccScraper)),
         "dtm" => Some(Box::new(dtm::DtmScraper)),
         "super_formula" => Some(Box::new(super_formula::SuperFormulaScraper)),
         "super_gt" => Some(Box::new(super_gt::SuperGtScraper)),
+        "gtwc_eu" => Some(Box::new(sro::SroScraper { category: "gtwc_eu" })),
+        "gtwc_am" => Some(Box::new(sro::SroScraper { category: "gtwc_am" })),
+        "igtc" => Some(Box::new(sro::SroScraper { category: "igtc" })),
+        "elms" => Some(Box::new(lmem::LmemScraper { category: "elms" })),
+        "aslms" => Some(Box::new(lmem::LmemScraper { category: "aslms" })),
+        "f1_academy" => Some(Box::new(f1_academy::F1AcademyScraper)),
+        "indy_nxt" => Some(Box::new(indy_nxt::IndyNxtScraper)),
+        "worldsbk" => Some(Box::new(worldsbk::WorldSbkScraper)),
+        "bsb" => Some(Box::new(bsb::BsbScraper)),
+        "supercars" => Some(Box::new(supercars::SupercarsScraper)),
+        "tcr_world" => Some(Box::new(tcr::TcrScraper)),
+        "porsche_supercup" => Some(Box::new(porsche::PorscheScraper)),
+        "nls" => Some(Box::new(nls::NlsScraper)),
+        "dakar" => Some(Box::new(dakar::DakarScraper)),
+        "extreme_e" => Some(Box::new(extreme_e::ExtremeEScraper)),
         "nascar_cup" => Some(Box::new(nascar::NascarScraper {
             nascar_series_id: 1,
             racetui_series_id: "nascar_cup",
@@ -67,6 +95,10 @@ pub fn get_scraper(series_id: &str) -> Option<Box<dyn SeriesScraperBoxed>> {
         "nascar_trucks" => Some(Box::new(nascar::NascarScraper {
             nascar_series_id: 3,
             racetui_series_id: "nascar_trucks",
+        })),
+        "arca" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 4,
+            racetui_series_id: "arca",
         })),
         _ => None,
     }
@@ -147,6 +179,23 @@ mod tests {
         assert!(get_scraper("nascar_cup").is_some());
         assert!(get_scraper("nascar_xfinity").is_some());
         assert!(get_scraper("nascar_trucks").is_some());
+        assert!(get_scraper("gtwc_eu").is_some());
+        assert!(get_scraper("gtwc_am").is_some());
+        assert!(get_scraper("igtc").is_some());
+        assert!(get_scraper("elms").is_some());
+        assert!(get_scraper("aslms").is_some());
+        assert!(get_scraper("f1_academy").is_some());
+        assert!(get_scraper("indy_nxt").is_some());
+        assert!(get_scraper("worldsbk").is_some());
+        assert!(get_scraper("bsb").is_some());
+        assert!(get_scraper("supercars").is_some());
+        assert!(get_scraper("tcr_world").is_some());
+        assert!(get_scraper("porsche_supercup").is_some());
+        assert!(get_scraper("nls").is_some());
+        assert!(get_scraper("dakar").is_some());
+        assert!(get_scraper("erc").is_some());
+        assert!(get_scraper("extreme_e").is_some());
+        assert!(get_scraper("arca").is_some());
         assert!(get_scraper("unknown_series").is_none());
     }
 }

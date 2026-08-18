@@ -2952,7 +2952,7 @@ For each series, create a file in `src/scraper/`:
 
 ---
 
-### Step 21: Implement Additional Scrapers (Expansion Pack)
+### [x] Step 21: Implement Additional Scrapers (Expansion Pack)
 
 **What to do**: Implement scrapers for the 19 newly added series. Most of these use identical platforms to series we already implemented, making them trivial to add!
 
