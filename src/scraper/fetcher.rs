@@ -50,6 +50,45 @@ pub async fn fetch_json<T: serde::de::DeserializeOwned>(client: &Client, url: &s
         .with_context(|| format!("Failed to parse JSON from: {}", url))
 }
 
+/// Fetch a URL using a headless browser (for JavaScript-rendered pages).
+/// Only available when compiled with the `headless-browser` feature.
+#[cfg(feature = "headless-browser")]
+pub async fn fetch_with_browser(url: &str) -> Result<String> {
+    use chromiumoxide::Browser;
+    use chromiumoxide::BrowserConfig;
+    use futures::StreamExt;
+
+    let (browser, mut handler) = Browser::launch(
+        BrowserConfig::builder()
+            .build()
+            .map_err(|e| anyhow::anyhow!("Browser config error: {}", e))?,
+    )
+    .await
+    .context("Failed to launch headless browser")?;
+
+    // The handler must be polled in the background
+    tokio::spawn(async move {
+        while let Some(_) = handler.next().await {}
+    });
+
+    let page = browser.new_page(url).await.context("Failed to open page")?;
+
+    // Wait for page to fully load
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    let html = page.content().await.context("Failed to get page content")?;
+
+    Ok(html)
+}
+
+#[cfg(not(feature = "headless-browser"))]
+pub async fn fetch_with_browser(_url: &str) -> Result<String> {
+    anyhow::bail!(
+        "Headless browser support is not compiled in. \
+         Build with: cargo build --features headless-browser"
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -58,5 +97,18 @@ mod tests {
     fn test_create_http_client() {
         let client = create_http_client();
         assert!(client.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_fetch_with_browser_fallback() {
+        #[cfg(not(feature = "headless-browser"))]
+        {
+            let res = fetch_with_browser("https://example.com").await;
+            assert!(res.is_err());
+            assert!(res
+                .unwrap_err()
+                .to_string()
+                .contains("Headless browser support is not compiled in"));
+        }
     }
 }

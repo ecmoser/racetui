@@ -3000,7 +3000,7 @@ For each series, create a file in `src/scraper/`:
 
 ---
 
-### Step 22: Headless Browser Fallback
+### [x] Step 22: Headless Browser Fallback
 
 **What to do**: Implement the `chromiumoxide`-based headless browser fallback for sites that require JavaScript rendering. This is behind the `headless-browser` feature flag.
 
