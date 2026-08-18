@@ -53,6 +53,32 @@ pub struct Series {
     pub requires_js: bool,
 }
 
+/// Broad category of session (used for filtering session types).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum SessionCategory {
+    Race,
+    Qualifying,
+    Practice,
+    Other,
+}
+
+impl SessionCategory {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SessionCategory::Race => "Races & Sprints",
+            SessionCategory::Qualifying => "Qualifying",
+            SessionCategory::Practice => "Practice",
+            SessionCategory::Other => "Other Sessions",
+        }
+    }
+}
+
+impl std::fmt::Display for SessionCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}
+
 /// The type of a session within a race weekend.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SessionType {
@@ -64,6 +90,17 @@ pub enum SessionType {
     Warmup,
     /// For WRC stages, or any other session type
     Other(String),
+}
+
+impl SessionType {
+    pub fn category(&self) -> SessionCategory {
+        match self {
+            SessionType::Race | SessionType::Sprint => SessionCategory::Race,
+            SessionType::Qualifying | SessionType::SprintQualifying => SessionCategory::Qualifying,
+            SessionType::Practice | SessionType::Warmup => SessionCategory::Practice,
+            SessionType::Other(_) => SessionCategory::Other,
+        }
+    }
 }
 
 impl std::fmt::Display for SessionType {
@@ -240,6 +277,58 @@ impl RaceEvent {
             dt.with_timezone(&chrono::Local).date_naive()
         } else {
             self.start_date
+        }
+    }
+}
+
+/// A specific scheduled session occurrence for display in lists and calendars.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ScheduledSession<'a> {
+    pub event: &'a RaceEvent,
+    pub session_name: String,
+    pub session_type: SessionType,
+    pub start_time: Option<DateTime<Utc>>,
+    pub date: NaiveDate,
+    pub status: EventStatus,
+}
+
+impl<'a> ScheduledSession<'a> {
+    /// Format start time in local time (e.g. " 3:00 PM" or "TBD").
+    pub fn format_local_time(&self) -> String {
+        match self.start_time {
+            Some(t) => t.with_timezone(&chrono::Local).format("%l:%M %p").to_string(),
+            None => "TBD".to_string(),
+        }
+    }
+
+    /// Format start time compact in local time (e.g. "3:00P" or "").
+    pub fn format_local_time_compact(&self) -> String {
+        match self.start_time {
+            Some(t) => {
+                let local = t.with_timezone(&chrono::Local);
+                let hour_min = local.format("%l:%M").to_string().trim().to_string();
+                let am_pm = if local.format("%p").to_string().to_uppercase() == "AM" {
+                    "A"
+                } else {
+                    "P"
+                };
+                format!("{}{}", hour_min, am_pm)
+            }
+            None => String::new(),
+        }
+    }
+
+    /// Full display title (e.g. "Bahrain Grand Prix — Qualifying" or "Bahrain Grand Prix" if main Race).
+    pub fn display_title(&self) -> String {
+        let name_lower = self.session_name.to_lowercase();
+        if name_lower == "race"
+            || name_lower == "grand prix race"
+            || name_lower == "e-prix race"
+            || name_lower == self.event.event_name.to_lowercase()
+        {
+            self.event.event_name.clone()
+        } else {
+            format!("{} — {}", self.event.event_name, self.session_name)
         }
     }
 }

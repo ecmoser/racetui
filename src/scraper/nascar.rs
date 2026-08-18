@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use serde::Deserialize;
 
 use super::fetcher;
@@ -49,9 +49,25 @@ fn parse_nascar_datetime(dt_str: &str) -> Option<DateTime<Utc>> {
 impl SeriesScraper for NascarScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {
         let client = fetcher::create_http_client()?;
-        let races: Vec<NascarRace> = fetcher::fetch_json(&client, &series.calendar_url)
-            .await
-            .with_context(|| format!("Failed to fetch NASCAR data for {}", self.racetui_series_id))?;
+        let current_year = Utc::now().year();
+        let mut races = Vec::new();
+
+        // Query current year and next year
+        for year in current_year..=current_year + 1 {
+            let url = format!(
+                "https://cf.nascar.com/cacher/{}/{}/race_list_basic.json",
+                year, self.nascar_series_id
+            );
+            if let Ok(fetched) = fetcher::fetch_json::<Vec<NascarRace>>(&client, &url).await {
+                races.extend(fetched);
+            }
+        }
+
+        if races.is_empty() {
+            races = fetcher::fetch_json(&client, &series.calendar_url)
+                .await
+                .with_context(|| format!("Failed to fetch NASCAR data for {}", self.racetui_series_id))?;
+        }
 
         let mut events = Vec::new();
         let now_utc = Utc::now();

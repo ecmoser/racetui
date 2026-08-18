@@ -36,7 +36,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                     Cell::from(""),
                 ])
             }
-            ListTableItem::Event(event) => {
+            ListTableItem::Session(session) => {
+                let event = session.event;
                 // Get series color
                 let series_color = app
                     .series_registry
@@ -52,11 +53,11 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                     .unwrap_or(&event.series_id);
 
                 // Format date in local timezone
-                let date_str = event.local_start_date().format("%b %d").to_string();
+                let date_str = session.date.format("%b %d").to_string();
 
                 // Format time in local timezone with live indicator if currently live
-                let raw_time = event.format_local_time();
-                let (time_cell, is_live) = if event.status == EventStatus::Live {
+                let raw_time = session.format_local_time();
+                let (time_cell, is_live) = if session.status == EventStatus::Live {
                     (
                         Cell::from(format!("● {:>8}", raw_time))
                             .style(Style::default().bold().fg(Color::Red)),
@@ -75,12 +76,12 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 let favorite_marker = if is_favorite { "★ " } else { "  " };
 
                 // Status styling
-                let (status_text, status_color) = match &event.status {
+                let (status_text, status_color) = match &session.status {
                     EventStatus::Live => ("● LIVE", Color::Red),
                     EventStatus::Upcoming => {
-                        // Check if event is within notification threshold
-                        if let Some(next_time) = event.next_session_time() {
-                            let hours_until = next_time
+                        // Check if session is within notification threshold
+                        if let Some(start_time) = session.start_time {
+                            let hours_until = start_time
                                 .signed_duration_since(chrono::Utc::now())
                                 .num_hours();
                             if hours_until <= app.config.notification_threshold_hours as i64
@@ -104,7 +105,7 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                     time_cell,
                     Cell::from(format!("{}{}", favorite_marker, series_name))
                         .style(Style::default().fg(series_color)),
-                    Cell::from(event.event_name.as_str()),
+                    Cell::from(session.display_title()),
                     Cell::from(event.circuit_name.as_str()),
                     Cell::from(event.country.as_str()),
                     Cell::from(status_text).style(Style::default().fg(status_color)),

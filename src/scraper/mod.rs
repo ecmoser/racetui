@@ -1,9 +1,20 @@
 pub mod btcc;
+pub mod dtm;
 pub mod f1;
+pub mod f2;
+pub mod f3;
 pub mod fetcher;
+pub mod formula_e;
 pub mod imsa;
 pub mod indycar;
+pub mod json_ld;
+pub mod motogp;
 pub mod nascar;
+pub mod sportstimes;
+pub mod super_formula;
+pub mod super_gt;
+pub mod wec;
+pub mod wrc;
 
 use anyhow::Result;
 
@@ -30,9 +41,21 @@ pub trait SeriesScraper: Send + Sync {
 pub fn get_scraper(series_id: &str) -> Option<Box<dyn SeriesScraperBoxed>> {
     match series_id {
         "f1" => Some(Box::new(f1::F1Scraper)),
+        "f2" => Some(Box::new(f2::F2Scraper)),
+        "f3" => Some(Box::new(f3::F3Scraper)),
+        "formula_e" => Some(Box::new(formula_e::FormulaEScraper)),
         "indycar" => Some(Box::new(indycar::IndyCarScraper)),
         "imsa" => Some(Box::new(imsa::ImsaScraper)),
+        "wec" => Some(Box::new(wec::WecScraper)),
+        "motogp" => Some(Box::new(motogp::MotoGpScraper { category: "motogp" })),
+        "moto2" => Some(Box::new(motogp::MotoGpScraper { category: "moto2" })),
+        "moto3" => Some(Box::new(motogp::MotoGpScraper { category: "moto3" })),
+        "wrc" => Some(Box::new(wrc::WrcScraper)),
+        "wrc2" => Some(Box::new(wrc::WrcScraper)),
         "btcc" => Some(Box::new(btcc::BtccScraper)),
+        "dtm" => Some(Box::new(dtm::DtmScraper)),
+        "super_formula" => Some(Box::new(super_formula::SuperFormulaScraper)),
+        "super_gt" => Some(Box::new(super_gt::SuperGtScraper)),
         "nascar_cup" => Some(Box::new(nascar::NascarScraper {
             nascar_series_id: 1,
             racetui_series_id: "nascar_cup",
@@ -106,9 +129,21 @@ mod tests {
     #[test]
     fn test_get_scraper() {
         assert!(get_scraper("f1").is_some());
+        assert!(get_scraper("f2").is_some());
+        assert!(get_scraper("f3").is_some());
+        assert!(get_scraper("formula_e").is_some());
         assert!(get_scraper("indycar").is_some());
         assert!(get_scraper("imsa").is_some());
+        assert!(get_scraper("wec").is_some());
+        assert!(get_scraper("motogp").is_some());
+        assert!(get_scraper("moto2").is_some());
+        assert!(get_scraper("moto3").is_some());
+        assert!(get_scraper("wrc").is_some());
+        assert!(get_scraper("wrc2").is_some());
         assert!(get_scraper("btcc").is_some());
+        assert!(get_scraper("dtm").is_some());
+        assert!(get_scraper("super_formula").is_some());
+        assert!(get_scraper("super_gt").is_some());
         assert!(get_scraper("nascar_cup").is_some());
         assert!(get_scraper("nascar_xfinity").is_some());
         assert!(get_scraper("nascar_trucks").is_some());

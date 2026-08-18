@@ -2866,7 +2866,7 @@ For each series, create a file in `src/scraper/`:
 
 ---
 
-### Step 19: Implement Remaining Scrapers — F2, F3, Formula E, WEC, MotoGP, WRC, DTM
+### [x] Step 19: Implement Remaining Scrapers — F2, F3, Formula E, WEC, MotoGP, WRC, DTM
 
 **What to do**: Implement scrapers for the remaining series. Research found that most of these have **JSON APIs**, so this step is mostly API consumption, not web scraping.
 
@@ -2927,7 +2927,7 @@ For each series, create a file in `src/scraper/`:
 
 ---
 
-### Step 20: Implement Remaining Scrapers — Super Formula, Super GT
+### [x] Step 20: Implement Remaining Scrapers — Super Formula, Super GT
 
 **What to do**: Implement scrapers for the Japanese series. These sites are likely server-rendered and simpler to scrape.
 

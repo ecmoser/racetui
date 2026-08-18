@@ -23,7 +23,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     let list_items: Vec<ListItem> = events
         .iter()
-        .map(|event| {
+        .map(|session| {
+            let event = session.event;
             let series_color = app
                 .series_registry
                 .get(&event.series_id)
@@ -36,14 +37,14 @@ pub fn draw(frame: &mut Frame, app: &App) {
                 .map(|s| s.short_name.as_str())
                 .unwrap_or(&event.series_id);
 
-            let time_str = event.format_local_time();
+            let time_str = session.format_local_time();
             let is_fav = app.config.favorites.contains(&event.series_id);
             let star = if is_fav { "★" } else { " " };
 
             ListItem::new(Line::from(vec![
                 Span::styled(format!(" {:<9} ", time_str), Style::default().fg(Color::Gray)),
                 Span::styled(format!("{}{:<8} ", star, short_name), Style::default().bold().fg(series_color)),
-                Span::styled(&event.event_name, Style::default().bold().fg(Color::White)),
+                Span::styled(session.display_title(), Style::default().bold().fg(Color::White)),
                 Span::styled(format!(" · {}", event.circuit_name), Style::default().fg(Color::DarkGray)),
             ]))
         })

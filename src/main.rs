@@ -148,7 +148,7 @@ async fn main() -> Result<()> {
             if event_tx.is_closed() {
                 break;
             }
-            if crossterm_event::poll(std::time::Duration::from_millis(50)).unwrap_or(false) {
+            if crossterm_event::poll(std::time::Duration::from_millis(10)).unwrap_or(false) {
                 match crossterm_event::read() {
                     Ok(Event::Key(key)) => {
                         // Only handle key press events (not release/repeat)
@@ -200,29 +200,40 @@ async fn main() -> Result<()> {
             spawn_data_loaders(&mut app, tx.clone(), true);
         }
 
-        // Wait for next event
-        if let Some(event) = rx.recv().await {
-            match event {
-                AppEvent::Key(key) => {
-                    handle_key_event(&mut app, key);
+        // Wait for next event, then drain any pending events to prevent momentum/lag
+        if let Some(mut event) = rx.recv().await {
+            loop {
+                match event {
+                    AppEvent::Key(key) => {
+                        handle_key_event(&mut app, key);
+                    }
+                    AppEvent::Resize(_, _) => {
+                        // Terminal auto-redraws on resize
+                    }
+                    AppEvent::Tick => {
+                        // For countdown timers
+                    }
+                    AppEvent::RefreshRequested => {
+                        spawn_data_loaders(&mut app, tx.clone(), true);
+                    }
+                    AppEvent::SeriesDataFetched { series_id, events } => {
+                        app.update_series_data(series_id, events);
+                    }
+                    AppEvent::FetchError { series_id, error } => {
+                        app.mark_fetch_error(&series_id, error);
+                    }
+                    AppEvent::FetchStarted { series_id } => {
+                        app.mark_fetching(&series_id);
+                    }
                 }
-                AppEvent::Resize(_, _) => {
-                    // Terminal auto-redraws on resize, nothing to do
+
+                if !app.running {
+                    break;
                 }
-                AppEvent::Tick => {
-                    // Will be used for countdown timers later
-                }
-                AppEvent::RefreshRequested => {
-                    spawn_data_loaders(&mut app, tx.clone(), true);
-                }
-                AppEvent::SeriesDataFetched { series_id, events } => {
-                    app.update_series_data(series_id, events);
-                }
-                AppEvent::FetchError { series_id, error } => {
-                    app.mark_fetch_error(&series_id, error);
-                }
-                AppEvent::FetchStarted { series_id } => {
-                    app.mark_fetching(&series_id);
+
+                match rx.try_recv() {
+                    Ok(next_ev) => event = next_ev,
+                    Err(_) => break,
                 }
             }
         }
@@ -332,7 +343,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                     // Find this event in list_table_items to set table_state
                     let items = app.list_table_items();
                     if let Some(idx) = items.iter().position(|item| match item {
-                        app::ListTableItem::Event(e) => e.series_id == event.series_id && e.event_name == event.event_name,
+                        app::ListTableItem::Session(s) => s.event.series_id == event.series_id && s.event.event_name == event.event_name,
                         _ => false,
                     }) {
                         app.table_state.select(Some(idx));
@@ -493,10 +504,10 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                         app.calendar_year
                     ));
                 } else if day_events.len() == 1 {
-                    let event = day_events[0];
+                    let event = day_events[0].event;
                     let items = app.list_table_items();
                     if let Some(idx) = items.iter().position(|item| match item {
-                        app::ListTableItem::Event(e) => e.series_id == event.series_id && e.event_name == event.event_name,
+                        app::ListTableItem::Session(s) => s.event.series_id == event.series_id && s.event.event_name == event.event_name,
                         _ => false,
                     }) {
                         app.table_state.select(Some(idx));
@@ -973,6 +984,88 @@ mod tests {
         let ctrl_c = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL);
         handle_key_event(&mut app, ctrl_c);
         assert!(!app.running);
+    }
+
+    #[test]
+    fn test_2027_schedules_and_session_start_times() {
+        use chrono::Datelike;
+        // Test F1 2027
+        let f1_events = scraper::f1::get_official_2027_f1_schedule("f1");
+        assert_eq!(f1_events.len(), 24);
+        assert!(f1_events.iter().all(|e| e.start_date.year() == 2027));
+        assert!(f1_events.iter().all(|e| !e.sessions.is_empty() && e.sessions.iter().all(|s| s.start_time.is_some())));
+
+        // Test F2 2027
+        let f2_events = scraper::f2::get_official_2027_f2_schedule("f2");
+        assert_eq!(f2_events.len(), 14);
+        assert!(f2_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test F3 2027
+        let f3_events = scraper::f3::get_official_2027_f3_schedule("f3");
+        assert_eq!(f3_events.len(), 10);
+        assert!(f3_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test Formula E 2027
+        let fe_events = scraper::formula_e::get_official_2027_formula_e_schedule("formula_e");
+        assert_eq!(fe_events.len(), 15);
+        assert!(fe_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test IndyCar 2027
+        let indy_events = scraper::indycar::get_official_2027_indycar_schedule("indycar");
+        assert_eq!(indy_events.len(), 18);
+        assert!(indy_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test MotoGP 2027
+        let motogp_events = scraper::motogp::get_official_2027_motogp_schedule("motogp");
+        assert_eq!(motogp_events.len(), 21);
+        assert!(motogp_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test Moto2 & Moto3 2027
+        let moto2_events = scraper::motogp::get_official_2027_motogp_schedule("moto2");
+        assert_eq!(moto2_events.len(), 21);
+        assert_eq!(moto2_events[0].event_name, "Thai Moto2 Grand Prix");
+        assert!(moto2_events[0].sessions.iter().all(|s| s.start_time.is_some()));
+
+        let moto3_events = scraper::motogp::get_official_2027_motogp_schedule("moto3");
+        assert_eq!(moto3_events.len(), 21);
+        assert_eq!(moto3_events[0].event_name, "Thai Moto3 Grand Prix");
+        assert!(moto3_events[0].sessions.iter().all(|s| s.start_time.is_some()));
+
+        // Test IMSA 2027
+        let imsa_events = scraper::imsa::get_official_2027_imsa_schedule("imsa");
+        assert_eq!(imsa_events.len(), 11);
+        assert!(imsa_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test WEC 2027
+        let wec_events = scraper::wec::get_official_2027_wec_schedule("wec");
+        assert_eq!(wec_events.len(), 8);
+        assert!(wec_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test BTCC 2027
+        let btcc_events = scraper::btcc::get_official_2027_btcc_schedule("btcc");
+        assert_eq!(btcc_events.len(), 10);
+        assert!(btcc_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test DTM 2027
+        let dtm_events = scraper::dtm::get_official_2027_dtm_schedule("dtm");
+        assert_eq!(dtm_events.len(), 8);
+        assert!(dtm_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test Super Formula 2027
+        let sf_events = scraper::super_formula::get_official_2027_super_formula_schedule("super_formula");
+        assert_eq!(sf_events.len(), 7);
+        assert!(sf_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test Super GT 2027
+        let sgt_events = scraper::super_gt::get_official_2027_super_gt_schedule("super_gt");
+        assert_eq!(sgt_events.len(), 8);
+        assert!(sgt_events.iter().all(|e| e.start_date.year() == 2027));
+
+        // Test WRC 2027
+        let wrc_events = scraper::wrc::get_official_2027_wrc_schedule("wrc");
+        assert_eq!(wrc_events.len(), 14);
+        assert!(wrc_events.iter().all(|e| e.start_date.year() == 2027));
+        assert!(wrc_events.iter().all(|e| !e.sessions.is_empty() && e.sessions.iter().all(|s| s.start_time.is_some())));
     }
 }
 

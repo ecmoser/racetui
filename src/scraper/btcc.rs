@@ -1,8 +1,10 @@
 use anyhow::Result;
-use chrono::{NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 use scraper::{Html, Selector};
 
-use super::{fetcher, SeriesScraper};
+use super::fetcher;
+use super::json_ld::fetch_json_ld_calendar;
+use super::SeriesScraper;
 use crate::data::models::{
     EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
 };
@@ -11,13 +13,31 @@ pub struct BtccScraper;
 
 impl SeriesScraper for BtccScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {
+        let mut events = Vec::new();
+
         if let Ok(client) = fetcher::create_http_client() {
-            if let Ok(response) = client.get(&series.calendar_url).send().await {
-                if let Ok(html_text) = response.text().await {
-                    if !html_text.contains("Vercel Security Checkpoint") && !html_text.contains("Enable JavaScript to continue") {
-                        if let Ok(events) = parse_btcc_html(&html_text, &series.id) {
-                            if !events.is_empty() {
-                                return Ok(events);
+            // Try live structured web schedule first
+            if let Ok(fetched) = fetch_json_ld_calendar(
+                &client,
+                "https://raceweek.io/btcc",
+                &series.id,
+                &btcc_stream_links(),
+            )
+            .await
+            {
+                if !fetched.is_empty() {
+                    events = fetched;
+                }
+            }
+
+            if events.is_empty() {
+                if let Ok(response) = client.get(&series.calendar_url).send().await {
+                    if let Ok(html_text) = response.text().await {
+                        if !html_text.contains("Vercel Security Checkpoint") && !html_text.contains("Enable JavaScript to continue") {
+                            if let Ok(parsed) = parse_btcc_html(&html_text, &series.id) {
+                                if !parsed.is_empty() {
+                                    events = parsed;
+                                }
                             }
                         }
                     }
@@ -25,8 +45,15 @@ impl SeriesScraper for BtccScraper {
             }
         }
 
-        // Return the official 2026 BTCC calendar
-        Ok(get_official_2026_btcc_schedule(&series.id))
+        if events.is_empty() {
+            events = get_official_2026_btcc_schedule(&series.id);
+        }
+
+        if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+            events.extend(get_official_2027_btcc_schedule(&series.id));
+        }
+
+        Ok(events)
     }
 }
 
@@ -158,27 +185,54 @@ pub fn get_official_2026_btcc_schedule(series_id: &str) -> Vec<RaceEvent> {
     raw_events
         .into_iter()
         .enumerate()
-        .map(|(i, (name, circuit, loc, _start, end))| {
-            let race_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
-            let status = if race_date < today {
+        .map(|(i, (name, circuit, loc, start, end))| {
+            let sat_date = NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap();
+            let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
+
+            let status = if sun_date < today {
                 EventStatus::Completed
-            } else if race_date == today {
+            } else if sat_date <= today && today <= sun_date {
                 EventStatus::Live
             } else {
                 EventStatus::Upcoming
             };
 
+            let quali_time = sat_date
+                .and_hms_opt(14, 0, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race1_time = sun_date
+                .and_hms_opt(10, 30, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race2_time = sun_date
+                .and_hms_opt(13, 15, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race3_time = sun_date
+                .and_hms_opt(16, 15, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+
             let sessions = vec![
                 Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: None,
+                    start_time: quali_time,
                     end_time: None,
                 },
                 Session {
-                    name: "Races 1, 2 & 3".to_string(),
+                    name: "Race 1".to_string(),
                     session_type: SessionType::Race,
-                    start_time: None,
+                    start_time: race1_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Race 2".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race2_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Race 3".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race3_time,
                     end_time: None,
                 },
             ];
@@ -189,12 +243,62 @@ pub fn get_official_2026_btcc_schedule(series_id: &str) -> Vec<RaceEvent> {
                 circuit_name: circuit.to_string(),
                 location: loc.to_string(),
                 country: "UK".to_string(),
-                start_date: race_date,
-                end_date: race_date,
+                start_date: sun_date,
+                end_date: sun_date,
                 round: Some((i + 1) as u32),
                 sessions,
                 stream_links: btcc_stream_links(),
                 status,
+            }
+        })
+        .collect()
+}
+
+pub fn get_official_2027_btcc_schedule(series_id: &str) -> Vec<RaceEvent> {
+    let raw_events = vec![
+        ("Donington Park (National)", "Donington Park (National Circuit)", "Castle Donington", (2027, 4, 24), (2027, 4, 25)),
+        ("Brands Hatch (Indy)", "Brands Hatch (Indy Circuit)", "West Kingsdown", (2027, 5, 8), (2027, 5, 9)),
+        ("Snetterton (300)", "Snetterton Motor Racing Circuit (300)", "Norwich", (2027, 5, 22), (2027, 5, 23)),
+        ("Thruxton", "Thruxton Circuit", "Andover", (2027, 6, 5), (2027, 6, 6)),
+        ("Oulton Park (Island)", "Oulton Park (Island Circuit)", "Little Budworth", (2027, 6, 19), (2027, 6, 20)),
+        ("Croft", "Croft Circuit", "Dalton-on-Tees", (2027, 7, 24), (2027, 7, 25)),
+        ("Knockhill", "Knockhill Racing Circuit", "Fife", (2027, 8, 14), (2027, 8, 15)),
+        ("Donington Park (GP)", "Donington Park (Grand Prix Circuit)", "Castle Donington", (2027, 8, 28), (2027, 8, 29)),
+        ("Silverstone (National)", "Silverstone Circuit (National)", "Silverstone", (2027, 9, 18), (2027, 9, 19)),
+        ("Brands Hatch (GP)", "Brands Hatch (Grand Prix Circuit)", "West Kingsdown", (2027, 10, 2), (2027, 10, 3)),
+    ];
+
+    raw_events
+        .into_iter()
+        .enumerate()
+        .map(|(i, (name, circuit, loc, start, end))| {
+            let sat_date = NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap();
+            let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
+
+            let quali_time = sat_date.and_hms_opt(14, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race1_time = sun_date.and_hms_opt(10, 45, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race2_time = sun_date.and_hms_opt(13, 25, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race3_time = sun_date.and_hms_opt(16, 15, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+
+            let sessions = vec![
+                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
+                Session { name: "Race 1".to_string(), session_type: SessionType::Race, start_time: race1_time, end_time: None },
+                Session { name: "Race 2".to_string(), session_type: SessionType::Race, start_time: race2_time, end_time: None },
+                Session { name: "Race 3".to_string(), session_type: SessionType::Race, start_time: race3_time, end_time: None },
+            ];
+
+            RaceEvent {
+                series_id: series_id.to_string(),
+                event_name: format!("BTCC at {}", name),
+                circuit_name: circuit.to_string(),
+                location: loc.to_string(),
+                country: "UK".to_string(),
+                start_date: sat_date,
+                end_date: sun_date,
+                round: Some((i + 1) as u32),
+                sessions,
+                stream_links: btcc_stream_links(),
+                status: EventStatus::Upcoming,
             }
         })
         .collect()

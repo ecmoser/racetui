@@ -5,9 +5,14 @@ use std::path::PathBuf;
 
 use super::models::RaceEvent;
 
+const CURRENT_CACHE_VERSION: u32 = 2;
+
 /// Metadata stored alongside cached events for a series.
 #[derive(Debug, Serialize, Deserialize)]
 struct CacheEntry {
+    /// Schema/data version
+    #[serde(default)]
+    version: u32,
     /// When this data was fetched
     fetched_at: DateTime<Utc>,
     /// The race events
@@ -30,8 +35,8 @@ fn cache_file_path(series_id: &str) -> Result<PathBuf> {
 }
 
 /// Read cached events for a series.
-/// Returns None if no cache file exists.
-/// Returns Some((events, fetched_at)) if cache exists.
+/// Returns None if no cache file exists or if cache version is outdated.
+/// Returns Some((events, fetched_at)) if cache exists and is current.
 pub fn read_cache(series_id: &str) -> Result<Option<(Vec<RaceEvent>, DateTime<Utc>)>> {
     let path = cache_file_path(series_id)?;
     if !path.exists() {
@@ -41,6 +46,12 @@ pub fn read_cache(series_id: &str) -> Result<Option<(Vec<RaceEvent>, DateTime<Ut
         .with_context(|| format!("Failed to read cache file {}", path.display()))?;
     let entry: CacheEntry = serde_json::from_str(&content)
         .with_context(|| format!("Failed to parse cache file {}", path.display()))?;
+
+    // Invalidate if from an older cache schema version
+    if entry.version < CURRENT_CACHE_VERSION {
+        return Ok(None);
+    }
+
     Ok(Some((entry.events, entry.fetched_at)))
 }
 
@@ -52,6 +63,7 @@ pub fn write_cache(series_id: &str, events: &[RaceEvent]) -> Result<()> {
             .with_context(|| format!("Failed to create cache directory {}", parent.display()))?;
     }
     let entry = CacheEntry {
+        version: CURRENT_CACHE_VERSION,
         fetched_at: Utc::now(),
         events: events.to_vec(),
     };
@@ -128,6 +140,7 @@ mod tests {
         };
 
         let entry = CacheEntry {
+            version: CURRENT_CACHE_VERSION,
             fetched_at: Utc::now(),
             events: vec![event],
         };

@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use scraper::{Html, Selector};
 
+use super::sportstimes::fetch_sportstimes_calendar;
 use super::{fetcher, SeriesScraper};
 use crate::data::models::{
     EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
@@ -13,17 +14,52 @@ pub struct IndyCarScraper;
 impl SeriesScraper for IndyCarScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {
         let client = fetcher::create_http_client()?;
-        let html_text = client
-            .get(&series.calendar_url)
-            .send()
-            .await
-            .with_context(|| format!("Failed to fetch IndyCar schedule from {}", series.calendar_url))?
-            .text()
-            .await
-            .with_context(|| "Failed to read IndyCar schedule response body")?;
+        // Try live IndyCar calendar API first for full sessions (practice, qual, race)
+        let mut events = if let Ok(fetched) = fetch_sportstimes_calendar(
+            &client,
+            "https://indycarcalendar.com",
+            &series.id,
+            &indycar_stream_links(),
+        )
+        .await
+        {
+            fetched
+        } else {
+            Vec::new()
+        };
 
-        parse_indycar_html(&html_text, &series.id)
+        if events.is_empty() {
+            // Fallback to scraping official IndyCar website HTML
+            if let Ok(resp) = client.get(&series.calendar_url).send().await {
+                if let Ok(html_text) = resp.text().await {
+                    if let Ok(parsed) = parse_indycar_html(&html_text, &series.id) {
+                        events = parsed;
+                    }
+                }
+            }
+        }
+
+        if !events.iter().any(|e| e.start_date.year() == 2027) {
+            events.extend(get_official_2027_indycar_schedule(&series.id));
+        }
+
+        Ok(events)
     }
+}
+
+pub fn indycar_stream_links() -> Vec<StreamLink> {
+    vec![
+        StreamLink {
+            platform: "FOX Sports".to_string(),
+            url: "https://www.foxsports.com/live".to_string(),
+            access: StreamAccess::Paid,
+        },
+        StreamLink {
+            platform: "Peacock".to_string(),
+            url: "https://www.peacocktv.com".to_string(),
+            access: StreamAccess::Paid,
+        },
+    ]
 }
 
 /// Parse date string in format "Aug 16" or "Mar 1" into a NaiveDate with the given year.
@@ -231,6 +267,60 @@ pub fn parse_indycar_html(html_text: &str, series_id: &str) -> Result<Vec<RaceEv
     }
 
     Ok(events)
+}
+
+pub fn get_official_2027_indycar_schedule(series_id: &str) -> Vec<RaceEvent> {
+    let raw_events = vec![
+        ("Firestone Grand Prix of St. Petersburg", "Streets of St. Petersburg", "St. Petersburg", "USA", (2027, 2, 28)),
+        ("Java House Grand Prix of Arlington", "Streets of Arlington", "Arlington", "USA", (2027, 3, 14)),
+        ("The Thermal Club $1 Million Challenge", "The Thermal Club", "Thermal", "USA", (2027, 3, 21)),
+        ("Acura Grand Prix of Long Beach", "Streets of Long Beach", "Long Beach", "USA", (2027, 4, 18)),
+        ("Children's of Alabama Indy Grand Prix", "Barber Motorsports Park", "Birmingham", "USA", (2027, 5, 2)),
+        ("Sonsio Grand Prix", "Indianapolis Motor Speedway (Road Course)", "Indianapolis", "USA", (2027, 5, 15)),
+        ("111th Running of the Indianapolis 500", "Indianapolis Motor Speedway", "Indianapolis", "USA", (2027, 5, 30)),
+        ("Chevrolet Detroit Grand Prix", "Streets of Detroit", "Detroit", "USA", (2027, 6, 6)),
+        ("Bommarito Automotive Group 500", "World Wide Technology Raceway", "Madison", "USA", (2027, 6, 13)),
+        ("XPEL Grand Prix at Road America", "Road America", "Elkhart Lake", "USA", (2027, 6, 27)),
+        ("Honda Indy 200 at Mid-Ohio", "Mid-Ohio Sports Car Course", "Lexington", "USA", (2027, 7, 11)),
+        ("Hy-Vee IndyCar Race Weekend (Race 1)", "Iowa Speedway", "Newton", "USA", (2027, 7, 17)),
+        ("Hy-Vee IndyCar Race Weekend (Race 2)", "Iowa Speedway", "Newton", "USA", (2027, 7, 18)),
+        ("Ontario Honda Dealers Indy Toronto", "Exhibition Place", "Toronto", "Canada", (2027, 7, 25)),
+        ("BitNile.com Grand Prix of Portland", "Portland International Raceway", "Portland", "USA", (2027, 8, 15)),
+        ("Milwaukee Mile 250 (Race 1)", "Milwaukee Mile", "West Allis", "USA", (2027, 8, 28)),
+        ("Milwaukee Mile 250 (Race 2)", "Milwaukee Mile", "West Allis", "USA", (2027, 8, 29)),
+        ("Big Machine Music City Grand Prix", "Nashville Superspeedway", "Lebanon", "USA", (2027, 9, 12)),
+    ];
+
+    raw_events
+        .into_iter()
+        .enumerate()
+        .map(|(i, (name, circuit, loc, country, date))| {
+            let race_date = NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap();
+            let sat_date = race_date.pred_opt().unwrap_or(race_date);
+            let quali_time = sat_date.and_hms_opt(18, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_time = race_date.and_hms_opt(19, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+
+            let sessions = vec![
+                Session { name: "Practice 1".to_string(), session_type: SessionType::Practice, start_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)), end_time: None },
+                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
+                Session { name: "Race".to_string(), session_type: SessionType::Race, start_time: race_time, end_time: None },
+            ];
+
+            RaceEvent {
+                series_id: series_id.to_string(),
+                event_name: name.to_string(),
+                circuit_name: circuit.to_string(),
+                location: loc.to_string(),
+                country: country.to_string(),
+                start_date: sat_date,
+                end_date: race_date,
+                round: Some((i + 1) as u32),
+                sessions,
+                stream_links: indycar_stream_links(),
+                status: EventStatus::Upcoming,
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]

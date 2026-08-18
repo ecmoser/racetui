@@ -4,7 +4,9 @@ use chrono::Datelike;
 use ratatui::widgets::{ListState, TableState};
 
 use crate::config::UserConfig;
-use crate::data::models::{EventStatus, FetchStatus, RaceEvent, Series};
+use crate::data::models::{
+    EventStatus, FetchStatus, RaceEvent, ScheduledSession, Series, SessionCategory, SessionType,
+};
 
 /// Which view the user is currently looking at.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +20,7 @@ pub enum ViewMode {
 pub struct ActiveFilters {
     pub favorites_only: bool,
     pub statuses: HashSet<EventStatus>,
+    pub session_categories: HashSet<SessionCategory>,
     pub car_styles: HashSet<String>,
     pub regions: HashSet<String>,
     pub series: HashSet<String>,
@@ -28,9 +31,15 @@ impl Default for ActiveFilters {
         let mut statuses = HashSet::new();
         statuses.insert(EventStatus::Upcoming);
         statuses.insert(EventStatus::Live);
+        let mut session_categories = HashSet::new();
+        session_categories.insert(SessionCategory::Race);
+        session_categories.insert(SessionCategory::Qualifying);
+        session_categories.insert(SessionCategory::Practice);
+        session_categories.insert(SessionCategory::Other);
         Self {
             favorites_only: false,
             statuses,
+            session_categories,
             car_styles: HashSet::new(),
             regions: HashSet::new(),
             series: HashSet::new(),
@@ -39,18 +48,19 @@ impl Default for ActiveFilters {
 }
 
 impl ActiveFilters {
-    /// Returns true if active filters match the default state (Upcoming + Live, no category filters).
+    /// Returns true if active filters match the default state (Upcoming + Live, all session types, no category filters).
     pub fn is_default(&self) -> bool {
         !self.favorites_only
             && self.car_styles.is_empty()
             && self.regions.is_empty()
             && self.series.is_empty()
+            && self.session_categories.len() == 4
             && self.statuses.len() == 2
             && self.statuses.contains(&EventStatus::Upcoming)
             && self.statuses.contains(&EventStatus::Live)
     }
 
-    /// Reset filters back to default state (Upcoming + Live, no category filters).
+    /// Reset filters back to default state (Upcoming + Live, all session types, no category filters).
     pub fn reset_to_default(&mut self) {
         *self = Self::default();
     }
@@ -62,6 +72,7 @@ pub enum FilterOption {
     All,
     Favorites,
     Status(EventStatus),
+    SessionCategory(SessionCategory),
     CarStyle(String),
     Region(String),
     Series(String),
@@ -77,11 +88,11 @@ pub enum FilterItem {
     },
 }
 
-/// Item in the main list table (day section header or race event entry)
+/// Item in the main list table (day section header or scheduled session entry)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ListTableItem<'a> {
     Header(chrono::NaiveDate),
-    Event(&'a RaceEvent),
+    Session(ScheduledSession<'a>),
 }
 
 /// All application state lives here.
@@ -232,6 +243,20 @@ impl App {
             option: FilterOption::Status(EventStatus::Completed),
         });
 
+        // ── Session Types ──
+        items.push(FilterItem::Header("── Session Types ──"));
+        for cat in [
+            SessionCategory::Race,
+            SessionCategory::Qualifying,
+            SessionCategory::Practice,
+            SessionCategory::Other,
+        ] {
+            items.push(FilterItem::Entry {
+                label: cat.to_string(),
+                option: FilterOption::SessionCategory(cat),
+            });
+        }
+
         // ── Car Style ──
         items.push(FilterItem::Header("── Car Style ──"));
         for style in &[
@@ -285,6 +310,7 @@ impl App {
             FilterOption::All => self.active_filters.is_default(),
             FilterOption::Favorites => self.active_filters.favorites_only,
             FilterOption::Status(status) => self.active_filters.statuses.contains(status),
+            FilterOption::SessionCategory(cat) => self.active_filters.session_categories.contains(cat),
             FilterOption::CarStyle(style) => self.active_filters.car_styles.contains(style),
             FilterOption::Region(region) => self.active_filters.regions.contains(region),
             FilterOption::Series(series_id) => self.active_filters.series.contains(series_id),
@@ -303,6 +329,11 @@ impl App {
             FilterOption::Status(status) => {
                 if !self.active_filters.statuses.remove(status) {
                     self.active_filters.statuses.insert(status.clone());
+                }
+            }
+            FilterOption::SessionCategory(cat) => {
+                if !self.active_filters.session_categories.remove(cat) {
+                    self.active_filters.session_categories.insert(*cat);
                 }
             }
             FilterOption::CarStyle(style) => {
@@ -375,114 +406,182 @@ impl App {
         self.filter_list_state.select(Some(prev));
     }
 
-    /// Get a flat, sorted list of all race events that match the current filters.
-    /// Sorted by start_date ascending (soonest first).
-    pub fn filtered_events(&self) -> Vec<&RaceEvent> {
-        let mut events: Vec<&RaceEvent> = self
-            .events
-            .values()
-            .flatten()
-            .filter(|event| {
-                // Don't show events from hidden series
-                if self.config.hidden_series.contains(&event.series_id) {
-                    return false;
-                }
-
-                // Check status filter (only applies in List view)
-                if self.view_mode == ViewMode::List && !self.active_filters.statuses.contains(&event.status) {
-                    return false;
-                }
-
-                // Check favorites filter
-                if self.active_filters.favorites_only && !self.config.favorites.contains(&event.series_id) {
-                    return false;
-                }
-
-                // Check series filter
-                if !self.active_filters.series.is_empty() && !self.active_filters.series.contains(&event.series_id) {
-                    return false;
-                }
-
-                // Check car style filter
-                if !self.active_filters.car_styles.is_empty() {
-                    let matches_style = self
-                        .series_registry
-                        .get(&event.series_id)
-                        .map_or(false, |s| self.active_filters.car_styles.contains(s.car_style.as_str()));
-                    if !matches_style {
-                        return false;
-                    }
-                }
-
-                // Check region filter
-                if !self.active_filters.regions.is_empty() {
-                    let matches_region = self
-                        .series_registry
-                        .get(&event.series_id)
-                        .map_or(false, |s| self.active_filters.regions.contains(&s.region));
-                    if !matches_region {
-                        return false;
-                    }
-                }
-
-                true
-            })
-            .filter(|event| {
-                // Apply search filter
-                if let Some(query) = &self.search_query {
-                    let q = query.to_lowercase();
-                    event.event_name.to_lowercase().contains(&q)
-                        || event.circuit_name.to_lowercase().contains(&q)
-                        || event.country.to_lowercase().contains(&q)
-                        || event.location.to_lowercase().contains(&q)
-                        || event.series_id.to_lowercase().contains(&q)
-                        || self
-                            .series_registry
-                            .get(&event.series_id)
-                            .map_or(false, |s| {
-                                s.name.to_lowercase().contains(&q)
-                                    || s.short_name.to_lowercase().contains(&q)
-                            })
+    /// Get all scheduled session occurrences across all series.
+    pub fn all_scheduled_sessions(&self) -> Vec<ScheduledSession<'_>> {
+        let mut all = Vec::new();
+        let now = chrono::Utc::now();
+        for events in self.events.values() {
+            for event in events {
+                if event.sessions.is_empty() {
+                    let date = event.local_start_date();
+                    all.push(ScheduledSession {
+                        event,
+                        session_name: "Race".to_string(),
+                        session_type: SessionType::Race,
+                        start_time: event.race_start_time(),
+                        date,
+                        status: event.status.clone(),
+                    });
                 } else {
-                    true
+                    for session in &event.sessions {
+                        let date = if let Some(st) = session.start_time {
+                            st.with_timezone(&chrono::Local).date_naive()
+                        } else {
+                            event.local_start_date()
+                        };
+                        let status = if let Some(st) = session.start_time {
+                            let end = session.end_time.unwrap_or(st + chrono::Duration::hours(2));
+                            if event.status == EventStatus::Completed {
+                                EventStatus::Completed
+                            } else if event.status == EventStatus::Live || (st <= now && now <= end) {
+                                EventStatus::Live
+                            } else if now > end {
+                                EventStatus::Completed
+                            } else {
+                                EventStatus::Upcoming
+                            }
+                        } else {
+                            event.status.clone()
+                        };
+                        all.push(ScheduledSession {
+                            event,
+                            session_name: session.name.clone(),
+                            session_type: session.session_type.clone(),
+                            start_time: session.start_time,
+                            date,
+                            status,
+                        });
+                    }
                 }
-            })
-            .collect();
+            }
+        }
+        all
+    }
 
-        // Sort chronologically by date, then known times before TBD, then actual UTC start time, then series_id & event_name
-        events.sort_by_key(|e| {
-            let local_date = e.local_start_date();
-            let is_undetermined = if e.race_start_time().is_some() { 0 } else { 1 };
-            let start_utc = e.race_start_time();
-            (local_date, is_undetermined, start_utc, e.series_id.clone(), e.event_name.clone())
+    /// Get a flat, sorted list of all scheduled sessions matching current filters.
+    pub fn filtered_sessions(&self) -> Vec<ScheduledSession<'_>> {
+        let mut sessions = self.all_scheduled_sessions();
+
+        // 1. Hidden series check
+        sessions.retain(|s| !self.config.hidden_series.contains(&s.event.series_id));
+
+        // 2. Status filter (only applies in List view)
+        if self.view_mode == ViewMode::List && !self.active_filters.statuses.is_empty() {
+            sessions.retain(|s| self.active_filters.statuses.contains(&s.status));
+        }
+
+        // 3. Session category filter
+        if !self.active_filters.session_categories.is_empty() {
+            sessions.retain(|s| {
+                self.active_filters
+                    .session_categories
+                    .contains(&s.session_type.category())
+            });
+        }
+
+        // 4. Favorites filter
+        if self.active_filters.favorites_only {
+            sessions.retain(|s| self.config.favorites.contains(&s.event.series_id));
+        }
+
+        // 5. Series multi-select filter
+        if !self.active_filters.series.is_empty() {
+            sessions.retain(|s| self.active_filters.series.contains(&s.event.series_id));
+        }
+
+        // 6. Car style multi-select filter
+        if !self.active_filters.car_styles.is_empty() {
+            sessions.retain(|s| {
+                self.series_registry
+                    .get(&s.event.series_id)
+                    .map_or(false, |ser| {
+                        self.active_filters.car_styles.contains(ser.car_style.as_str())
+                    })
+            });
+        }
+
+        // 7. Region multi-select filter
+        if !self.active_filters.regions.is_empty() {
+            sessions.retain(|s| {
+                self.series_registry
+                    .get(&s.event.series_id)
+                    .map_or(false, |ser| self.active_filters.regions.contains(&ser.region))
+            });
+        }
+
+        // 8. Text search filter
+        if let Some(ref query) = self.search_query {
+            let q = query.to_lowercase();
+            sessions.retain(|s| {
+                s.event.event_name.to_lowercase().contains(&q)
+                    || s.session_name.to_lowercase().contains(&q)
+                    || s.event.circuit_name.to_lowercase().contains(&q)
+                    || s.event.location.to_lowercase().contains(&q)
+                    || s.event.country.to_lowercase().contains(&q)
+                    || s.event.series_id.to_lowercase().contains(&q)
+                    || self
+                        .series_registry
+                        .get(&s.event.series_id)
+                        .map_or(false, |ser| {
+                            ser.name.to_lowercase().contains(&q)
+                                || ser.short_name.to_lowercase().contains(&q)
+                        })
+            });
+        }
+
+        // 9. Chronological sort by date, then known times before TBD, then start_time, then series & round
+        sessions.sort_by_key(|s| {
+            let is_undetermined = if s.start_time.is_some() { 0 } else { 1 };
+            (
+                s.date,
+                is_undetermined,
+                s.start_time,
+                s.event.series_id.clone(),
+                s.event.round,
+                s.session_name.clone(),
+            )
         });
 
+        sessions
+    }
+
+    /// Get a flat, sorted list of all race events that match the current filters.
+    pub fn filtered_events(&self) -> Vec<&RaceEvent> {
+        let sessions = self.filtered_sessions();
+        let mut seen = HashSet::new();
+        let mut events = Vec::new();
+        for s in sessions {
+            let key = (&s.event.series_id, &s.event.event_name, s.event.round);
+            if seen.insert(key) {
+                events.push(s.event);
+            }
+        }
         events
     }
 
-    /// Build the list of table items (blank day separators and race event entries)
+    /// Build the list of table items (blank day separators and scheduled session entries)
     pub fn list_table_items(&self) -> Vec<ListTableItem<'_>> {
-        let events = self.filtered_events();
+        let sessions = self.filtered_sessions();
         let mut items = Vec::new();
         let mut current_date: Option<chrono::NaiveDate> = None;
 
-        for event in events {
-            let event_date = event.local_start_date();
+        for session in sessions {
+            let session_date = session.date;
             if let Some(prev_date) = current_date {
-                if prev_date != event_date {
-                    current_date = Some(event_date);
-                    items.push(ListTableItem::Header(event_date));
+                if prev_date != session_date {
+                    current_date = Some(session_date);
+                    items.push(ListTableItem::Header(session_date));
                 }
             } else {
-                current_date = Some(event_date);
+                current_date = Some(session_date);
             }
-            items.push(ListTableItem::Event(event));
+            items.push(ListTableItem::Session(session));
         }
 
         items
     }
 
-    /// Select the next event in the table (skips headers, wraps around).
+    /// Select the next session entry in the table (skips headers, wraps around).
     pub fn select_next(&mut self) {
         let items = self.list_table_items();
         if items.is_empty() {
@@ -498,12 +597,12 @@ impl App {
                 break;
             }
         }
-        if matches!(items.get(next), Some(ListTableItem::Event(_))) {
+        if matches!(items.get(next), Some(ListTableItem::Session(_))) {
             self.table_state.select(Some(next));
         }
     }
 
-    /// Select the previous event in the table (skips headers, wraps around).
+    /// Select the previous session entry in the table (skips headers, wraps around).
     pub fn select_previous(&mut self) {
         let items = self.list_table_items();
         if items.is_empty() {
@@ -519,39 +618,44 @@ impl App {
                 break;
             }
         }
-        if matches!(items.get(prev), Some(ListTableItem::Event(_))) {
+        if matches!(items.get(prev), Some(ListTableItem::Session(_))) {
             self.table_state.select(Some(prev));
         }
     }
 
-    /// Get the currently selected race event, if any.
-    pub fn selected_event(&self) -> Option<&RaceEvent> {
+    /// Get the currently selected scheduled session, if any.
+    pub fn selected_session(&self) -> Option<ScheduledSession<'_>> {
         let items = self.list_table_items();
         if items.is_empty() {
             return None;
         }
 
         if let Some(index) = self.table_state.selected() {
-            if let Some(ListTableItem::Event(event)) = items.get(index) {
-                return Some(*event);
+            if let Some(ListTableItem::Session(session)) = items.get(index) {
+                return Some(session.clone());
             }
         }
 
-        // If selection is None or pointing to a header, fallback to first event
+        // If selection is None or pointing to a header, fallback to first session
         for (_idx, item) in items.iter().enumerate() {
-            if let ListTableItem::Event(event) = item {
-                return Some(*event);
+            if let ListTableItem::Session(session) = item {
+                return Some(session.clone());
             }
         }
 
         None
     }
 
-    /// Select the first event row in the table (skipping any initial header).
+    /// Get the currently selected race event, if any.
+    pub fn selected_event(&self) -> Option<&RaceEvent> {
+        self.selected_session().map(|s| s.event)
+    }
+
+    /// Select the first session row in the table (skipping any initial header).
     pub fn select_first_event(&mut self) {
         let items = self.list_table_items();
         for (idx, item) in items.iter().enumerate() {
-            if let ListTableItem::Event(_) = item {
+            if let ListTableItem::Session(_) = item {
                 self.table_state.select(Some(idx));
                 return;
             }
@@ -693,23 +797,14 @@ impl App {
         self.calendar_selected_day = now.day();
     }
 
-    /// Get all events on a specific date, sorted chronologically with TBD at the bottom.
-    pub fn events_on_date(&self, date: chrono::NaiveDate) -> Vec<&RaceEvent> {
-        let events = self.filtered_events();
-        let mut day_events: Vec<_> = events
-            .into_iter()
-            .filter(|e| e.local_start_date() == date || (e.start_date <= date && date <= e.end_date))
-            .collect();
-        day_events.sort_by_key(|e| {
-            let is_undetermined = if e.race_start_time().is_some() { 0 } else { 1 };
-            let start_utc = e.race_start_time();
-            (is_undetermined, start_utc, e.series_id.clone(), e.event_name.clone())
-        });
-        day_events
+    /// Get all scheduled sessions on a specific date, sorted chronologically with TBD at the bottom.
+    pub fn events_on_date(&self, date: chrono::NaiveDate) -> Vec<ScheduledSession<'_>> {
+        let sessions = self.filtered_sessions();
+        sessions.into_iter().filter(|s| s.date == date).collect()
     }
 
-    /// Get all events on the currently selected calendar day.
-    pub fn events_on_selected_calendar_day(&self) -> Vec<&RaceEvent> {
+    /// Get all scheduled sessions on the currently selected calendar day.
+    pub fn events_on_selected_calendar_day(&self) -> Vec<ScheduledSession<'_>> {
         if let Some(date) = chrono::NaiveDate::from_ymd_opt(
             self.calendar_year,
             self.calendar_month,
@@ -721,7 +816,7 @@ impl App {
         }
     }
 
-    /// Select next event in day events popup
+    /// Select next session in day events popup
     pub fn day_events_select_next(&mut self) {
         let count = self.events_on_selected_calendar_day().len();
         if count == 0 {
@@ -732,7 +827,7 @@ impl App {
         self.day_events_state.select(Some(next));
     }
 
-    /// Select previous event in day events popup
+    /// Select previous session in day events popup
     pub fn day_events_select_prev(&mut self) {
         let count = self.events_on_selected_calendar_day().len();
         if count == 0 {
@@ -745,9 +840,9 @@ impl App {
 
     /// Get currently selected event in day events popup
     pub fn selected_day_event(&self) -> Option<&RaceEvent> {
-        let events = self.events_on_selected_calendar_day();
+        let sessions = self.events_on_selected_calendar_day();
         let idx = self.day_events_state.selected()?;
-        events.get(idx).copied()
+        sessions.get(idx).map(|s| s.event)
     }
 }
 
@@ -854,31 +949,31 @@ mod tests {
 
         let mut app = App::new(registry, UserConfig::default());
 
-        let mut ev_7pm = mock_event("nascar", "NASCAR 7PM", (2026, 5, 24));
+        let mut ev_7pm = mock_event("nascar", "NASCAR 7PM", (2027, 5, 24));
         ev_7pm.sessions = vec![crate::data::models::Session {
             name: "Race".to_string(),
             session_type: crate::data::models::SessionType::Race,
-            start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 5, 24, 23, 0, 0).unwrap()), // 7 PM EDT
+            start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 5, 24, 23, 0, 0).unwrap()), // 7 PM EDT
             end_time: None,
         }];
 
-        let mut ev_12pm = mock_event("indycar", "IndyCar 12PM", (2026, 5, 24));
+        let mut ev_12pm = mock_event("indycar", "IndyCar 12PM", (2027, 5, 24));
         ev_12pm.sessions = vec![crate::data::models::Session {
             name: "Race".to_string(),
             session_type: crate::data::models::SessionType::Race,
-            start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 5, 24, 16, 0, 0).unwrap()), // 12 PM EDT
+            start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 5, 24, 16, 0, 0).unwrap()), // 12 PM EDT
             end_time: None,
         }];
 
-        let mut ev_230pm = mock_event("f1", "F1 2:30PM", (2026, 5, 24));
+        let mut ev_230pm = mock_event("f1", "F1 2:30PM", (2027, 5, 24));
         ev_230pm.sessions = vec![crate::data::models::Session {
             name: "Race".to_string(),
             session_type: crate::data::models::SessionType::Race,
-            start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 5, 24, 18, 30, 0).unwrap()), // 2:30 PM EDT
+            start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 5, 24, 18, 30, 0).unwrap()), // 2:30 PM EDT
             end_time: None,
         }];
 
-        let ev_tbd = mock_event("nascar", "NASCAR TBD", (2026, 5, 24)); // No sessions (TBD)
+        let ev_tbd = mock_event("nascar", "NASCAR TBD", (2027, 5, 24)); // No sessions (TBD)
 
         app.update_series_data("nascar".to_string(), vec![ev_7pm, ev_tbd]);
         app.update_series_data("indycar".to_string(), vec![ev_12pm]);
@@ -961,6 +1056,54 @@ mod tests {
         app.reset_filters();
         assert_eq!(app.filtered_events().len(), 2);
         assert!(app.active_filters.is_default());
+    }
+
+    #[test]
+    fn test_session_type_filtering() {
+        let mut registry = HashMap::new();
+        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+
+        let mut app = App::new(registry, UserConfig::default());
+        let mut event = mock_event("f1", "Bahrain GP", (2027, 3, 1));
+        event.sessions = vec![
+            crate::data::models::Session {
+                name: "Practice 1".to_string(),
+                session_type: crate::data::models::SessionType::Practice,
+                start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 2, 27, 11, 30, 0).unwrap()),
+                end_time: None,
+            },
+            crate::data::models::Session {
+                name: "Qualifying".to_string(),
+                session_type: crate::data::models::SessionType::Qualifying,
+                start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 2, 28, 15, 0, 0).unwrap()),
+                end_time: None,
+            },
+            crate::data::models::Session {
+                name: "Race".to_string(),
+                session_type: crate::data::models::SessionType::Race,
+                start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 3, 1, 15, 0, 0).unwrap()),
+                end_time: None,
+            },
+        ];
+        app.update_series_data("f1".to_string(), vec![event]);
+
+        // Default: all 3 sessions are shown
+        assert_eq!(app.filtered_sessions().len(), 3);
+
+        // Toggle Practice off: only Qualifying and Race remain (2 sessions)
+        app.toggle_filter_option(&FilterOption::SessionCategory(SessionCategory::Practice));
+        assert_eq!(app.filtered_sessions().len(), 2);
+        assert_eq!(app.filtered_sessions()[0].session_name, "Qualifying");
+        assert_eq!(app.filtered_sessions()[1].session_name, "Race");
+
+        // Toggle Qualifying off: only Race remains (1 session)
+        app.toggle_filter_option(&FilterOption::SessionCategory(SessionCategory::Qualifying));
+        assert_eq!(app.filtered_sessions().len(), 1);
+        assert_eq!(app.filtered_sessions()[0].session_name, "Race");
+
+        // Reset filters: all 3 sessions return
+        app.reset_filters();
+        assert_eq!(app.filtered_sessions().len(), 3);
     }
 
     fn filtered_name(app: &App, idx: usize) -> String {

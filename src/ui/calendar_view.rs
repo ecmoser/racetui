@@ -155,7 +155,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 day_events.len()
             };
 
-            for event in day_events.iter().take(display_count) {
+            for session in day_events.iter().take(display_count) {
+                let event = session.event;
                 let series_color = app
                     .series_registry
                     .get(&event.series_id)
@@ -170,12 +171,12 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
                 let is_fav = app.config.favorites.contains(&event.series_id);
                 let star = if is_fav { "★" } else { " " };
-                let compact_time = event.format_local_time_compact();
+                let compact_time = session.format_local_time_compact();
 
                 let mut spans = Vec::new();
 
                 // Live red dot indicator
-                if event.status == EventStatus::Live {
+                if session.status == EventStatus::Live {
                     spans.push(Span::styled("● ", Style::default().bold().fg(Color::Red)));
                 }
 
