@@ -49,9 +49,21 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         .filter(|s| matches!(s, FetchStatus::Error(_)))
         .count();
 
+    let live_sessions = app.get_live_sessions();
     let notifications = app.get_notifications();
     let (status_text, status_color) = if let Some(ref msg) = app.status_message {
         (msg.clone(), Color::White)
+    } else if !live_sessions.is_empty() {
+        let live_desc: Vec<String> = live_sessions
+            .iter()
+            .map(|(_, short_name, session_name)| format!("{}: {}", short_name, session_name))
+            .collect();
+        let desc = live_desc.join(", ");
+        if app.live_blink_on {
+            (format!("● LIVE: {} ", desc), Color::Red)
+        } else {
+            (format!("  LIVE: {} ", desc), Color::Yellow)
+        }
     } else if !notifications.is_empty() {
         let idx = app.notification_cycle_index % notifications.len();
         (format!("{} ", notifications[idx]), Color::Yellow)
@@ -90,4 +102,70 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         .alignment(Alignment::Right);
 
     frame.render_widget(status_widget, chunks[1]);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::UserConfig;
+    use crate::data::models::{CarStyle, EventStatus, RaceEvent, Series, Session, SessionType};
+    use chrono::{NaiveDate, Utc};
+    use ratatui::backend::TestBackend;
+    use std::collections::HashMap;
+
+    #[test]
+    fn test_draw_status_bar_live_indicator() {
+        let backend = TestBackend::new(120, 2);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "Global".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, UserConfig::default());
+        let now = Utc::now();
+        let live_event = RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Bahrain GP".to_string(),
+            circuit_name: "Bahrain".to_string(),
+            location: "Sakhir".to_string(),
+            country: "Bahrain".to_string(),
+            start_date: NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            end_date: NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            round: Some(1),
+            sessions: vec![Session {
+                name: "Grand Prix".to_string(),
+                session_type: SessionType::Race,
+                start_time: Some(now - chrono::Duration::minutes(30)),
+                end_time: Some(now + chrono::Duration::minutes(90)),
+            }],
+            stream_links: vec![],
+            status: EventStatus::Live,
+        };
+
+        app.update_series_data("f1".to_string(), vec![live_event]);
+        app.live_blink_on = true;
+
+        terminal
+            .draw(|f| {
+                let area = f.area();
+                draw(f, &app, area);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("LIVE: F1: Grand Prix"));
+    }
 }

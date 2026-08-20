@@ -562,6 +562,10 @@ async fn main() -> Result<()> {
                     }
                     AppEvent::Tick => {
                         app.tick_count += 1;
+                        // Toggle live session blinking every 2 ticks
+                        if app.tick_count % 2 == 0 {
+                            app.live_blink_on = !app.live_blink_on;
+                        }
                         // Cycle notifications every 3 seconds
                         if app.tick_count % 3 == 0 {
                             let notification_count = app.get_notifications().len();

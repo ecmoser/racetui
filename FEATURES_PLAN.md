@@ -870,7 +870,7 @@ For each series: implement the traits following F1/NASCAR patterns. For series w
 
 ---
 
-### [ ] Step 14: Add 🏁 results indicator in list and calendar views
+### [x] Step 14: Add 🏁 results indicator in list and calendar views
 
 **What to do**: When a completed event has results available, show `🏁` next to the event name in both views.
 
@@ -884,7 +884,7 @@ Check `event.status == Completed && event.round.map_or(false, |r| app.results.co
 
 ---
 
-### [ ] Step 15: Add global LIVE session indicator in status bar
+### [x] Step 15: Add global LIVE session indicator in status bar
 
 **What to do**: Add an animated/blinking "🔴 LIVE" indicator in the status bar across all views when any session is live.
 
