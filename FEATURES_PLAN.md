@@ -628,7 +628,7 @@ pub enum LiveSubTab {
 
 ---
 
-### [ ] Step 5: Update AppEvent enum for standings and results
+### [x] Step 5: Update AppEvent enum for standings and results
 
 **What to do**: Add new variants to the `AppEvent` enum for receiving standings data and race results from background fetch tasks.
 

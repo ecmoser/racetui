@@ -297,6 +297,34 @@ async fn main() -> Result<()> {
                     AppEvent::FetchStarted { series_id } => {
                         app.mark_fetching(&series_id);
                     }
+                    AppEvent::StandingsFetched {
+                        series_id,
+                        standings,
+                    } => {
+                        app.standings.insert(series_id, standings);
+                    }
+                    AppEvent::StandingsFetchError { series_id, error } => {
+                        tracing::warn!("Failed to fetch standings for {}: {}", series_id, error);
+                    }
+                    AppEvent::ResultsFetched {
+                        series_id,
+                        round,
+                        results,
+                    } => {
+                        app.results.insert((series_id, round), results);
+                    }
+                    AppEvent::ResultsFetchError {
+                        series_id,
+                        round,
+                        error,
+                    } => {
+                        tracing::warn!(
+                            "Failed to fetch results for {} round {}: {}",
+                            series_id,
+                            round,
+                            error
+                        );
+                    }
                 }
 
                 if !app.running {
