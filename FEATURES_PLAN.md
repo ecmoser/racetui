@@ -898,7 +898,7 @@ Check `event.status == Completed && event.round.map_or(false, |r| app.results.co
 
 ---
 
-### [ ] Step 16: Update help popup with new keybindings
+### [x] Step 16: Update help popup with new keybindings
 
 **What to do**: Update `src/ui/help.rs` with View Switching and Standings View keybinding sections. Remove old `Tab` entry.
 

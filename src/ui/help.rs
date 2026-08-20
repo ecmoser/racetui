@@ -6,8 +6,8 @@ use crate::app::App;
 /// Draw the help popup showing all keybindings.
 pub fn draw(frame: &mut Frame, _app: &App) {
     let area = frame.area();
-    let popup_width = (area.width * 55 / 100).max(52).min(area.width);
-    let popup_height = (area.height * 85 / 100).max(22).min(area.height);
+    let popup_width = (area.width * 60 / 100).max(56).min(area.width);
+    let popup_height = (area.height * 90 / 100).max(24).min(area.height);
     let popup_x = (area.width.saturating_sub(popup_width)) / 2;
     let popup_y = (area.height.saturating_sub(popup_height)) / 2;
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
@@ -16,6 +16,51 @@ pub fn draw(frame: &mut Frame, _app: &App) {
     frame.render_widget(Clear, popup_area);
 
     let mut lines: Vec<Line> = Vec::new();
+
+    // ── Views ──
+    lines.push(Line::from(vec![Span::styled(
+        " ── Views ──",
+        Style::default().bold().fg(Color::Cyan),
+    )]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   1                 ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "List View (All sessions)",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   2                 ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Calendar View (Monthly grid)",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   3                 ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled("Live Timing View", Style::default().fg(Color::White)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   4                 ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Standings View (Driver & Constructor)",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+
+    lines.push(Line::from(""));
 
     // ── Navigation ──
     lines.push(Line::from(vec![Span::styled(
@@ -76,18 +121,45 @@ pub fn draw(frame: &mut Frame, _app: &App) {
         ),
         Span::styled("Jump to today", Style::default().fg(Color::White)),
     ]));
+
+    lines.push(Line::from(""));
+
+    // ── Detail & Standings ──
+    lines.push(Line::from(vec![Span::styled(
+        " ── Detail View & Popups ──",
+        Style::default().bold().fg(Color::Cyan),
+    )]));
     lines.push(Line::from(vec![
         Span::styled(
-            "   1 / 2 / 3 / 4     ",
+            "   Tab / h, l        ",
             Style::default().bold().fg(Color::Yellow),
         ),
         Span::styled(
-            "Switch view (1:List, 2:Calendar, 3:Live, 4:Standings)",
+            "Switch detail tabs (Race, Qual, Sprint, Sched)",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   1 - 5             ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Select detail tab directly",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   o / O             ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Open stream link in default browser",
             Style::default().fg(Color::White),
         ),
     ]));
 
-    // Separator
     lines.push(Line::from(""));
 
     // ── Actions ──
@@ -100,21 +172,27 @@ pub fn draw(frame: &mut Frame, _app: &App) {
             "   Enter             ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Show event details", Style::default().fg(Color::White)),
+        Span::styled(
+            "Open event details / Select day event",
+            Style::default().fg(Color::White),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::styled(
             "   f                 ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Toggle favorite", Style::default().fg(Color::White)),
+        Span::styled(
+            "Toggle series favorite (with confirmation)",
+            Style::default().fg(Color::White),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::styled(
             "   F                 ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Open filter panel", Style::default().fg(Color::White)),
+        Span::styled("Toggle filter panel", Style::default().fg(Color::White)),
     ]));
     lines.push(Line::from(vec![
         Span::styled(
@@ -122,27 +200,7 @@ pub fn draw(frame: &mut Frame, _app: &App) {
             Style::default().bold().fg(Color::Yellow),
         ),
         Span::styled(
-            "Search events / series (standings)",
-            Style::default().fg(Color::White),
-        ),
-    ]));
-    lines.push(Line::from(vec![
-        Span::styled(
-            "   o                 ",
-            Style::default().bold().fg(Color::Yellow),
-        ),
-        Span::styled(
-            "Open stream link (in detail view)",
-            Style::default().fg(Color::White),
-        ),
-    ]));
-    lines.push(Line::from(vec![
-        Span::styled(
-            "   1-9               ",
-            Style::default().bold().fg(Color::Yellow),
-        ),
-        Span::styled(
-            "Open Nth stream link (in detail view)",
+            "Search events (list) / Search series (standings)",
             Style::default().fg(Color::White),
         ),
     ]));
@@ -151,10 +209,12 @@ pub fn draw(frame: &mut Frame, _app: &App) {
             "   r                 ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Refresh all data", Style::default().fg(Color::White)),
+        Span::styled(
+            "Refresh data & reload schedules/standings",
+            Style::default().fg(Color::White),
+        ),
     ]));
 
-    // Separator
     lines.push(Line::from(""));
 
     // ── General ──
@@ -167,21 +227,27 @@ pub fn draw(frame: &mut Frame, _app: &App) {
             "   ?                 ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Toggle this help", Style::default().fg(Color::White)),
+        Span::styled("Toggle this help popup", Style::default().fg(Color::White)),
     ]));
     lines.push(Line::from(vec![
         Span::styled(
             "   Esc               ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Close popup / cancel", Style::default().fg(Color::White)),
+        Span::styled(
+            "Close popup / Cancel search",
+            Style::default().fg(Color::White),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::styled(
             "   q                 ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Quit", Style::default().fg(Color::White)),
+        Span::styled(
+            "Quit (or close popup if open)",
+            Style::default().fg(Color::White),
+        ),
     ]));
 
     let block = Block::default()

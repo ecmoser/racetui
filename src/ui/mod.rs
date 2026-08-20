@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_draw_help_popup() {
-        let backend = TestBackend::new(80, 24);
+        let backend = TestBackend::new(100, 35);
         let mut terminal = Terminal::new(backend).unwrap();
         let mut app = App::new(HashMap::new(), UserConfig::default());
         app.show_help = true;
@@ -287,6 +287,7 @@ mod tests {
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
         assert!(content.contains("Keybindings"));
+        assert!(content.contains("Views"));
         assert!(content.contains("Navigation"));
         assert!(content.contains("Actions"));
         assert!(content.contains("General"));
