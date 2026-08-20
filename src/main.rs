@@ -557,6 +557,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
             app.view_mode = match app.view_mode {
                 app::ViewMode::List => app::ViewMode::Calendar,
                 app::ViewMode::Calendar => app::ViewMode::List,
+                _ => app.view_mode.clone(),
             };
         }
         // Search

@@ -25,6 +25,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     match app.view_mode {
         ViewMode::List => list_view::draw(frame, app, chunks[0]),
         ViewMode::Calendar => calendar_view::draw(frame, app, chunks[0]),
+        _ => {}
     }
 
     // Draw the status bar

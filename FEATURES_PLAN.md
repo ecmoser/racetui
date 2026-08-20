@@ -456,7 +456,7 @@ pub mod standings;
 
 ---
 
-### [ ] Step 4: Update ViewMode enum and App state for new views
+### [x] Step 4: Update ViewMode enum and App state for new views
 
 **What to do**: Extend the `ViewMode` enum to include `Live` and `Standings` modes. Add new fields to the `App` struct for standings data, results data, live session state, and the new view-related UI state.
 

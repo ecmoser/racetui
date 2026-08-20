@@ -18,6 +18,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let view_name = match app.view_mode {
         ViewMode::List => "List",
         ViewMode::Calendar => "Calendar",
+        ViewMode::Live => "Live",
+        ViewMode::Standings => "Standings",
     };
 
     let hints = if app.search_active {

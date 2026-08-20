@@ -13,6 +13,17 @@ use crate::data::models::{
 pub enum ViewMode {
     List,
     Calendar,
+    Live,
+    Standings,
+}
+
+/// Sub-tabs within the Live view.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LiveSubTab {
+    /// Timing leaderboard
+    Timing,
+    /// Track map with driver positions
+    TrackMap,
 }
 
 /// Active multi-select filters.
@@ -165,6 +176,46 @@ pub struct App {
 
     /// Tick counter for timing notification cycles
     pub tick_count: u64,
+
+    // -- Standings view state --
+    /// Cached championship standings per series
+    pub standings: HashMap<String, crate::data::standings::SeasonStandings>,
+    /// Which series is currently selected in the Standings view dropdown
+    pub standings_selected_series: Option<String>,
+    /// Index of the selected series in the standings series list
+    pub standings_series_index: usize,
+    /// Whether the standings series dropdown is open
+    pub standings_dropdown_open: bool,
+    /// Scroll offset for the standings table
+    pub standings_table_state: TableState,
+
+    // -- Results state --
+    /// Cached race results, keyed by (series_id, round)
+    pub results: HashMap<(String, u32), crate::data::results::RaceResults>,
+    /// Whether results background loading has been triggered
+    pub results_loading_started: bool,
+
+    // -- Live view state --
+    /// Currently active Live sub-tab
+    pub live_sub_tab: LiveSubTab,
+    /// Which series/session the Live view is currently showing (series_id)
+    pub live_active_series: Option<String>,
+    /// Whether the live session picker popup is visible
+    pub show_live_session_picker: bool,
+    /// List state for the live session picker popup
+    pub live_session_picker_state: ListState,
+    /// Scroll offset in the live timing leaderboard
+    pub live_timing_table_state: TableState,
+    /// Currently selected driver index in the live timing table (for detail expansion)
+    pub live_selected_driver: Option<usize>,
+    /// Whether the driver detail expansion is visible
+    pub live_driver_detail_open: bool,
+    /// Tick counter for blinking the LIVE indicator (toggles every N ticks)
+    pub live_blink_on: bool,
+    /// Current live timing data snapshot (updated by LiveEvent::TimingUpdate)
+    pub live_timing_data: Option<()>,
+    /// Cached circuit geometry for the current live session
+    pub track_map_geometry: Option<()>,
 }
 
 impl App {
@@ -214,6 +265,27 @@ impl App {
             pending_favorite_toggle: None,
             notification_cycle_index: 0,
             tick_count: 0,
+            standings: HashMap::new(),
+            standings_selected_series: None,
+            standings_series_index: 0,
+            standings_dropdown_open: false,
+            standings_table_state: TableState::default(),
+            results: HashMap::new(),
+            results_loading_started: false,
+            live_sub_tab: LiveSubTab::Timing,
+            live_active_series: None,
+            show_live_session_picker: false,
+            live_session_picker_state: {
+                let mut s = ListState::default();
+                s.select(Some(0));
+                s
+            },
+            live_timing_table_state: TableState::default(),
+            live_selected_driver: None,
+            live_driver_detail_open: false,
+            live_blink_on: true,
+            live_timing_data: None,
+            track_map_geometry: None,
         };
 
         // Select the first event by default
@@ -225,6 +297,59 @@ impl App {
     pub fn set_status_message(&mut self, msg: String) {
         self.status_message = Some(msg);
         self.status_message_set_at = Some(std::time::Instant::now());
+    }
+
+    /// Get a list of currently live sessions across all series.
+    /// Returns (series_id, series_short_name, session_name) tuples.
+    pub fn get_live_sessions(&self) -> Vec<(String, String, String)> {
+        let now = chrono::Utc::now();
+        let mut live = Vec::new();
+        for (series_id, events) in &self.events {
+            for event in events {
+                if event.status == crate::data::models::EventStatus::Live {
+                    let active_session = event.sessions.iter().find(|s| {
+                        let started = s.start_time.map_or(false, |t| t <= now);
+                        let ended = s.end_time.map_or(false, |t| t <= now);
+                        started && !ended
+                    });
+                    let session_name = active_session
+                        .map(|s| s.name.clone())
+                        .unwrap_or_else(|| "Session".to_string());
+                    let short_name = self
+                        .series_registry
+                        .get(series_id)
+                        .map(|s| s.short_name.clone())
+                        .unwrap_or_else(|| series_id.clone());
+                    live.push((series_id.clone(), short_name, session_name));
+                }
+            }
+        }
+        live
+    }
+
+    /// Cycle through series in the Standings view.
+    /// `direction`: -1 for previous, +1 for next.
+    pub fn standings_cycle_series(&mut self, direction: i32) {
+        let mut series_ids: Vec<String> = self.standings.keys().cloned().collect();
+        series_ids.sort();
+        if series_ids.is_empty() {
+            return;
+        }
+        let current_idx = self
+            .standings_selected_series
+            .as_ref()
+            .and_then(|id| series_ids.iter().position(|s| s == id))
+            .unwrap_or(0);
+        let new_idx = if direction > 0 {
+            (current_idx + 1) % series_ids.len()
+        } else if current_idx == 0 {
+            series_ids.len() - 1
+        } else {
+            current_idx - 1
+        };
+        self.standings_selected_series = Some(series_ids[new_idx].clone());
+        self.standings_series_index = new_idx;
+        self.standings_table_state = TableState::default();
     }
 
     /// Get notification messages for upcoming favorited events.
@@ -1281,6 +1406,81 @@ mod tests {
         // If not a favorite, no notification
         app.config.favorites.clear();
         assert!(app.get_notifications().is_empty());
+    }
+
+    #[test]
+    fn test_standings_cycle_series() {
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+        app.standings.insert(
+            "f1".to_string(),
+            crate::data::standings::SeasonStandings {
+                series_id: "f1".to_string(),
+                season: 2026,
+                drivers: vec![],
+                constructors: vec![],
+                fetched_at: chrono::Utc::now(),
+            },
+        );
+        app.standings.insert(
+            "indycar".to_string(),
+            crate::data::standings::SeasonStandings {
+                series_id: "indycar".to_string(),
+                season: 2026,
+                drivers: vec![],
+                constructors: vec![],
+                fetched_at: chrono::Utc::now(),
+            },
+        );
+        app.standings.insert(
+            "nascar_cup".to_string(),
+            crate::data::standings::SeasonStandings {
+                series_id: "nascar_cup".to_string(),
+                season: 2026,
+                drivers: vec![],
+                constructors: vec![],
+                fetched_at: chrono::Utc::now(),
+            },
+        );
+
+        // Initially None, cycle +1 -> first series alphabetically ("f1") -> index 0 + 1 = "indycar" (index 1)
+        app.standings_cycle_series(1);
+        assert_eq!(app.standings_selected_series.as_deref(), Some("indycar"));
+
+        app.standings_cycle_series(1);
+        assert_eq!(app.standings_selected_series.as_deref(), Some("nascar_cup"));
+
+        app.standings_cycle_series(1);
+        assert_eq!(app.standings_selected_series.as_deref(), Some("f1"));
+
+        app.standings_cycle_series(-1);
+        assert_eq!(app.standings_selected_series.as_deref(), Some("nascar_cup"));
+    }
+
+    #[test]
+    fn test_get_live_sessions() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
+
+        let mut app = App::new(registry, UserConfig::default());
+        let now = chrono::Utc::now();
+        let mut event = mock_event("f1", "Monaco GP", (2026, 5, 24));
+        event.status = EventStatus::Live;
+        event.sessions = vec![crate::data::models::Session {
+            name: "Grand Prix".to_string(),
+            session_type: SessionType::Race,
+            start_time: Some(now - chrono::Duration::minutes(30)),
+            end_time: Some(now + chrono::Duration::minutes(90)),
+        }];
+        app.update_series_data("f1".to_string(), vec![event]);
+
+        let live = app.get_live_sessions();
+        assert_eq!(live.len(), 1);
+        assert_eq!(live[0].0, "f1");
+        assert_eq!(live[0].1, "F1");
+        assert_eq!(live[0].2, "Grand Prix");
     }
 
     fn filtered_name(app: &App, idx: usize) -> String {
