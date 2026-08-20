@@ -1,0 +1,28 @@
+{
+  "race_name": "Daytona 500",
+  "track_name": "Daytona International Speedway",
+  "round": 1,
+  "race_date": "2026-02-15",
+  "results": [
+    {
+      "finishing_position": 1,
+      "starting_position": 4,
+      "car_number": "5",
+      "name": "Kyle Larson",
+      "team": "Hendrick Motorsports",
+      "points": 50.0,
+      "delta": "+0.150",
+      "finishing_status": "Running"
+    },
+    {
+      "finishing_position": 2,
+      "starting_position": 1,
+      "car_number": "11",
+      "name": "Denny Hamlin",
+      "team": "Joe Gibbs Racing",
+      "points": 42.0,
+      "delta": "+0.450",
+      "finishing_status": "Running"
+    }
+  ]
+}

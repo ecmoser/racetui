@@ -1,0 +1,51 @@
+{
+  "MRData": {
+    "StandingsTable": {
+      "season": "2026",
+      "StandingsLists": [
+        {
+          "season": "2026",
+          "round": "1",
+          "DriverStandings": [
+            {
+              "position": "1",
+              "points": "25",
+              "wins": "1",
+              "Driver": {
+                "driverId": "russell",
+                "givenName": "George",
+                "familyName": "Russell",
+                "code": "RUS",
+                "permanentNumber": "63"
+              },
+              "Constructors": [
+                {
+                  "constructorId": "mercedes",
+                  "name": "Mercedes"
+                }
+              ]
+            },
+            {
+              "position": "2",
+              "points": "18",
+              "wins": "0",
+              "Driver": {
+                "driverId": "max_verstappen",
+                "givenName": "Max",
+                "familyName": "Verstappen",
+                "code": "VER",
+                "permanentNumber": "1"
+              },
+              "Constructors": [
+                {
+                  "constructorId": "red_bull",
+                  "name": "Red Bull Racing"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

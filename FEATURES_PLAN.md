@@ -914,7 +914,7 @@ Check `event.status == Completed && event.round.map_or(false, |r| app.results.co
 
 ---
 
-### [ ] Step 18: Add mock-based tests for Phase 1
+### [x] Step 18: Add mock-based tests for Phase 1
 
 **What to do**: Create `tests/fixtures/` with saved API responses and write tests for standings/results parsing, serialization roundtrips, and results cache operations.
 

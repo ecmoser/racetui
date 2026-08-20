@@ -1,0 +1,33 @@
+{
+  "MRData": {
+    "StandingsTable": {
+      "season": "2026",
+      "StandingsLists": [
+        {
+          "season": "2026",
+          "round": "1",
+          "ConstructorStandings": [
+            {
+              "position": "1",
+              "points": "40",
+              "wins": "1",
+              "Constructor": {
+                "constructorId": "mercedes",
+                "name": "Mercedes"
+              }
+            },
+            {
+              "position": "2",
+              "points": "28",
+              "wins": "0",
+              "Constructor": {
+                "constructorId": "red_bull",
+                "name": "Red Bull Racing"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

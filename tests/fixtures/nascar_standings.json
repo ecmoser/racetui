@@ -1,0 +1,18 @@
+[
+  {
+    "rank": 1,
+    "driver_name": "Kyle Larson",
+    "car_number": "5",
+    "team_name": "Hendrick Motorsports",
+    "points": 850,
+    "wins": 3
+  },
+  {
+    "rank": 2,
+    "driver_name": "William Byron",
+    "car_number": "24",
+    "team_name": "Hendrick Motorsports",
+    "points": 820,
+    "wins": 3
+  }
+]
