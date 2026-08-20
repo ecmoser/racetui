@@ -5,6 +5,7 @@ pub mod detail_view;
 pub mod filter_panel;
 pub mod help;
 pub mod list_view;
+pub mod standings_view;
 pub mod status_bar;
 
 use crate::app::{App, ViewMode};
@@ -25,6 +26,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     match app.view_mode {
         ViewMode::List => list_view::draw(frame, app, chunks[0]),
         ViewMode::Calendar => calendar_view::draw(frame, app, chunks[0]),
+        ViewMode::Standings => standings_view::draw(frame, app, chunks[0]),
         _ => {}
     }
 
@@ -288,5 +290,23 @@ mod tests {
         assert!(content.contains("Navigation"));
         assert!(content.contains("Actions"));
         assert!(content.contains("General"));
+    }
+
+    #[test]
+    fn test_draw_standings_view() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+        app.view_mode = ViewMode::Standings;
+
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Championship Standings"));
     }
 }

@@ -539,31 +539,27 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.running = false;
         }
-        // Calendar navigation
-        KeyCode::Char('h') | KeyCode::Left => {
-            if app.view_mode == app::ViewMode::Calendar {
-                app.calendar_select_prev_day();
-            }
-        }
-        KeyCode::Char('l') | KeyCode::Right => {
-            if app.view_mode == app::ViewMode::Calendar {
-                app.calendar_select_next_day();
-            }
-        }
-        KeyCode::Char('j') | KeyCode::Down => {
-            if app.view_mode == app::ViewMode::Calendar {
-                app.calendar_select_next_week();
-            } else {
-                app.select_next();
-            }
-        }
-        KeyCode::Char('k') | KeyCode::Up => {
-            if app.view_mode == app::ViewMode::Calendar {
-                app.calendar_select_prev_week();
-            } else {
-                app.select_previous();
-            }
-        }
+        // Navigation (List / Calendar / Standings)
+        KeyCode::Char('h') | KeyCode::Left => match app.view_mode {
+            app::ViewMode::Calendar => app.calendar_select_prev_day(),
+            app::ViewMode::Standings => app.standings_cycle_series(-1),
+            _ => {}
+        },
+        KeyCode::Char('l') | KeyCode::Right => match app.view_mode {
+            app::ViewMode::Calendar => app.calendar_select_next_day(),
+            app::ViewMode::Standings => app.standings_cycle_series(1),
+            _ => {}
+        },
+        KeyCode::Char('j') | KeyCode::Down => match app.view_mode {
+            app::ViewMode::Calendar => app.calendar_select_next_week(),
+            app::ViewMode::Standings => app.standings_select_next(),
+            _ => app.select_next(),
+        },
+        KeyCode::Char('k') | KeyCode::Up => match app.view_mode {
+            app::ViewMode::Calendar => app.calendar_select_prev_week(),
+            app::ViewMode::Standings => app.standings_select_previous(),
+            _ => app.select_previous(),
+        },
         KeyCode::Char('H') | KeyCode::PageUp => {
             if app.view_mode == app::ViewMode::Calendar {
                 app.calendar_select_prev_month();
@@ -744,6 +740,66 @@ mod tests {
         assert!(app.show_filter_panel);
         handle_key_event(&mut app, key(KeyCode::Esc));
         assert!(!app.show_filter_panel);
+    }
+
+    #[test]
+    fn test_standings_view_keybindings() {
+        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        app.view_mode = app::ViewMode::Standings;
+        app.standings.insert(
+            "f1".to_string(),
+            crate::data::standings::SeasonStandings {
+                series_id: "f1".to_string(),
+                season: 2026,
+                drivers: vec![
+                    crate::data::standings::DriverStanding {
+                        position: 1,
+                        driver_name: "Max Verstappen".to_string(),
+                        driver_code: Some("VER".to_string()),
+                        driver_number: Some(1),
+                        team: "Red Bull Racing".to_string(),
+                        points: 25.0,
+                        wins: 1,
+                    },
+                    crate::data::standings::DriverStanding {
+                        position: 2,
+                        driver_name: "Lando Norris".to_string(),
+                        driver_code: Some("NOR".to_string()),
+                        driver_number: Some(4),
+                        team: "McLaren".to_string(),
+                        points: 18.0,
+                        wins: 0,
+                    },
+                ],
+                constructors: vec![],
+                fetched_at: chrono::Utc::now(),
+            },
+        );
+        app.standings.insert(
+            "indycar".to_string(),
+            crate::data::standings::SeasonStandings {
+                series_id: "indycar".to_string(),
+                season: 2026,
+                drivers: vec![],
+                constructors: vec![],
+                fetched_at: chrono::Utc::now(),
+            },
+        );
+        app.standings_selected_series = Some("f1".to_string());
+
+        // Test Left/Right/h/l series cycling
+        handle_key_event(&mut app, key(KeyCode::Char('l')));
+        assert_eq!(app.standings_selected_series.as_deref(), Some("indycar"));
+
+        handle_key_event(&mut app, key(KeyCode::Char('h')));
+        assert_eq!(app.standings_selected_series.as_deref(), Some("f1"));
+
+        // Test Up/Down/j/k driver selection
+        handle_key_event(&mut app, key(KeyCode::Char('j')));
+        assert_eq!(app.standings_table_state.selected(), Some(1));
+
+        handle_key_event(&mut app, key(KeyCode::Char('k')));
+        assert_eq!(app.standings_table_state.selected(), Some(0));
     }
 
     #[test]

@@ -352,6 +352,40 @@ impl App {
         self.standings_table_state = TableState::default();
     }
 
+    /// Select next driver row in the standings table.
+    pub fn standings_select_next(&mut self) {
+        let count = self
+            .standings_selected_series
+            .as_ref()
+            .and_then(|id| self.standings.get(id))
+            .map(|s| s.drivers.len())
+            .unwrap_or(0);
+        if count == 0 {
+            self.standings_table_state.select(None);
+            return;
+        }
+        let current = self.standings_table_state.selected().unwrap_or(0);
+        let next = if current + 1 >= count { 0 } else { current + 1 };
+        self.standings_table_state.select(Some(next));
+    }
+
+    /// Select previous driver row in the standings table.
+    pub fn standings_select_previous(&mut self) {
+        let count = self
+            .standings_selected_series
+            .as_ref()
+            .and_then(|id| self.standings.get(id))
+            .map(|s| s.drivers.len())
+            .unwrap_or(0);
+        if count == 0 {
+            self.standings_table_state.select(None);
+            return;
+        }
+        let current = self.standings_table_state.selected().unwrap_or(0);
+        let prev = if current == 0 { count - 1 } else { current - 1 };
+        self.standings_table_state.select(Some(prev));
+    }
+
     /// Get notification messages for upcoming favorited events.
     /// Returns a Vec of (series_short_name, session_name, time_until_string).
     pub fn get_notifications(&self) -> Vec<String> {

@@ -706,7 +706,7 @@ KeyCode::Char('4') => {
 
 ---
 
-### [ ] Step 7: Create Standings view UI scaffold
+### [x] Step 7: Create Standings view UI scaffold
 
 **What to do**: Create the standings view UI component with a series dropdown selector at the top and a standings table below.
 
