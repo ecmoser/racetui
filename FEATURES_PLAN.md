@@ -906,7 +906,7 @@ Check `event.status == Completed && event.round.map_or(false, |r| app.results.co
 
 ---
 
-### [ ] Step 17: Update README.md for Phase 1
+### [x] Step 17: Update README.md for Phase 1
 
 **What to do**: Add documentation for standings, results, new keybindings, and configuration.
 
