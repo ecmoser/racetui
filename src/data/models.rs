@@ -236,6 +236,26 @@ impl RaceEvent {
             .min_by_key(|s| s.start_time)
     }
 
+    /// Whether this event includes a sprint race session.
+    pub fn has_sprint(&self) -> bool {
+        self.sessions.iter().any(|s| {
+            s.session_type == SessionType::Sprint
+                || s.name.to_lowercase().contains("sprint race")
+                || (s.name.to_lowercase().contains("sprint")
+                    && !s.name.to_lowercase().contains("qualifying")
+                    && !s.name.to_lowercase().contains("shootout"))
+        })
+    }
+
+    /// Whether this event includes a sprint qualifying / shootout session.
+    pub fn has_sprint_qualifying(&self) -> bool {
+        self.sessions.iter().any(|s| {
+            s.session_type == SessionType::SprintQualifying
+                || s.name.to_lowercase().contains("sprint qualifying")
+                || s.name.to_lowercase().contains("sprint shootout")
+        })
+    }
+
     /// Get the primary race start time (or next session start time if race time not known).
     pub fn race_start_time(&self) -> Option<DateTime<Utc>> {
         self.sessions

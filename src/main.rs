@@ -181,7 +181,7 @@ fn spawn_standings_loaders(
     }
 }
 
-/// Spawn background tasks to load race results for the most recent completed event per series.
+/// Spawn background tasks to load race results and qualifying for the most recent completed event per series.
 fn spawn_results_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
     let series_ids: Vec<String> = app.series_registry.keys().cloned().collect();
 
@@ -200,47 +200,216 @@ fn spawn_results_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
             };
             let season = event.end_date.year() as u32;
 
-            // Check cache first
+            // 1. Race results cache / fetch
             if let Ok(Some(cached)) = data::results::read_results_cache(&series_id, round) {
                 app.results.insert((series_id.clone(), round), cached);
-                continue;
+            } else if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
+                let fetch_tx = tx.clone();
+                let sid = series_id.clone();
+                tokio::spawn(async move {
+                    match fetcher.fetch_results_boxed(season, round).await {
+                        Ok(results) => {
+                            let _ = data::results::write_results_cache(&results);
+                            let _ = fetch_tx.send(AppEvent::ResultsFetched {
+                                series_id: sid,
+                                round,
+                                results,
+                            });
+                        }
+                        Err(e) => {
+                            let _ = fetch_tx.send(AppEvent::ResultsFetchError {
+                                series_id: sid,
+                                round,
+                                error: e.to_string(),
+                            });
+                        }
+                    }
+                });
             }
 
-            // Check if we have a results fetcher
-            let fetcher = match scraper::get_results_fetcher(&series_id) {
-                Some(f) => f,
-                None => continue,
-            };
-
-            let fetch_tx = tx.clone();
-            let sid = series_id.clone();
-            tokio::spawn(async move {
-                match fetcher.fetch_results_boxed(season, round).await {
-                    Ok(results) => {
-                        if let Err(e) = data::results::write_results_cache(&results) {
-                            tracing::warn!(
-                                "Failed to write results cache for {} round {}: {}",
-                                sid,
+            // 2. Qualifying results cache / fetch
+            if let Ok(Some(cached)) = data::results::read_qualifying_cache(&series_id, round) {
+                app.qualifying_results
+                    .insert((series_id.clone(), round), cached);
+            } else if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
+                let fetch_tx = tx.clone();
+                let sid = series_id.clone();
+                tokio::spawn(async move {
+                    match fetcher.fetch_qualifying_boxed(season, round).await {
+                        Ok(results) => {
+                            let _ = data::results::write_qualifying_cache(&results);
+                            let _ = fetch_tx.send(AppEvent::QualifyingFetched {
+                                series_id: sid,
                                 round,
-                                e
-                            );
+                                results,
+                            });
                         }
-                        let _ = fetch_tx.send(AppEvent::ResultsFetched {
-                            series_id: sid,
-                            round,
-                            results,
-                        });
+                        Err(e) => {
+                            let _ = fetch_tx.send(AppEvent::QualifyingFetchError {
+                                series_id: sid,
+                                round,
+                                error: e.to_string(),
+                            });
+                        }
                     }
-                    Err(e) => {
-                        let _ = fetch_tx.send(AppEvent::ResultsFetchError {
-                            series_id: sid,
-                            round,
-                            error: e.to_string(),
-                        });
-                    }
-                }
-            });
+                });
+            }
         }
+    }
+}
+
+/// Trigger on-demand fetching of results / qualifying / sprint for the currently selected event if opened in detail view.
+fn fetch_results_on_demand(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
+    if !app.show_detail {
+        return;
+    }
+    let event = match app.selected_event() {
+        Some(e) if e.status == data::models::EventStatus::Completed && e.round.is_some() => e,
+        _ => return,
+    };
+    let round = event.round.unwrap();
+    let series_id = event.series_id.clone();
+    let season = event.end_date.year() as u32;
+
+    match app.detail_tab {
+        app::DetailTab::Qualifying => {
+            if let Ok(Some(cached)) = data::results::read_qualifying_cache(&series_id, round) {
+                app.qualifying_results
+                    .insert((series_id.clone(), round), cached);
+                return;
+            }
+            let key = (series_id.clone(), round, "qualifying".to_string());
+            if !app
+                .qualifying_results
+                .contains_key(&(series_id.clone(), round))
+                && !app.results_fetching.contains(&key)
+            {
+                if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
+                    app.results_fetching.insert(key);
+                    let sid = series_id.clone();
+                    tokio::spawn(async move {
+                        match fetcher.fetch_qualifying_boxed(season, round).await {
+                            Ok(results) => {
+                                let _ = data::results::write_qualifying_cache(&results);
+                                let _ = tx.send(AppEvent::QualifyingFetched {
+                                    series_id: sid,
+                                    round,
+                                    results,
+                                });
+                            }
+                            Err(e) => {
+                                let _ = tx.send(AppEvent::QualifyingFetchError {
+                                    series_id: sid,
+                                    round,
+                                    error: e.to_string(),
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        app::DetailTab::Sprint => {
+            let key = (series_id.clone(), round, "sprint".to_string());
+            if !app.sprint_results.contains_key(&(series_id.clone(), round))
+                && !app.results_fetching.contains(&key)
+            {
+                if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
+                    app.results_fetching.insert(key);
+                    let sid = series_id.clone();
+                    tokio::spawn(async move {
+                        match fetcher.fetch_sprint_boxed(season, round).await {
+                            Ok(results) => {
+                                let _ = tx.send(AppEvent::SprintFetched {
+                                    series_id: sid,
+                                    round,
+                                    results,
+                                });
+                            }
+                            Err(e) => {
+                                let _ = tx.send(AppEvent::SprintFetchError {
+                                    series_id: sid,
+                                    round,
+                                    error: e.to_string(),
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        app::DetailTab::SprintQualifying => {
+            if let Ok(Some(cached)) = data::results::read_qualifying_cache(&series_id, round) {
+                app.qualifying_results
+                    .insert((series_id.clone(), round), cached);
+                return;
+            }
+            let key = (series_id.clone(), round, "qualifying".to_string());
+            if !app
+                .qualifying_results
+                .contains_key(&(series_id.clone(), round))
+                && !app.results_fetching.contains(&key)
+            {
+                if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
+                    app.results_fetching.insert(key);
+                    let sid = series_id.clone();
+                    tokio::spawn(async move {
+                        match fetcher.fetch_qualifying_boxed(season, round).await {
+                            Ok(results) => {
+                                let _ = data::results::write_qualifying_cache(&results);
+                                let _ = tx.send(AppEvent::QualifyingFetched {
+                                    series_id: sid,
+                                    round,
+                                    results,
+                                });
+                            }
+                            Err(e) => {
+                                let _ = tx.send(AppEvent::QualifyingFetchError {
+                                    series_id: sid,
+                                    round,
+                                    error: e.to_string(),
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        app::DetailTab::Race => {
+            if let Ok(Some(cached)) = data::results::read_results_cache(&series_id, round) {
+                app.results.insert((series_id.clone(), round), cached);
+                return;
+            }
+            let key = (series_id.clone(), round, "race".to_string());
+            if !app.results.contains_key(&(series_id.clone(), round))
+                && !app.results_fetching.contains(&key)
+            {
+                if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
+                    app.results_fetching.insert(key);
+                    let sid = series_id.clone();
+                    tokio::spawn(async move {
+                        match fetcher.fetch_results_boxed(season, round).await {
+                            Ok(results) => {
+                                let _ = data::results::write_results_cache(&results);
+                                let _ = tx.send(AppEvent::ResultsFetched {
+                                    series_id: sid,
+                                    round,
+                                    results,
+                                });
+                            }
+                            Err(e) => {
+                                let _ = tx.send(AppEvent::ResultsFetchError {
+                                    series_id: sid,
+                                    round,
+                                    error: e.to_string(),
+                                });
+                            }
+                        }
+                    });
+                }
+            }
+        }
+        app::DetailTab::Schedule => {}
     }
 }
 
@@ -386,6 +555,7 @@ async fn main() -> Result<()> {
                 match event {
                     AppEvent::Key(key) => {
                         handle_key_event(&mut app, key);
+                        fetch_results_on_demand(&mut app, tx.clone());
                     }
                     AppEvent::Resize(_, _) => {
                         // Terminal auto-redraws on resize
@@ -441,6 +611,11 @@ async fn main() -> Result<()> {
                         round,
                         results,
                     } => {
+                        app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "race".to_string(),
+                        ));
                         app.results.insert((series_id, round), results);
                     }
                     AppEvent::ResultsFetchError {
@@ -448,8 +623,71 @@ async fn main() -> Result<()> {
                         round,
                         error,
                     } => {
+                        app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "race".to_string(),
+                        ));
                         tracing::warn!(
                             "Failed to fetch results for {} round {}: {}",
+                            series_id,
+                            round,
+                            error
+                        );
+                    }
+                    AppEvent::QualifyingFetched {
+                        series_id,
+                        round,
+                        results,
+                    } => {
+                        app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "qualifying".to_string(),
+                        ));
+                        app.qualifying_results.insert((series_id, round), results);
+                    }
+                    AppEvent::QualifyingFetchError {
+                        series_id,
+                        round,
+                        error,
+                    } => {
+                        app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "qualifying".to_string(),
+                        ));
+                        tracing::warn!(
+                            "Failed to fetch qualifying results for {} round {}: {}",
+                            series_id,
+                            round,
+                            error
+                        );
+                    }
+                    AppEvent::SprintFetched {
+                        series_id,
+                        round,
+                        results,
+                    } => {
+                        app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "sprint".to_string(),
+                        ));
+                        app.sprint_results.insert((series_id, round), results);
+                    }
+                    AppEvent::SprintFetchError {
+                        series_id,
+                        round,
+                        error,
+                    } => {
+                        app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "sprint".to_string(),
+                        ));
+                        tracing::warn!(
+                            "Failed to fetch sprint results for {} round {}: {}",
                             series_id,
                             round,
                             error
@@ -607,6 +845,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                     }) {
                         app.table_state.select(Some(idx));
                     }
+                    app.detail_tab = app::DetailTab::Race;
                     app.show_detail = true;
                 }
             }
@@ -622,26 +861,22 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 app.show_detail = false;
                 return;
             }
+            KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
+                app.next_detail_tab();
+                return;
+            }
+            KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
+                app.prev_detail_tab();
+                return;
+            }
+            KeyCode::Char(c) if c.is_ascii_digit() && c != '0' => {
+                app.select_detail_tab_by_digit(c);
+                return;
+            }
             KeyCode::Char('o') | KeyCode::Char('O') => {
                 // Open first stream link
                 if let Some(event) = app.selected_event() {
                     if let Some(link) = event.stream_links.first() {
-                        if let Err(e) = action::open_url(&app.config.open_command, &link.url) {
-                            app.set_status_message(format!("Error: {}", e));
-                        } else {
-                            app.set_status_message(format!(
-                                "Opened {} in {}",
-                                link.platform, app.config.open_command
-                            ));
-                        }
-                    }
-                }
-                return;
-            }
-            KeyCode::Char(c) if c.is_ascii_digit() && c != '0' => {
-                let index = (c as u8 - b'1') as usize;
-                if let Some(event) = app.selected_event() {
-                    if let Some(link) = event.stream_links.get(index) {
                         if let Err(e) = action::open_url(&app.config.open_command, &link.url) {
                             app.set_status_message(format!("Error: {}", e));
                         } else {
@@ -776,13 +1011,59 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                     }) {
                         app.table_state.select(Some(idx));
                     }
+                    app.detail_tab = app::DetailTab::Race;
                     app.show_detail = true;
                 } else {
                     app.show_day_events = true;
                     app.day_events_state.select(Some(0));
                 }
+            } else if !app.show_detail {
+                let event = app.selected_event();
+                let has_sprint_q = event.map_or(false, |e| e.has_sprint_qualifying());
+                let has_sprint = event.map_or(false, |e| e.has_sprint());
+                let (session_type, session_name) = match app.selected_session() {
+                    Some(s) => (Some(s.session_type), s.session_name.to_lowercase()),
+                    None => (None, String::new()),
+                };
+
+                app.detail_tab = if session_name.contains("sprint qualifying")
+                    || session_name.contains("sprint shootout")
+                    || session_type == Some(data::models::SessionType::SprintQualifying)
+                {
+                    if has_sprint_q {
+                        app::DetailTab::SprintQualifying
+                    } else if has_sprint {
+                        app::DetailTab::Sprint
+                    } else {
+                        app::DetailTab::Qualifying
+                    }
+                } else if session_name.contains("sprint")
+                    || session_type == Some(data::models::SessionType::Sprint)
+                {
+                    if has_sprint {
+                        app::DetailTab::Sprint
+                    } else {
+                        app::DetailTab::Race
+                    }
+                } else if session_name.contains("qualifying")
+                    || session_name.contains("superpole")
+                    || session_type == Some(data::models::SessionType::Qualifying)
+                {
+                    app::DetailTab::Qualifying
+                } else if session_name.contains("practice")
+                    || session_name.contains("fp")
+                    || session_name.contains("shakedown")
+                    || session_name.contains("warmup")
+                    || session_type == Some(data::models::SessionType::Practice)
+                    || session_type == Some(data::models::SessionType::Warmup)
+                {
+                    app::DetailTab::Schedule
+                } else {
+                    app::DetailTab::Race
+                };
+                app.show_detail = true;
             } else {
-                app.show_detail = !app.show_detail;
+                app.show_detail = false;
             }
         }
         // Prompt confirmation to toggle favorite for selected event's series
@@ -1238,12 +1519,22 @@ mod tests {
         handle_key_event(&mut app, key(KeyCode::Char('o')));
         assert_eq!(app.status_message.as_deref(), Some("Opened F1TV in true"));
 
-        // Press '2' to open second link
+        // Tab switching in detail view for event without sprint (Race, Qualifying, Schedule)
+        assert_eq!(app.detail_tab, app::DetailTab::Race);
+        handle_key_event(&mut app, key(KeyCode::Tab));
+        assert_eq!(app.detail_tab, app::DetailTab::Qualifying);
+        handle_key_event(&mut app, key(KeyCode::Tab));
+        assert_eq!(app.detail_tab, app::DetailTab::Schedule);
+        handle_key_event(&mut app, key(KeyCode::Tab));
+        assert_eq!(app.detail_tab, app::DetailTab::Race);
+
+        // Digit keys for direct tab selection
         handle_key_event(&mut app, key(KeyCode::Char('2')));
-        assert_eq!(
-            app.status_message.as_deref(),
-            Some("Opened YouTube in true")
-        );
+        assert_eq!(app.detail_tab, app::DetailTab::Qualifying);
+        handle_key_event(&mut app, key(KeyCode::Char('3')));
+        assert_eq!(app.detail_tab, app::DetailTab::Schedule);
+        handle_key_event(&mut app, key(KeyCode::Char('1')));
+        assert_eq!(app.detail_tab, app::DetailTab::Race);
 
         // Close with Esc
         handle_key_event(&mut app, key(KeyCode::Esc));
@@ -1595,5 +1886,152 @@ mod tests {
 
         let (tx, _rx) = mpsc::unbounded_channel::<AppEvent>();
         spawn_results_loaders(&mut app, tx);
+    }
+
+    #[test]
+    fn test_session_specific_detail_tab_selection() {
+        use chrono::TimeZone;
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "International".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, config::UserConfig::default());
+        let event = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Chinese Grand Prix".to_string(),
+            circuit_name: "Shanghai International Circuit".to_string(),
+            location: "Shanghai".to_string(),
+            country: "China".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 13).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 15).unwrap(),
+            round: Some(2),
+            sessions: vec![
+                data::models::Session {
+                    name: "Free Practice 1".to_string(),
+                    session_type: data::models::SessionType::Practice,
+                    start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 3, 13, 3, 30, 0).unwrap()),
+                    end_time: None,
+                },
+                data::models::Session {
+                    name: "Sprint Qualifying".to_string(),
+                    session_type: data::models::SessionType::SprintQualifying,
+                    start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 3, 13, 7, 30, 0).unwrap()),
+                    end_time: None,
+                },
+                data::models::Session {
+                    name: "Sprint Race".to_string(),
+                    session_type: data::models::SessionType::Sprint,
+                    start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 3, 14, 3, 0, 0).unwrap()),
+                    end_time: None,
+                },
+                data::models::Session {
+                    name: "Qualifying".to_string(),
+                    session_type: data::models::SessionType::Qualifying,
+                    start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 3, 14, 7, 0, 0).unwrap()),
+                    end_time: None,
+                },
+                data::models::Session {
+                    name: "Grand Prix".to_string(),
+                    session_type: data::models::SessionType::Race,
+                    start_time: Some(chrono::Utc.with_ymd_and_hms(2026, 3, 15, 7, 0, 0).unwrap()),
+                    end_time: None,
+                },
+            ],
+            stream_links: vec![],
+            status: data::models::EventStatus::Completed,
+        };
+
+        app.update_series_data("f1".to_string(), vec![event]);
+        app.active_filters
+            .statuses
+            .insert(data::models::EventStatus::Completed);
+
+        // Verify available tabs for this sprint weekend
+        let selected_ev = app.selected_event().unwrap();
+        assert!(selected_ev.has_sprint());
+        assert!(selected_ev.has_sprint_qualifying());
+        let available = app.available_detail_tabs(selected_ev);
+        let labels: Vec<String> = available.into_iter().map(|(_, l)| l).collect();
+        assert_eq!(
+            labels,
+            vec![
+                "1. Race".to_string(),
+                "2. Qualifying".to_string(),
+                "3. Sprint".to_string(),
+                "4. Sprint Qual".to_string(),
+                "5. Schedule".to_string(),
+            ]
+        );
+
+        let (sprint_idx, qual_idx, race_idx, fp1_idx) = {
+            let items = app.list_table_items();
+            let s_idx = items
+                .iter()
+                .position(|item| match item {
+                    app::ListTableItem::Session(s) => s.session_name == "Sprint Race",
+                    _ => false,
+                })
+                .unwrap();
+            let q_idx = items
+                .iter()
+                .position(|item| match item {
+                    app::ListTableItem::Session(s) => s.session_name == "Qualifying",
+                    _ => false,
+                })
+                .unwrap();
+            let r_idx = items
+                .iter()
+                .position(|item| match item {
+                    app::ListTableItem::Session(s) => s.session_name == "Grand Prix",
+                    _ => false,
+                })
+                .unwrap();
+            let f_idx = items
+                .iter()
+                .position(|item| match item {
+                    app::ListTableItem::Session(s) => s.session_name == "Free Practice 1",
+                    _ => false,
+                })
+                .unwrap();
+            (s_idx, q_idx, r_idx, f_idx)
+        };
+
+        // Select row corresponding to Sprint Race
+        app.table_state.select(Some(sprint_idx));
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.show_detail);
+        assert_eq!(app.detail_tab, app::DetailTab::Sprint);
+        app.show_detail = false;
+
+        // Select row corresponding to Qualifying
+        app.table_state.select(Some(qual_idx));
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.show_detail);
+        assert_eq!(app.detail_tab, app::DetailTab::Qualifying);
+        app.show_detail = false;
+
+        // Select row corresponding to Grand Prix (Race)
+        app.table_state.select(Some(race_idx));
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.show_detail);
+        assert_eq!(app.detail_tab, app::DetailTab::Race);
+        app.show_detail = false;
+
+        // Select row corresponding to Free Practice 1
+        app.table_state.select(Some(fp1_idx));
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.show_detail);
+        assert_eq!(app.detail_tab, app::DetailTab::Schedule);
     }
 }

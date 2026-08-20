@@ -43,6 +43,30 @@ pub enum AppEvent {
         round: u32,
         error: String,
     },
+    /// Qualifying results were fetched for a specific event
+    QualifyingFetched {
+        series_id: String,
+        round: u32,
+        results: crate::data::results::QualifyingResults,
+    },
+    /// Qualifying results fetch failed
+    QualifyingFetchError {
+        series_id: String,
+        round: u32,
+        error: String,
+    },
+    /// Sprint results were fetched for a specific event
+    SprintFetched {
+        series_id: String,
+        round: u32,
+        results: crate::data::results::RaceResults,
+    },
+    /// Sprint results fetch failed
+    SprintFetchError {
+        series_id: String,
+        round: u32,
+        error: String,
+    },
 }
 
 #[cfg(test)]

@@ -199,13 +199,18 @@ fn session_sort_order(key: &str) -> u32 {
 
 fn map_session_type(key: &str) -> SessionType {
     let k = key.to_lowercase();
-    if k.contains("fp") || k.contains("practice") || k.contains("shakedown") || k.contains("warmup")
+    if k.contains("sprintqualifying") || k.contains("sprint_qualifying") || k.contains("shootout") {
+        SessionType::SprintQualifying
+    } else if k.contains("sprint") {
+        SessionType::Sprint
+    } else if k.contains("fp")
+        || k.contains("practice")
+        || k.contains("shakedown")
+        || k.contains("warmup")
     {
         SessionType::Practice
     } else if k.contains("qualifying") || k.contains("superpole") {
         SessionType::Qualifying
-    } else if k.contains("sprint") {
-        SessionType::Sprint
     } else if k.contains("race") || k.contains("feature") || k == "gp" {
         SessionType::Race
     } else {

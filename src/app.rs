@@ -26,6 +26,16 @@ pub enum LiveSubTab {
     TrackMap,
 }
 
+/// Tabs within the Event Detail view popup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DetailTab {
+    Race,
+    Qualifying,
+    Sprint,
+    SprintQualifying,
+    Schedule,
+}
+
 /// Active multi-select filters.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActiveFilters {
@@ -137,6 +147,8 @@ pub struct App {
 
     /// Whether the detail view is visible
     pub show_detail: bool,
+    /// Currently selected tab inside the detail view popup
+    pub detail_tab: DetailTab,
 
     /// Whether the filter panel is visible
     pub show_filter_panel: bool,
@@ -192,6 +204,12 @@ pub struct App {
     // -- Results state --
     /// Cached race results, keyed by (series_id, round)
     pub results: HashMap<(String, u32), crate::data::results::RaceResults>,
+    /// Cached qualifying results, keyed by (series_id, round)
+    pub qualifying_results: HashMap<(String, u32), crate::data::results::QualifyingResults>,
+    /// Cached sprint results, keyed by (series_id, round)
+    pub sprint_results: HashMap<(String, u32), crate::data::results::RaceResults>,
+    /// Set of (series_id, round, session_type_str) currently being fetched on-demand
+    pub results_fetching: std::collections::HashSet<(String, u32, String)>,
     /// Whether results background loading has been triggered
     pub results_loading_started: bool,
 
@@ -251,6 +269,7 @@ impl App {
             search_active: false,
             show_help: false,
             show_detail: false,
+            detail_tab: DetailTab::Race,
             show_filter_panel: false,
             show_day_events: false,
             table_state: TableState::default(),
@@ -271,6 +290,9 @@ impl App {
             standings_dropdown_open: false,
             standings_table_state: TableState::default(),
             results: HashMap::new(),
+            qualifying_results: HashMap::new(),
+            sprint_results: HashMap::new(),
+            results_fetching: std::collections::HashSet::new(),
             results_loading_started: false,
             live_sub_tab: LiveSubTab::Timing,
             live_active_series: None,
@@ -911,6 +933,87 @@ impl App {
     /// Get the currently selected race event, if any.
     pub fn selected_event(&self) -> Option<&RaceEvent> {
         self.selected_session().map(|s| s.event)
+    }
+
+    /// Get the session type of the currently selected row, if any.
+    pub fn selected_session_type(&self) -> Option<crate::data::models::SessionType> {
+        self.selected_session().map(|s| s.session_type)
+    }
+
+    /// Get list of available detail tabs for the given race event without emojis.
+    pub fn available_detail_tabs(&self, event: &RaceEvent) -> Vec<(DetailTab, String)> {
+        let mut tabs = Vec::new();
+        let mut idx = 1;
+
+        tabs.push((DetailTab::Race, format!("{}. Race", idx)));
+        idx += 1;
+
+        tabs.push((DetailTab::Qualifying, format!("{}. Qualifying", idx)));
+        idx += 1;
+
+        if event.has_sprint() {
+            tabs.push((DetailTab::Sprint, format!("{}. Sprint", idx)));
+            idx += 1;
+        }
+
+        if event.has_sprint_qualifying() {
+            tabs.push((DetailTab::SprintQualifying, format!("{}. Sprint Qual", idx)));
+            idx += 1;
+        }
+
+        tabs.push((DetailTab::Schedule, format!("{}. Schedule", idx)));
+
+        tabs
+    }
+
+    /// Cycle to next available detail tab for the currently selected event.
+    pub fn next_detail_tab(&mut self) {
+        let event = match self.selected_event() {
+            Some(e) => e,
+            None => return,
+        };
+        let available = self.available_detail_tabs(event);
+        if let Some(pos) = available.iter().position(|(t, _)| *t == self.detail_tab) {
+            let next_pos = (pos + 1) % available.len();
+            self.detail_tab = available[next_pos].0;
+        } else if let Some(first) = available.first() {
+            self.detail_tab = first.0;
+        }
+    }
+
+    /// Cycle to previous available detail tab for the currently selected event.
+    pub fn prev_detail_tab(&mut self) {
+        let event = match self.selected_event() {
+            Some(e) => e,
+            None => return,
+        };
+        let available = self.available_detail_tabs(event);
+        if let Some(pos) = available.iter().position(|(t, _)| *t == self.detail_tab) {
+            let prev_pos = if pos == 0 {
+                available.len() - 1
+            } else {
+                pos - 1
+            };
+            self.detail_tab = available[prev_pos].0;
+        } else if let Some(first) = available.first() {
+            self.detail_tab = first.0;
+        }
+    }
+
+    /// Select detail tab by 1-based digit index for the currently selected event.
+    pub fn select_detail_tab_by_digit(&mut self, digit: char) {
+        let event = match self.selected_event() {
+            Some(e) => e,
+            None => return,
+        };
+        let available = self.available_detail_tabs(event);
+        let digit_idx = match digit {
+            '1'..='9' => (digit as usize) - ('1' as usize),
+            _ => return,
+        };
+        if let Some((tab, _)) = available.get(digit_idx) {
+            self.detail_tab = *tab;
+        }
     }
 
     /// Select the first session row in the table (skipping any initial header).

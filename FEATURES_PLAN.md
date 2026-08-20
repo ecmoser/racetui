@@ -854,7 +854,7 @@ For each series: implement the traits following F1/NASCAR patterns. For series w
 
 ---
 
-### [ ] Step 13: Enhance detail popup to show race results for completed events
+### [x] Step 13: Enhance detail popup to show race results for completed events
 
 **What to do**: Update `src/ui/detail_view.rs` so that when a completed event is selected and results are available, the popup shows the race results table.
 

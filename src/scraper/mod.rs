@@ -227,11 +227,48 @@ pub trait ResultsFetcher: Send + Sync {
         season: u32,
         round: u32,
     ) -> impl std::future::Future<Output = Result<RaceResults>> + Send;
+
+    /// Fetch qualifying results for a specific round in a season.
+    fn fetch_qualifying(
+        &self,
+        _season: u32,
+        _round: u32,
+    ) -> impl std::future::Future<Output = Result<crate::data::results::QualifyingResults>> + Send
+    {
+        async move { anyhow::bail!("Qualifying results not available for this series") }
+    }
+
+    /// Fetch sprint race results for a specific round in a season.
+    fn fetch_sprint(
+        &self,
+        _season: u32,
+        _round: u32,
+    ) -> impl std::future::Future<Output = Result<RaceResults>> + Send {
+        async move { anyhow::bail!("Sprint results not available for this series") }
+    }
 }
 
 /// Object-safe version of ResultsFetcher for dynamic dispatch.
 pub trait ResultsFetcherBoxed: Send + Sync {
     fn fetch_results_boxed<'a>(
+        &'a self,
+        season: u32,
+        round: u32,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<RaceResults>> + Send + 'a>>;
+
+    fn fetch_qualifying_boxed<'a>(
+        &'a self,
+        season: u32,
+        round: u32,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<crate::data::results::QualifyingResults>>
+                + Send
+                + 'a,
+        >,
+    >;
+
+    fn fetch_sprint_boxed<'a>(
         &'a self,
         season: u32,
         round: u32,
@@ -245,6 +282,28 @@ impl<T: ResultsFetcher> ResultsFetcherBoxed for T {
         round: u32,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<RaceResults>> + Send + 'a>> {
         Box::pin(self.fetch_results(season, round))
+    }
+
+    fn fetch_qualifying_boxed<'a>(
+        &'a self,
+        season: u32,
+        round: u32,
+    ) -> std::pin::Pin<
+        Box<
+            dyn std::future::Future<Output = Result<crate::data::results::QualifyingResults>>
+                + Send
+                + 'a,
+        >,
+    > {
+        Box::pin(self.fetch_qualifying(season, round))
+    }
+
+    fn fetch_sprint_boxed<'a>(
+        &'a self,
+        season: u32,
+        round: u32,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<RaceResults>> + Send + 'a>> {
+        Box::pin(self.fetch_sprint(season, round))
     }
 }
 

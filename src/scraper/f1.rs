@@ -6,7 +6,7 @@ use super::fetcher;
 use super::sportstimes::fetch_sportstimes_calendar;
 use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::*;
-use crate::data::results::{DriverResult, RaceResults};
+use crate::data::results::{DriverResult, QualifyingDriverResult, QualifyingResults, RaceResults};
 use crate::data::standings::{ConstructorStanding, DriverStanding, SeasonStandings};
 
 pub fn f1_stream_links() -> Vec<StreamLink> {
@@ -194,7 +194,7 @@ pub struct JolpicaResultsRace {
     pub circuit: JolpicaCircuit,
     pub date: String,
     pub time: Option<String>,
-    #[serde(rename = "Results", default)]
+    #[serde(rename = "Results", alias = "SprintResults", default)]
     pub results: Vec<JolpicaRaceResultEntry>,
 }
 
@@ -235,6 +235,57 @@ pub struct JolpicaFastestLap {
 #[derive(Debug, Deserialize)]
 pub struct JolpicaFastestLapTime {
     pub time: String,
+}
+
+// --- Jolpica Qualifying API structs ---
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaQualifyingResponse {
+    #[serde(rename = "MRData")]
+    pub mr_data: JolpicaQualifyingMrData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaQualifyingMrData {
+    #[serde(rename = "RaceTable")]
+    pub race_table: JolpicaQualifyingRaceTable,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaQualifyingRaceTable {
+    pub season: Option<String>,
+    pub round: Option<String>,
+    #[serde(rename = "Races", default)]
+    pub races: Vec<JolpicaQualifyingRace>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaQualifyingRace {
+    pub season: String,
+    pub round: String,
+    #[serde(rename = "raceName")]
+    pub race_name: String,
+    #[serde(rename = "Circuit")]
+    pub circuit: JolpicaCircuit,
+    pub date: String,
+    #[serde(rename = "QualifyingResults", default)]
+    pub qualifying_results: Vec<JolpicaQualifyingResultEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaQualifyingResultEntry {
+    pub number: Option<String>,
+    pub position: String,
+    #[serde(rename = "Driver")]
+    pub driver: JolpicaDriver,
+    #[serde(rename = "Constructor")]
+    pub constructor: JolpicaConstructor,
+    #[serde(rename = "Q1")]
+    pub q1: Option<String>,
+    #[serde(rename = "Q2")]
+    pub q2: Option<String>,
+    #[serde(rename = "Q3")]
+    pub q3: Option<String>,
 }
 
 // --- Helper functions ---
@@ -800,11 +851,91 @@ pub fn parse_jolpica_race_results(json: &str) -> Result<RaceResults> {
     })
 }
 
+/// Parse Jolpica Ergast qualifying JSON into `QualifyingResults`.
+pub fn parse_jolpica_qualifying_results(json_str: &str) -> Result<QualifyingResults> {
+    let resp: JolpicaQualifyingResponse = serde_json::from_str(json_str)
+        .context("Failed to parse Jolpica qualifying results JSON")?;
+
+    let race = resp
+        .mr_data
+        .race_table
+        .races
+        .into_iter()
+        .next()
+        .context("No qualifying race data in Jolpica response")?;
+
+    let round = race.round.parse::<u32>().unwrap_or(0);
+    let race_date = NaiveDate::parse_from_str(&race.date, "%Y-%m-%d")
+        .unwrap_or_else(|_| NaiveDate::from_ymd_opt(2026, 1, 1).unwrap());
+
+    let results = race
+        .qualifying_results
+        .into_iter()
+        .map(|entry| {
+            let position = entry.position.parse::<u32>().unwrap_or(0);
+            let driver_number = entry
+                .number
+                .and_then(|n| n.parse::<u32>().ok())
+                .or_else(|| {
+                    entry
+                        .driver
+                        .permanent_number
+                        .as_deref()
+                        .and_then(|n| n.parse::<u32>().ok())
+                });
+            let driver_name = format!("{} {}", entry.driver.given_name, entry.driver.family_name);
+            let driver_code = entry.driver.code;
+            let team = entry.constructor.name;
+
+            QualifyingDriverResult {
+                position,
+                driver_name,
+                driver_code,
+                driver_number,
+                team,
+                q1: entry.q1,
+                q2: entry.q2,
+                q3: entry.q3,
+            }
+        })
+        .collect();
+
+    Ok(QualifyingResults {
+        series_id: "f1".to_string(),
+        round,
+        event_name: race.race_name,
+        circuit_name: race.circuit.circuit_name,
+        race_date,
+        results,
+        fetched_at: Utc::now(),
+    })
+}
+
 impl ResultsFetcher for F1Scraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
         let client = fetcher::create_http_client()?;
         let url = format!(
             "https://api.jolpi.ca/ergast/f1/{}/{}/results.json",
+            season, round
+        );
+        let resp_text = client.get(&url).send().await?.text().await?;
+        parse_jolpica_race_results(&resp_text)
+    }
+
+    async fn fetch_qualifying(&self, season: u32, round: u32) -> Result<QualifyingResults> {
+        let client = fetcher::create_http_client()?;
+        let url = format!(
+            "https://api.jolpi.ca/ergast/f1/{}/{}/qualifying.json",
+            season, round
+        );
+        let resp_text = client.get(&url).send().await?.text().await?;
+        parse_jolpica_qualifying_results(&resp_text)
+    }
+
+    async fn fetch_sprint(&self, season: u32, round: u32) -> Result<RaceResults> {
+        let client = fetcher::create_http_client()?;
+        let url = format!(
+            "https://api.jolpi.ca/ergast/f1/{}/{}/sprint.json",
             season, round
         );
         let resp_text = client.get(&url).send().await?.text().await?;
@@ -1155,5 +1286,79 @@ mod tests {
             !s.constructors.is_empty(),
             "Expected constructors in F1 2026 standings"
         );
+    }
+
+    #[test]
+    fn test_parse_jolpica_qualifying_results() {
+        let json_data = r#"{
+            "MRData": {
+                "xmlns": "",
+                "series": "f1",
+                "url": "https://api.jolpi.ca/ergast/f1/2026/1/qualifying.json",
+                "limit": "30",
+                "offset": "0",
+                "total": "2",
+                "RaceTable": {
+                    "season": "2026",
+                    "round": "1",
+                    "Races": [
+                        {
+                            "season": "2026",
+                            "round": "1",
+                            "raceName": "Australian Grand Prix",
+                            "Circuit": {
+                                "circuitId": "albert_park",
+                                "circuitName": "Albert Park Grand Prix Circuit",
+                                "Location": {
+                                    "locality": "Melbourne",
+                                    "country": "Australia"
+                                }
+                            },
+                            "date": "2026-03-08",
+                            "QualifyingResults": [
+                                {
+                                    "number": "63",
+                                    "position": "1",
+                                    "Driver": {
+                                        "driverId": "russell",
+                                        "permanentNumber": "63",
+                                        "code": "RUS",
+                                        "givenName": "George",
+                                        "familyName": "Russell"
+                                    },
+                                    "Constructor": {
+                                        "constructorId": "mercedes",
+                                        "name": "Mercedes"
+                                    },
+                                    "Q1": "1:19.507",
+                                    "Q2": "1:18.934",
+                                    "Q3": "1:18.518"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#;
+
+        let q = parse_jolpica_qualifying_results(json_data).unwrap();
+        assert_eq!(q.series_id, "f1");
+        assert_eq!(q.round, 1);
+        assert_eq!(q.event_name, "Australian Grand Prix");
+        assert_eq!(q.results.len(), 1);
+        assert_eq!(q.results[0].position, 1);
+        assert_eq!(q.results[0].driver_name, "George Russell");
+        assert_eq!(q.results[0].q3.as_deref(), Some("1:18.518"));
+    }
+
+    #[tokio::test]
+    async fn test_f1_live_qualifying_fetch() {
+        let scraper = F1Scraper;
+        let res = scraper.fetch_qualifying(2026, 1).await;
+        assert!(res.is_ok(), "F1 qualifying fetch failed: {:?}", res.err());
+        let q = res.unwrap();
+        assert_eq!(q.series_id, "f1");
+        assert_eq!(q.round, 1);
+        assert!(!q.results.is_empty(), "Expected qualifying results entries");
     }
 }
