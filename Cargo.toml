@@ -24,6 +24,9 @@ color-eyre = "0.6"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 futures = "0.3"
+tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
+miniz_oxide = "0.8"
+notify-rust = "4"
 
 [features]
 default = []

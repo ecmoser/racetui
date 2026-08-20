@@ -194,7 +194,7 @@ These decisions have been made. Do not deviate from them.
 
 ---
 
-### [ ] Step 1: Add new dependencies to Cargo.toml
+### [x] Step 1: Add new dependencies to Cargo.toml
 
 **What to do**: Add the three new crate dependencies needed across all phases. Adding them all now avoids incremental `Cargo.toml` edits later.
 
