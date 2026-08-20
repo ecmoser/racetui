@@ -130,6 +130,78 @@ impl<T: SeriesScraper> SeriesScraperBoxed for T {
     }
 }
 
+use crate::data::results::RaceResults;
+use crate::data::standings::SeasonStandings;
+
+/// Trait for fetching championship standings for a series.
+pub trait StandingsFetcher: Send + Sync {
+    /// Fetch championship standings for the given season.
+    fn fetch_standings(
+        &self,
+        season: u32,
+    ) -> impl std::future::Future<Output = Result<SeasonStandings>> + Send;
+}
+
+/// Object-safe version of StandingsFetcher for dynamic dispatch.
+pub trait StandingsFetcherBoxed: Send + Sync {
+    fn fetch_standings_boxed<'a>(
+        &'a self,
+        season: u32,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<SeasonStandings>> + Send + 'a>>;
+}
+
+impl<T: StandingsFetcher> StandingsFetcherBoxed for T {
+    fn fetch_standings_boxed<'a>(
+        &'a self,
+        season: u32,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<SeasonStandings>> + Send + 'a>>
+    {
+        Box::pin(self.fetch_standings(season))
+    }
+}
+
+/// Get the standings fetcher for a series ID.
+pub fn get_standings_fetcher(series_id: &str) -> Option<Box<dyn StandingsFetcherBoxed>> {
+    match series_id {
+        "f1" => Some(Box::new(f1::F1Scraper)),
+        _ => None,
+    }
+}
+
+/// Trait for fetching race results for a completed event.
+pub trait ResultsFetcher: Send + Sync {
+    /// Fetch results for a specific round in a season.
+    fn fetch_results(
+        &self,
+        season: u32,
+        round: u32,
+    ) -> impl std::future::Future<Output = Result<RaceResults>> + Send;
+}
+
+/// Object-safe version of ResultsFetcher for dynamic dispatch.
+pub trait ResultsFetcherBoxed: Send + Sync {
+    fn fetch_results_boxed<'a>(
+        &'a self,
+        season: u32,
+        round: u32,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<RaceResults>> + Send + 'a>>;
+}
+
+impl<T: ResultsFetcher> ResultsFetcherBoxed for T {
+    fn fetch_results_boxed<'a>(
+        &'a self,
+        season: u32,
+        round: u32,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<RaceResults>> + Send + 'a>> {
+        Box::pin(self.fetch_results(season, round))
+    }
+}
+
+/// Get the results fetcher for a series ID.
+pub fn get_results_fetcher(_series_id: &str) -> Option<Box<dyn ResultsFetcherBoxed>> {
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,5 +273,33 @@ mod tests {
         assert!(get_scraper("extreme_e").is_some());
         assert!(get_scraper("arca").is_some());
         assert!(get_scraper("unknown_series").is_none());
+    }
+
+    struct DummyStandingsFetcher;
+    impl StandingsFetcher for DummyStandingsFetcher {
+        async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+            Ok(SeasonStandings {
+                series_id: "test".to_string(),
+                season,
+                drivers: vec![],
+                constructors: vec![],
+                fetched_at: chrono::Utc::now(),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn test_standings_fetcher_boxed_dispatch() {
+        let dummy = DummyStandingsFetcher;
+        let boxed: Box<dyn StandingsFetcherBoxed> = Box::new(dummy);
+        let res = boxed.fetch_standings_boxed(2026).await;
+        assert!(res.is_ok());
+        assert_eq!(res.unwrap().season, 2026);
+    }
+
+    #[test]
+    fn test_get_standings_fetcher() {
+        assert!(get_standings_fetcher("f1").is_some());
+        assert!(get_standings_fetcher("unknown_series").is_none());
     }
 }

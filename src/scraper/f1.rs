@@ -4,8 +4,9 @@ use serde::Deserialize;
 
 use super::fetcher;
 use super::sportstimes::fetch_sportstimes_calendar;
-use super::SeriesScraper;
+use super::{SeriesScraper, StandingsFetcher};
 use crate::data::models::*;
+use crate::data::standings::{ConstructorStanding, DriverStanding, SeasonStandings};
 
 pub fn f1_stream_links() -> Vec<StreamLink> {
     vec![StreamLink {
@@ -83,6 +84,81 @@ struct JolpicaLocation {
 struct JolpicaSession {
     date: String,
     time: Option<String>,
+}
+
+// --- Jolpica Standings API response structs ---
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaStandingsResponse {
+    #[serde(rename = "MRData")]
+    pub mr_data: StandingsMRData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StandingsMRData {
+    #[serde(rename = "StandingsTable")]
+    pub standings_table: StandingsTable,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StandingsTable {
+    pub season: Option<String>,
+    #[serde(rename = "StandingsLists", default)]
+    pub standings_lists: Vec<StandingsList>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct StandingsList {
+    pub season: Option<String>,
+    pub round: Option<String>,
+    #[serde(rename = "DriverStandings", default)]
+    pub driver_standings: Vec<JolpicaDriverStanding>,
+    #[serde(rename = "ConstructorStandings", default)]
+    pub constructor_standings: Vec<JolpicaConstructorStanding>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaDriverStanding {
+    pub position: String,
+    #[serde(rename = "positionText")]
+    pub position_text: Option<String>,
+    pub points: String,
+    pub wins: String,
+    #[serde(rename = "Driver")]
+    pub driver: JolpicaDriver,
+    #[serde(rename = "Constructors", default)]
+    pub constructors: Vec<JolpicaConstructor>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaDriver {
+    #[serde(rename = "driverId")]
+    pub driver_id: String,
+    #[serde(rename = "permanentNumber")]
+    pub permanent_number: Option<String>,
+    pub code: Option<String>,
+    #[serde(rename = "givenName")]
+    pub given_name: String,
+    #[serde(rename = "familyName")]
+    pub family_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaConstructor {
+    #[serde(rename = "constructorId")]
+    pub constructor_id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaConstructorStanding {
+    pub position: String,
+    #[serde(rename = "positionText")]
+    pub position_text: Option<String>,
+    pub points: String,
+    pub wins: String,
+    #[serde(rename = "Constructor")]
+    pub constructor: JolpicaConstructor,
 }
 
 // --- Helper functions ---
@@ -501,6 +577,83 @@ pub fn get_official_2027_f1_schedule(series_id: &str) -> Vec<RaceEvent> {
         .collect()
 }
 
+/// Parse Jolpica driver standings JSON response into a Vec of DriverStanding.
+pub fn parse_jolpica_driver_standings(json: &str) -> Result<Vec<DriverStanding>> {
+    let data: JolpicaStandingsResponse = serde_json::from_str(json)?;
+    let mut drivers = Vec::new();
+    if let Some(list) = data.mr_data.standings_table.standings_lists.first() {
+        for d in &list.driver_standings {
+            drivers.push(DriverStanding {
+                position: d.position.parse().unwrap_or(0),
+                driver_name: format!("{} {}", d.driver.given_name, d.driver.family_name),
+                driver_code: d.driver.code.clone(),
+                driver_number: d
+                    .driver
+                    .permanent_number
+                    .as_deref()
+                    .and_then(|n| n.parse().ok()),
+                team: d
+                    .constructors
+                    .first()
+                    .map(|c| c.name.clone())
+                    .unwrap_or_default(),
+                points: d.points.parse().unwrap_or(0.0),
+                wins: d.wins.parse().unwrap_or(0),
+            });
+        }
+    }
+    Ok(drivers)
+}
+
+/// Parse Jolpica constructor standings JSON response into a Vec of ConstructorStanding.
+pub fn parse_jolpica_constructor_standings(json: &str) -> Result<Vec<ConstructorStanding>> {
+    let data: JolpicaStandingsResponse = serde_json::from_str(json)?;
+    let mut constructors = Vec::new();
+    if let Some(list) = data.mr_data.standings_table.standings_lists.first() {
+        for c in &list.constructor_standings {
+            constructors.push(ConstructorStanding {
+                position: c.position.parse().unwrap_or(0),
+                name: c.constructor.name.clone(),
+                points: c.points.parse().unwrap_or(0.0),
+                wins: c.wins.parse().unwrap_or(0),
+            });
+        }
+    }
+    Ok(constructors)
+}
+
+impl StandingsFetcher for F1Scraper {
+    async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = fetcher::create_http_client()?;
+        let driver_url = format!(
+            "https://api.jolpica.com/ergast/f1/{}/driverStandings.json",
+            season
+        );
+        let constr_url = format!(
+            "https://api.jolpica.com/ergast/f1/{}/constructorStandings.json",
+            season
+        );
+
+        let driver_text = client.get(&driver_url).send().await?.text().await?;
+        let drivers = parse_jolpica_driver_standings(&driver_text).unwrap_or_default();
+
+        let mut constructors = Vec::new();
+        if let Ok(constr_resp) = client.get(&constr_url).send().await {
+            if let Ok(text) = constr_resp.text().await {
+                constructors = parse_jolpica_constructor_standings(&text).unwrap_or_default();
+            }
+        }
+
+        Ok(SeasonStandings {
+            series_id: "f1".to_string(),
+            season,
+            drivers,
+            constructors,
+            fetched_at: Utc::now(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -555,5 +708,143 @@ mod tests {
         assert_eq!(race.circuit.location.country, "Bahrain");
         assert!(race.first_practice.is_some());
         assert!(race.qualifying.is_some());
+    }
+
+    #[test]
+    fn test_parse_jolpica_driver_standings() {
+        let json_data = r#"{
+            "MRData": {
+                "xmlns": "http://ergast.com/mrd/1.5",
+                "series": "f1",
+                "url": "http://api.jolpica.com/ergast/f1/2026/driverstandings.json",
+                "limit": "30",
+                "offset": "0",
+                "total": "2",
+                "StandingsTable": {
+                    "season": "2026",
+                    "StandingsLists": [
+                        {
+                            "season": "2026",
+                            "round": "1",
+                            "DriverStandings": [
+                                {
+                                    "position": "1",
+                                    "positionText": "1",
+                                    "points": "25",
+                                    "wins": "1",
+                                    "Driver": {
+                                        "driverId": "max_verstappen",
+                                        "permanentNumber": "1",
+                                        "code": "VER",
+                                        "givenName": "Max",
+                                        "familyName": "Verstappen"
+                                    },
+                                    "Constructors": [
+                                        {
+                                            "constructorId": "red_bull",
+                                            "name": "Red Bull"
+                                        }
+                                    ]
+                                },
+                                {
+                                    "position": "2",
+                                    "positionText": "2",
+                                    "points": "18",
+                                    "wins": "0",
+                                    "Driver": {
+                                        "driverId": "norris",
+                                        "permanentNumber": "4",
+                                        "code": "NOR",
+                                        "givenName": "Lando",
+                                        "familyName": "Norris"
+                                    },
+                                    "Constructors": [
+                                        {
+                                            "constructorId": "mclaren",
+                                            "name": "McLaren"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#;
+
+        let drivers = parse_jolpica_driver_standings(json_data).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].driver_name, "Max Verstappen");
+        assert_eq!(drivers[0].driver_code.as_deref(), Some("VER"));
+        assert_eq!(drivers[0].driver_number, Some(1));
+        assert_eq!(drivers[0].team, "Red Bull");
+        assert_eq!(drivers[0].points, 25.0);
+        assert_eq!(drivers[0].wins, 1);
+
+        assert_eq!(drivers[1].position, 2);
+        assert_eq!(drivers[1].driver_name, "Lando Norris");
+        assert_eq!(drivers[1].driver_code.as_deref(), Some("NOR"));
+        assert_eq!(drivers[1].driver_number, Some(4));
+        assert_eq!(drivers[1].team, "McLaren");
+        assert_eq!(drivers[1].points, 18.0);
+        assert_eq!(drivers[1].wins, 0);
+    }
+
+    #[test]
+    fn test_parse_jolpica_constructor_standings() {
+        let json_data = r#"{
+            "MRData": {
+                "xmlns": "http://ergast.com/mrd/1.5",
+                "series": "f1",
+                "url": "http://api.jolpica.com/ergast/f1/2026/constructorstandings.json",
+                "limit": "30",
+                "offset": "0",
+                "total": "2",
+                "StandingsTable": {
+                    "season": "2026",
+                    "StandingsLists": [
+                        {
+                            "season": "2026",
+                            "round": "1",
+                            "ConstructorStandings": [
+                                {
+                                    "position": "1",
+                                    "positionText": "1",
+                                    "points": "40",
+                                    "wins": "1",
+                                    "Constructor": {
+                                        "constructorId": "red_bull",
+                                        "name": "Red Bull"
+                                    }
+                                },
+                                {
+                                    "position": "2",
+                                    "positionText": "2",
+                                    "points": "28",
+                                    "wins": "0",
+                                    "Constructor": {
+                                        "constructorId": "mclaren",
+                                        "name": "McLaren"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#;
+
+        let constructors = parse_jolpica_constructor_standings(json_data).unwrap();
+        assert_eq!(constructors.len(), 2);
+        assert_eq!(constructors[0].position, 1);
+        assert_eq!(constructors[0].name, "Red Bull");
+        assert_eq!(constructors[0].points, 40.0);
+        assert_eq!(constructors[0].wins, 1);
+
+        assert_eq!(constructors[1].position, 2);
+        assert_eq!(constructors[1].name, "McLaren");
+        assert_eq!(constructors[1].points, 28.0);
+        assert_eq!(constructors[1].wins, 0);
     }
 }

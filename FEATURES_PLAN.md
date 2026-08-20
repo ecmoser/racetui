@@ -747,7 +747,7 @@ Implement:
 
 ---
 
-### [ ] Step 8: Define StandingsFetcher and ResultsFetcher traits, implement F1 standings
+### [x] Step 8: Define StandingsFetcher and ResultsFetcher traits, implement F1 standings
 
 **What to do**: Define the `StandingsFetcher` and `ResultsFetcher` traits in `src/scraper/mod.rs`. Implement F1 standings fetching via Jolpica API.
 
