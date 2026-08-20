@@ -300,7 +300,7 @@ pub mod standings;
 
 ---
 
-### [ ] Step 3: Define race results data models and results cache
+### [x] Step 3: Define race results data models and results cache
 
 **What to do**: Create `src/data/results.rs` with data structures for race results AND the cache read/write logic for storing results as separate JSON files per event in `~/.local/share/racetui/results/`.
 
