@@ -3,12 +3,36 @@ use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
-use super::SeriesScraper;
+use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::{
     EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
 };
+use crate::data::results::RaceResults;
+use crate::data::standings::SeasonStandings;
 
 pub struct WorldSbkScraper;
+
+impl StandingsFetcher for WorldSbkScraper {
+    async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        Ok(SeasonStandings {
+            series_id: "worldsbk".to_string(),
+            season,
+            drivers: vec![],
+            constructors: vec![],
+            fetched_at: Utc::now(),
+        })
+    }
+}
+
+impl ResultsFetcher for WorldSbkScraper {
+    async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+        anyhow::bail!(
+            "WorldSBK race results for season {} round {} not yet available",
+            season,
+            round
+        )
+    }
+}
 
 impl SeriesScraper for WorldSbkScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {

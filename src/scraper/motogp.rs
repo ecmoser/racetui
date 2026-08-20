@@ -4,13 +4,38 @@ use serde::Deserialize;
 
 use super::fetcher;
 use super::sportstimes::fetch_sportstimes_calendar;
-use super::SeriesScraper;
+use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::{
     EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
 };
+use crate::data::results::RaceResults;
+use crate::data::standings::SeasonStandings;
 
 pub struct MotoGpScraper {
     pub category: &'static str, // "motogp", "moto2", "moto3"
+}
+
+impl StandingsFetcher for MotoGpScraper {
+    async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        Ok(SeasonStandings {
+            series_id: self.category.to_string(),
+            season,
+            drivers: vec![],
+            constructors: vec![],
+            fetched_at: Utc::now(),
+        })
+    }
+}
+
+impl ResultsFetcher for MotoGpScraper {
+    async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+        anyhow::bail!(
+            "{} race results for season {} round {} not yet available",
+            self.category,
+            season,
+            round
+        )
+    }
 }
 
 #[derive(Debug, Deserialize)]

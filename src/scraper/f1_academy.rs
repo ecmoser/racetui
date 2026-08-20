@@ -3,12 +3,36 @@ use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::sportstimes::fetch_sportstimes_calendar;
-use super::SeriesScraper;
+use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::{
     EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
 };
+use crate::data::results::RaceResults;
+use crate::data::standings::SeasonStandings;
 
 pub struct F1AcademyScraper;
+
+impl StandingsFetcher for F1AcademyScraper {
+    async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        Ok(SeasonStandings {
+            series_id: "f1_academy".to_string(),
+            season,
+            drivers: vec![],
+            constructors: vec![],
+            fetched_at: Utc::now(),
+        })
+    }
+}
+
+impl ResultsFetcher for F1AcademyScraper {
+    async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+        anyhow::bail!(
+            "F1 Academy race results for season {} round {} not yet available",
+            season,
+            round
+        )
+    }
+}
 
 impl SeriesScraper for F1AcademyScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {

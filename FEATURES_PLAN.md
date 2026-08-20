@@ -804,7 +804,7 @@ Add imports and the two new traits (`StandingsFetcher`, `ResultsFetcher`) with t
 
 ---
 
-### [ ] Step 11: Implement standings and results fetchers for remaining series
+### [x] Step 11: Implement standings and results fetchers for remaining series
 
 **What to do**: Add `StandingsFetcher` and `ResultsFetcher` implementations for all remaining series with accessible APIs.
 

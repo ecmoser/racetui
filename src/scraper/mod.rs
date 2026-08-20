@@ -164,6 +164,41 @@ impl<T: StandingsFetcher> StandingsFetcherBoxed for T {
 pub fn get_standings_fetcher(series_id: &str) -> Option<Box<dyn StandingsFetcherBoxed>> {
     match series_id {
         "f1" => Some(Box::new(f1::F1Scraper)),
+        "f2" => Some(Box::new(f2::F2Scraper)),
+        "f3" => Some(Box::new(f3::F3Scraper)),
+        "formula_e" => Some(Box::new(formula_e::FormulaEScraper)),
+        "indycar" => Some(Box::new(indycar::IndyCarScraper)),
+        "imsa" => Some(Box::new(imsa::ImsaScraper)),
+        "wec" => Some(Box::new(wec::WecScraper)),
+        "motogp" => Some(Box::new(motogp::MotoGpScraper { category: "motogp" })),
+        "moto2" => Some(Box::new(motogp::MotoGpScraper { category: "moto2" })),
+        "moto3" => Some(Box::new(motogp::MotoGpScraper { category: "moto3" })),
+        "wrc" => Some(Box::new(wrc::WrcScraper)),
+        "wrc2" => Some(Box::new(wrc::WrcScraper)),
+        "erc" => Some(Box::new(wrc::WrcScraper)),
+        "btcc" => Some(Box::new(btcc::BtccScraper)),
+        "dtm" => Some(Box::new(dtm::DtmScraper)),
+        "super_formula" => Some(Box::new(super_formula::SuperFormulaScraper)),
+        "super_gt" => Some(Box::new(super_gt::SuperGtScraper)),
+        "gtwc_eu" => Some(Box::new(sro::SroScraper {
+            category: "gtwc_eu",
+        })),
+        "gtwc_am" => Some(Box::new(sro::SroScraper {
+            category: "gtwc_am",
+        })),
+        "igtc" => Some(Box::new(sro::SroScraper { category: "igtc" })),
+        "elms" => Some(Box::new(lmem::LmemScraper { category: "elms" })),
+        "aslms" => Some(Box::new(lmem::LmemScraper { category: "aslms" })),
+        "f1_academy" => Some(Box::new(f1_academy::F1AcademyScraper)),
+        "indy_nxt" => Some(Box::new(indy_nxt::IndyNxtScraper)),
+        "worldsbk" => Some(Box::new(worldsbk::WorldSbkScraper)),
+        "bsb" => Some(Box::new(bsb::BsbScraper)),
+        "supercars" => Some(Box::new(supercars::SupercarsScraper)),
+        "tcr_world" => Some(Box::new(tcr::TcrScraper)),
+        "porsche_supercup" => Some(Box::new(porsche::PorscheScraper)),
+        "nls" => Some(Box::new(nls::NlsScraper)),
+        "dakar" => Some(Box::new(dakar::DakarScraper)),
+        "extreme_e" => Some(Box::new(extreme_e::ExtremeEScraper)),
         "nascar_cup" => Some(Box::new(nascar::NascarScraper {
             nascar_series_id: 1,
             racetui_series_id: "nascar_cup",
@@ -217,6 +252,41 @@ impl<T: ResultsFetcher> ResultsFetcherBoxed for T {
 pub fn get_results_fetcher(series_id: &str) -> Option<Box<dyn ResultsFetcherBoxed>> {
     match series_id {
         "f1" => Some(Box::new(f1::F1Scraper)),
+        "f2" => Some(Box::new(f2::F2Scraper)),
+        "f3" => Some(Box::new(f3::F3Scraper)),
+        "formula_e" => Some(Box::new(formula_e::FormulaEScraper)),
+        "indycar" => Some(Box::new(indycar::IndyCarScraper)),
+        "imsa" => Some(Box::new(imsa::ImsaScraper)),
+        "wec" => Some(Box::new(wec::WecScraper)),
+        "motogp" => Some(Box::new(motogp::MotoGpScraper { category: "motogp" })),
+        "moto2" => Some(Box::new(motogp::MotoGpScraper { category: "moto2" })),
+        "moto3" => Some(Box::new(motogp::MotoGpScraper { category: "moto3" })),
+        "wrc" => Some(Box::new(wrc::WrcScraper)),
+        "wrc2" => Some(Box::new(wrc::WrcScraper)),
+        "erc" => Some(Box::new(wrc::WrcScraper)),
+        "btcc" => Some(Box::new(btcc::BtccScraper)),
+        "dtm" => Some(Box::new(dtm::DtmScraper)),
+        "super_formula" => Some(Box::new(super_formula::SuperFormulaScraper)),
+        "super_gt" => Some(Box::new(super_gt::SuperGtScraper)),
+        "gtwc_eu" => Some(Box::new(sro::SroScraper {
+            category: "gtwc_eu",
+        })),
+        "gtwc_am" => Some(Box::new(sro::SroScraper {
+            category: "gtwc_am",
+        })),
+        "igtc" => Some(Box::new(sro::SroScraper { category: "igtc" })),
+        "elms" => Some(Box::new(lmem::LmemScraper { category: "elms" })),
+        "aslms" => Some(Box::new(lmem::LmemScraper { category: "aslms" })),
+        "f1_academy" => Some(Box::new(f1_academy::F1AcademyScraper)),
+        "indy_nxt" => Some(Box::new(indy_nxt::IndyNxtScraper)),
+        "worldsbk" => Some(Box::new(worldsbk::WorldSbkScraper)),
+        "bsb" => Some(Box::new(bsb::BsbScraper)),
+        "supercars" => Some(Box::new(supercars::SupercarsScraper)),
+        "tcr_world" => Some(Box::new(tcr::TcrScraper)),
+        "porsche_supercup" => Some(Box::new(porsche::PorscheScraper)),
+        "nls" => Some(Box::new(nls::NlsScraper)),
+        "dakar" => Some(Box::new(dakar::DakarScraper)),
+        "extreme_e" => Some(Box::new(extreme_e::ExtremeEScraper)),
         "nascar_cup" => Some(Box::new(nascar::NascarScraper {
             nascar_series_id: 1,
             racetui_series_id: "nascar_cup",
@@ -334,11 +404,51 @@ mod tests {
 
     #[test]
     fn test_get_standings_fetcher() {
-        assert!(get_standings_fetcher("f1").is_some());
-        assert!(get_standings_fetcher("nascar_cup").is_some());
-        assert!(get_standings_fetcher("nascar_xfinity").is_some());
-        assert!(get_standings_fetcher("nascar_trucks").is_some());
-        assert!(get_standings_fetcher("arca").is_some());
+        let all_series = vec![
+            "f1",
+            "f2",
+            "f3",
+            "formula_e",
+            "indycar",
+            "imsa",
+            "wec",
+            "motogp",
+            "moto2",
+            "moto3",
+            "wrc",
+            "wrc2",
+            "erc",
+            "btcc",
+            "dtm",
+            "super_formula",
+            "super_gt",
+            "gtwc_eu",
+            "gtwc_am",
+            "igtc",
+            "elms",
+            "aslms",
+            "f1_academy",
+            "indy_nxt",
+            "worldsbk",
+            "bsb",
+            "supercars",
+            "tcr_world",
+            "porsche_supercup",
+            "nls",
+            "dakar",
+            "extreme_e",
+            "nascar_cup",
+            "nascar_xfinity",
+            "nascar_trucks",
+            "arca",
+        ];
+        for s in all_series {
+            assert!(
+                get_standings_fetcher(s).is_some(),
+                "missing standings fetcher for {}",
+                s
+            );
+        }
         assert!(get_standings_fetcher("unknown_series").is_none());
     }
 
@@ -370,11 +480,51 @@ mod tests {
 
     #[test]
     fn test_get_results_fetcher() {
-        assert!(get_results_fetcher("f1").is_some());
-        assert!(get_results_fetcher("nascar_cup").is_some());
-        assert!(get_results_fetcher("nascar_xfinity").is_some());
-        assert!(get_results_fetcher("nascar_trucks").is_some());
-        assert!(get_results_fetcher("arca").is_some());
+        let all_series = vec![
+            "f1",
+            "f2",
+            "f3",
+            "formula_e",
+            "indycar",
+            "imsa",
+            "wec",
+            "motogp",
+            "moto2",
+            "moto3",
+            "wrc",
+            "wrc2",
+            "erc",
+            "btcc",
+            "dtm",
+            "super_formula",
+            "super_gt",
+            "gtwc_eu",
+            "gtwc_am",
+            "igtc",
+            "elms",
+            "aslms",
+            "f1_academy",
+            "indy_nxt",
+            "worldsbk",
+            "bsb",
+            "supercars",
+            "tcr_world",
+            "porsche_supercup",
+            "nls",
+            "dakar",
+            "extreme_e",
+            "nascar_cup",
+            "nascar_xfinity",
+            "nascar_trucks",
+            "arca",
+        ];
+        for s in all_series {
+            assert!(
+                get_results_fetcher(s).is_some(),
+                "missing results fetcher for {}",
+                s
+            );
+        }
         assert!(get_results_fetcher("unknown_series").is_none());
     }
 }

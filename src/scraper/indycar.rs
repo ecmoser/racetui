@@ -4,12 +4,36 @@ use scraper::{Html, Selector};
 use std::collections::HashSet;
 
 use super::sportstimes::fetch_sportstimes_calendar;
-use super::{fetcher, SeriesScraper};
+use super::{fetcher, ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::{
     EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
 };
+use crate::data::results::RaceResults;
+use crate::data::standings::SeasonStandings;
 
 pub struct IndyCarScraper;
+
+impl StandingsFetcher for IndyCarScraper {
+    async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        Ok(SeasonStandings {
+            series_id: "indycar".to_string(),
+            season,
+            drivers: vec![],
+            constructors: vec![],
+            fetched_at: Utc::now(),
+        })
+    }
+}
+
+impl ResultsFetcher for IndyCarScraper {
+    async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+        anyhow::bail!(
+            "IndyCar race results for season {} round {} not yet available",
+            season,
+            round
+        )
+    }
+}
 
 impl SeriesScraper for IndyCarScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {
