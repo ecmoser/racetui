@@ -33,7 +33,9 @@ impl SeriesScraper for BtccScraper {
             if events.is_empty() {
                 if let Ok(response) = client.get(&series.calendar_url).send().await {
                     if let Ok(html_text) = response.text().await {
-                        if !html_text.contains("Vercel Security Checkpoint") && !html_text.contains("Enable JavaScript to continue") {
+                        if !html_text.contains("Vercel Security Checkpoint")
+                            && !html_text.contains("Enable JavaScript to continue")
+                        {
                             if let Ok(parsed) = parse_btcc_html(&html_text, &series.id) {
                                 if !parsed.is_empty() {
                                     events = parsed;
@@ -49,7 +51,10 @@ impl SeriesScraper for BtccScraper {
             events = get_official_2026_btcc_schedule(&series.id);
         }
 
-        if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_btcc_schedule(&series.id));
         }
 
@@ -256,16 +261,76 @@ pub fn get_official_2026_btcc_schedule(series_id: &str) -> Vec<RaceEvent> {
 
 pub fn get_official_2027_btcc_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Donington Park (National)", "Donington Park (National Circuit)", "Castle Donington", (2027, 4, 24), (2027, 4, 25)),
-        ("Brands Hatch (Indy)", "Brands Hatch (Indy Circuit)", "West Kingsdown", (2027, 5, 8), (2027, 5, 9)),
-        ("Snetterton (300)", "Snetterton Motor Racing Circuit (300)", "Norwich", (2027, 5, 22), (2027, 5, 23)),
-        ("Thruxton", "Thruxton Circuit", "Andover", (2027, 6, 5), (2027, 6, 6)),
-        ("Oulton Park (Island)", "Oulton Park (Island Circuit)", "Little Budworth", (2027, 6, 19), (2027, 6, 20)),
-        ("Croft", "Croft Circuit", "Dalton-on-Tees", (2027, 7, 24), (2027, 7, 25)),
-        ("Knockhill", "Knockhill Racing Circuit", "Fife", (2027, 8, 14), (2027, 8, 15)),
-        ("Donington Park (GP)", "Donington Park (Grand Prix Circuit)", "Castle Donington", (2027, 8, 28), (2027, 8, 29)),
-        ("Silverstone (National)", "Silverstone Circuit (National)", "Silverstone", (2027, 9, 18), (2027, 9, 19)),
-        ("Brands Hatch (GP)", "Brands Hatch (Grand Prix Circuit)", "West Kingsdown", (2027, 10, 2), (2027, 10, 3)),
+        (
+            "Donington Park (National)",
+            "Donington Park (National Circuit)",
+            "Castle Donington",
+            (2027, 4, 24),
+            (2027, 4, 25),
+        ),
+        (
+            "Brands Hatch (Indy)",
+            "Brands Hatch (Indy Circuit)",
+            "West Kingsdown",
+            (2027, 5, 8),
+            (2027, 5, 9),
+        ),
+        (
+            "Snetterton (300)",
+            "Snetterton Motor Racing Circuit (300)",
+            "Norwich",
+            (2027, 5, 22),
+            (2027, 5, 23),
+        ),
+        (
+            "Thruxton",
+            "Thruxton Circuit",
+            "Andover",
+            (2027, 6, 5),
+            (2027, 6, 6),
+        ),
+        (
+            "Oulton Park (Island)",
+            "Oulton Park (Island Circuit)",
+            "Little Budworth",
+            (2027, 6, 19),
+            (2027, 6, 20),
+        ),
+        (
+            "Croft",
+            "Croft Circuit",
+            "Dalton-on-Tees",
+            (2027, 7, 24),
+            (2027, 7, 25),
+        ),
+        (
+            "Knockhill",
+            "Knockhill Racing Circuit",
+            "Fife",
+            (2027, 8, 14),
+            (2027, 8, 15),
+        ),
+        (
+            "Donington Park (GP)",
+            "Donington Park (Grand Prix Circuit)",
+            "Castle Donington",
+            (2027, 8, 28),
+            (2027, 8, 29),
+        ),
+        (
+            "Silverstone (National)",
+            "Silverstone Circuit (National)",
+            "Silverstone",
+            (2027, 9, 18),
+            (2027, 9, 19),
+        ),
+        (
+            "Brands Hatch (GP)",
+            "Brands Hatch (Grand Prix Circuit)",
+            "West Kingsdown",
+            (2027, 10, 2),
+            (2027, 10, 3),
+        ),
     ];
 
     raw_events
@@ -275,16 +340,44 @@ pub fn get_official_2027_btcc_schedule(series_id: &str) -> Vec<RaceEvent> {
             let sat_date = NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap();
             let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
 
-            let quali_time = sat_date.and_hms_opt(14, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race1_time = sun_date.and_hms_opt(10, 45, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race2_time = sun_date.and_hms_opt(13, 25, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race3_time = sun_date.and_hms_opt(16, 15, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let quali_time = sat_date
+                .and_hms_opt(14, 30, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race1_time = sun_date
+                .and_hms_opt(10, 45, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race2_time = sun_date
+                .and_hms_opt(13, 25, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race3_time = sun_date
+                .and_hms_opt(16, 15, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
-                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
-                Session { name: "Race 1".to_string(), session_type: SessionType::Race, start_time: race1_time, end_time: None },
-                Session { name: "Race 2".to_string(), session_type: SessionType::Race, start_time: race2_time, end_time: None },
-                Session { name: "Race 3".to_string(), session_type: SessionType::Race, start_time: race3_time, end_time: None },
+                Session {
+                    name: "Qualifying".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: quali_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Race 1".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race1_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Race 2".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race2_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Race 3".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race3_time,
+                    end_time: None,
+                },
             ];
 
             RaceEvent {

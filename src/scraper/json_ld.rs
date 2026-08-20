@@ -3,9 +3,7 @@ use chrono::{DateTime, NaiveDate, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::data::models::{
-    EventStatus, RaceEvent, Session, SessionType, StreamLink,
-};
+use crate::data::models::{EventStatus, RaceEvent, Session, SessionType, StreamLink};
 
 #[derive(Debug, Deserialize)]
 pub struct JsonLdRoot {
@@ -88,8 +86,8 @@ pub fn parse_json_ld_str(
     series_id: &str,
     default_stream_links: &[StreamLink],
 ) -> Result<Vec<RaceEvent>> {
-    let root: JsonLdRoot = serde_json::from_str(json_str)
-        .context("Failed to deserialize JSON-LD graph")?;
+    let root: JsonLdRoot =
+        serde_json::from_str(json_str).context("Failed to deserialize JSON-LD graph")?;
 
     let now = Utc::now();
     let today = now.date_naive();
@@ -105,7 +103,10 @@ pub fn parse_json_ld_str(
 
         let (circuit_name, country) = if let Some(loc) = item.location {
             let c_name = loc.name.unwrap_or_default();
-            let c_country = loc.address.and_then(|a| a.address_country).unwrap_or_default();
+            let c_country = loc
+                .address
+                .and_then(|a| a.address_country)
+                .unwrap_or_default();
             (c_name, c_country)
         } else {
             (String::new(), String::new())
@@ -155,7 +156,11 @@ pub fn parse_json_ld_str(
         events.push(RaceEvent {
             series_id: series_id.to_string(),
             event_name,
-            circuit_name: if circuit_name.is_empty() { "Circuit".to_string() } else { circuit_name },
+            circuit_name: if circuit_name.is_empty() {
+                "Circuit".to_string()
+            } else {
+                circuit_name
+            },
             location: country.clone(),
             country,
             start_date,

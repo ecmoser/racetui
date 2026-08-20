@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for WorldSbkScraper {
         if events.is_empty() {
             events = get_official_worldsbk_schedule(&series.id, 2026);
             events.extend(get_official_worldsbk_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_worldsbk_schedule(&series.id, 2027));
         }
 
@@ -52,18 +55,84 @@ pub fn get_official_worldsbk_schedule(series_id: &str, year: i32) -> Vec<RaceEve
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Australian Round", "Phillip Island Grand Prix Circuit", "Australia", (2, 21), (2, 22)),
-        ("Portuguese Round", "Autódromo Internacional do Algarve", "Portugal", (3, 28), (3, 29)),
-        ("Dutch Round", "TT Circuit Assen", "Netherlands", (4, 18), (4, 19)),
-        ("Italian Round", "Misano World Circuit", "Italy", (6, 13), (6, 14)),
+        (
+            "Australian Round",
+            "Phillip Island Grand Prix Circuit",
+            "Australia",
+            (2, 21),
+            (2, 22),
+        ),
+        (
+            "Portuguese Round",
+            "Autódromo Internacional do Algarve",
+            "Portugal",
+            (3, 28),
+            (3, 29),
+        ),
+        (
+            "Dutch Round",
+            "TT Circuit Assen",
+            "Netherlands",
+            (4, 18),
+            (4, 19),
+        ),
+        (
+            "Italian Round",
+            "Misano World Circuit",
+            "Italy",
+            (6, 13),
+            (6, 14),
+        ),
         ("UK Round", "Donington Park", "UK", (7, 11), (7, 12)),
-        ("Czech Round", "Autodrom Most", "Czech Republic", (7, 25), (7, 26)),
-        ("Hungarian Round", "Balaton Park Circuit", "Hungary", (8, 8), (8, 9)),
-        ("French Round", "Circuit de Nevers Magny-Cours", "France", (9, 5), (9, 6)),
-        ("Emilia-Romagna Round", "Autodromo Enzo e Dino Ferrari", "Italy", (9, 19), (9, 20)),
-        ("Spanish Round", "MotorLand Aragón", "Spain", (9, 26), (9, 27)),
-        ("Portuguese Round 2", "Circuito do Estoril", "Portugal", (10, 10), (10, 11)),
-        ("Spanish Round Finale", "Circuito de Jerez", "Spain", (10, 17), (10, 18)),
+        (
+            "Czech Round",
+            "Autodrom Most",
+            "Czech Republic",
+            (7, 25),
+            (7, 26),
+        ),
+        (
+            "Hungarian Round",
+            "Balaton Park Circuit",
+            "Hungary",
+            (8, 8),
+            (8, 9),
+        ),
+        (
+            "French Round",
+            "Circuit de Nevers Magny-Cours",
+            "France",
+            (9, 5),
+            (9, 6),
+        ),
+        (
+            "Emilia-Romagna Round",
+            "Autodromo Enzo e Dino Ferrari",
+            "Italy",
+            (9, 19),
+            (9, 20),
+        ),
+        (
+            "Spanish Round",
+            "MotorLand Aragón",
+            "Spain",
+            (9, 26),
+            (9, 27),
+        ),
+        (
+            "Portuguese Round 2",
+            "Circuito do Estoril",
+            "Portugal",
+            (10, 10),
+            (10, 11),
+        ),
+        (
+            "Spanish Round Finale",
+            "Circuito de Jerez",
+            "Spain",
+            (10, 17),
+            (10, 18),
+        ),
     ];
 
     raw_events
@@ -85,25 +154,33 @@ pub fn get_official_worldsbk_schedule(series_id: &str, year: i32) -> Vec<RaceEve
                 Session {
                     name: "Superpole (Qualifying)".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(10, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 1".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Superpole Race".to_string(),
                     session_type: SessionType::Sprint,
-                    start_time: sun_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(10, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 2".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

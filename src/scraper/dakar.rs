@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for DakarScraper {
         if events.is_empty() {
             events = get_official_dakar_schedule(&series.id, 2026);
             events.extend(get_official_dakar_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_dakar_schedule(&series.id, 2027));
         }
 
@@ -65,19 +68,27 @@ pub fn get_official_dakar_schedule(series_id: &str, year: i32) -> Vec<RaceEvent>
         Session {
             name: "Prologue / Stage 1".to_string(),
             session_type: SessionType::Practice,
-            start_time: start_date.and_hms_opt(5, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+            start_time: start_date
+                .and_hms_opt(5, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             end_time: None,
         },
         Session {
             name: "Marathon Stages (1-12)".to_string(),
             session_type: SessionType::Other("Rally Raid".to_string()),
-            start_time: start_date.succ_opt().unwrap_or(start_date).and_hms_opt(4, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+            start_time: start_date
+                .succ_opt()
+                .unwrap_or(start_date)
+                .and_hms_opt(4, 30, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             end_time: None,
         },
         Session {
             name: "Final Stage & Podium".to_string(),
             session_type: SessionType::Race,
-            start_time: end_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+            start_time: end_date
+                .and_hms_opt(6, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             end_time: None,
         },
     ];

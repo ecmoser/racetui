@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for BsbScraper {
         if events.is_empty() {
             events = get_official_bsb_schedule(&series.id, 2026);
             events.extend(get_official_bsb_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_bsb_schedule(&series.id, 2027));
         }
 
@@ -54,15 +57,39 @@ pub fn get_official_bsb_schedule(series_id: &str, year: i32) -> Vec<RaceEvent> {
     let raw_events = vec![
         ("Circuito de Navarra", "Navarra", "Spain", (4, 18), (4, 19)),
         ("Oulton Park (Sprint)", "Oulton Park", "UK", (5, 2), (5, 4)),
-        ("Donington Park (National)", "Donington Park", "UK", (5, 16), (5, 17)),
+        (
+            "Donington Park (National)",
+            "Donington Park",
+            "UK",
+            (5, 16),
+            (5, 17),
+        ),
         ("Snetterton (300)", "Snetterton", "UK", (6, 20), (6, 21)),
         ("Knockhill", "Knockhill", "UK", (7, 4), (7, 5)),
         ("Brands Hatch (GP)", "Brands Hatch", "UK", (7, 25), (7, 26)),
         ("Thruxton", "Thruxton", "UK", (8, 8), (8, 9)),
         ("Cadwell Park", "Cadwell Park", "UK", (8, 29), (8, 31)),
-        ("Oulton Park (Showdown)", "Oulton Park", "UK", (9, 12), (9, 13)),
-        ("Donington Park (GP Showdown)", "Donington Park", "UK", (10, 3), (10, 4)),
-        ("Brands Hatch (GP Finale)", "Brands Hatch", "UK", (10, 17), (10, 18)),
+        (
+            "Oulton Park (Showdown)",
+            "Oulton Park",
+            "UK",
+            (9, 12),
+            (9, 13),
+        ),
+        (
+            "Donington Park (GP Showdown)",
+            "Donington Park",
+            "UK",
+            (10, 3),
+            (10, 4),
+        ),
+        (
+            "Brands Hatch (GP Finale)",
+            "Brands Hatch",
+            "UK",
+            (10, 17),
+            (10, 18),
+        ),
     ];
 
     raw_events
@@ -84,25 +111,33 @@ pub fn get_official_bsb_schedule(series_id: &str, year: i32) -> Vec<RaceEvent> {
                 Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Sprint Race".to_string(),
                     session_type: SessionType::Sprint,
-                    start_time: sat_date.and_hms_opt(15, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(15, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 2".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(12, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(12, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 3".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(15, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(15, 45, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

@@ -45,11 +45,7 @@ struct Cli {
 /// 1. Try to load from cache first (instant, non-blocking).
 /// 2. If cache is fresh (within TTL), use it.
 /// 3. If cache is stale or missing, spawn an async task to scrape/fetch.
-fn spawn_data_loaders(
-    app: &mut App,
-    tx: mpsc::UnboundedSender<AppEvent>,
-    force_refresh: bool,
-) {
+fn spawn_data_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>, force_refresh: bool) {
     let series_list: Vec<(String, data::models::Series)> = app
         .series_registry
         .iter()
@@ -89,10 +85,7 @@ fn spawn_data_loaders(
         let scraper_impl = match scraper::get_scraper(&series_id) {
             Some(s) => s,
             None => {
-                app.mark_fetch_error(
-                    &series_id,
-                    "No scraper implemented yet".to_string(),
-                );
+                app.mark_fetch_error(&series_id, "No scraper implemented yet".to_string());
                 continue;
             }
         };
@@ -361,9 +354,7 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 }
             }
             KeyCode::Char(c) => {
-                app.search_query
-                    .get_or_insert_with(String::new)
-                    .push(c);
+                app.search_query.get_or_insert_with(String::new).push(c);
             }
             _ => {}
         }
@@ -385,7 +376,11 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 app.set_status_message(format!("{} favorites: {}", action, series_name));
                 app.pending_favorite_toggle = None;
             }
-            KeyCode::Char('n') | KeyCode::Char('N') | KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
+            KeyCode::Char('n')
+            | KeyCode::Char('N')
+            | KeyCode::Esc
+            | KeyCode::Char('q')
+            | KeyCode::Char('Q') => {
                 app.pending_favorite_toggle = None;
             }
             _ => {}
@@ -396,7 +391,11 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
     // If help popup is active, handle help keys
     if app.show_help {
         match key.code {
-            KeyCode::Esc | KeyCode::Enter | KeyCode::Char('?') | KeyCode::Char('q') | KeyCode::Char('Q') => {
+            KeyCode::Esc
+            | KeyCode::Enter
+            | KeyCode::Char('?')
+            | KeyCode::Char('q')
+            | KeyCode::Char('Q') => {
                 app.show_help = false;
             }
             _ => {}
@@ -422,7 +421,10 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                     // Find this event in list_table_items to set table_state
                     let items = app.list_table_items();
                     if let Some(idx) = items.iter().position(|item| match item {
-                        app::ListTableItem::Session(s) => s.event.series_id == event.series_id && s.event.event_name == event.event_name,
+                        app::ListTableItem::Session(s) => {
+                            s.event.series_id == event.series_id
+                                && s.event.event_name == event.event_name
+                        }
                         _ => false,
                     }) {
                         app.table_state.select(Some(idx));
@@ -586,7 +588,10 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                     let event = day_events[0].event;
                     let items = app.list_table_items();
                     if let Some(idx) = items.iter().position(|item| match item {
-                        app::ListTableItem::Session(s) => s.event.series_id == event.series_id && s.event.event_name == event.event_name,
+                        app::ListTableItem::Session(s) => {
+                            s.event.series_id == event.series_id
+                                && s.event.event_name == event.event_name
+                        }
                         _ => false,
                     }) {
                         app.table_state.select(Some(idx));
@@ -728,7 +733,9 @@ mod tests {
 
         assert_eq!(
             app.fetch_status.get("unimplemented_series"),
-            Some(&data::models::FetchStatus::Error("No scraper implemented yet".to_string()))
+            Some(&data::models::FetchStatus::Error(
+                "No scraper implemented yet".to_string()
+            ))
         );
     }
 
@@ -851,7 +858,10 @@ mod tests {
         handle_key_event(&mut app, key(KeyCode::Enter));
         assert!(!app.show_day_events);
         assert!(app.show_detail);
-        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Indy 500"));
+        assert_eq!(
+            app.selected_event().map(|e| e.event_name.as_str()),
+            Some("Indy 500")
+        );
     }
 
     #[test]
@@ -908,10 +918,7 @@ mod tests {
 
         // Press 'o' to open first link
         handle_key_event(&mut app, key(KeyCode::Char('o')));
-        assert_eq!(
-            app.status_message.as_deref(),
-            Some("Opened F1TV in true")
-        );
+        assert_eq!(app.status_message.as_deref(), Some("Opened F1TV in true"));
 
         // Press '2' to open second link
         handle_key_event(&mut app, key(KeyCode::Char('2')));
@@ -1012,7 +1019,10 @@ mod tests {
         handle_key_event(&mut app, key(KeyCode::Char('y')));
         assert_eq!(app.pending_favorite_toggle, None);
         assert!(app.config.favorites.contains("f1"));
-        assert_eq!(app.status_message.as_deref(), Some("Added to favorites: Formula 1"));
+        assert_eq!(
+            app.status_message.as_deref(),
+            Some("Added to favorites: Formula 1")
+        );
 
         // Press 'f' and confirm removal with Enter
         handle_key_event(&mut app, key(KeyCode::Char('f')));
@@ -1020,7 +1030,10 @@ mod tests {
         handle_key_event(&mut app, key(KeyCode::Enter));
         assert_eq!(app.pending_favorite_toggle, None);
         assert!(!app.config.favorites.contains("f1"));
-        assert_eq!(app.status_message.as_deref(), Some("Removed from favorites: Formula 1"));
+        assert_eq!(
+            app.status_message.as_deref(),
+            Some("Removed from favorites: Formula 1")
+        );
     }
 
     #[test]
@@ -1072,7 +1085,9 @@ mod tests {
         let f1_events = scraper::f1::get_official_2027_f1_schedule("f1");
         assert_eq!(f1_events.len(), 24);
         assert!(f1_events.iter().all(|e| e.start_date.year() == 2027));
-        assert!(f1_events.iter().all(|e| !e.sessions.is_empty() && e.sessions.iter().all(|s| s.start_time.is_some())));
+        assert!(f1_events
+            .iter()
+            .all(|e| !e.sessions.is_empty() && e.sessions.iter().all(|s| s.start_time.is_some())));
 
         // Test F2 2027
         let f2_events = scraper::f2::get_official_2027_f2_schedule("f2");
@@ -1103,12 +1118,18 @@ mod tests {
         let moto2_events = scraper::motogp::get_official_2027_motogp_schedule("moto2");
         assert_eq!(moto2_events.len(), 21);
         assert_eq!(moto2_events[0].event_name, "Thai Moto2 Grand Prix");
-        assert!(moto2_events[0].sessions.iter().all(|s| s.start_time.is_some()));
+        assert!(moto2_events[0]
+            .sessions
+            .iter()
+            .all(|s| s.start_time.is_some()));
 
         let moto3_events = scraper::motogp::get_official_2027_motogp_schedule("moto3");
         assert_eq!(moto3_events.len(), 21);
         assert_eq!(moto3_events[0].event_name, "Thai Moto3 Grand Prix");
-        assert!(moto3_events[0].sessions.iter().all(|s| s.start_time.is_some()));
+        assert!(moto3_events[0]
+            .sessions
+            .iter()
+            .all(|s| s.start_time.is_some()));
 
         // Test IMSA 2027
         let imsa_events = scraper::imsa::get_official_2027_imsa_schedule("imsa");
@@ -1131,7 +1152,8 @@ mod tests {
         assert!(dtm_events.iter().all(|e| e.start_date.year() == 2027));
 
         // Test Super Formula 2027
-        let sf_events = scraper::super_formula::get_official_2027_super_formula_schedule("super_formula");
+        let sf_events =
+            scraper::super_formula::get_official_2027_super_formula_schedule("super_formula");
         assert_eq!(sf_events.len(), 7);
         assert!(sf_events.iter().all(|e| e.start_date.year() == 2027));
 
@@ -1144,12 +1166,15 @@ mod tests {
         let wrc_events = scraper::wrc::get_official_2027_wrc_schedule("wrc");
         assert_eq!(wrc_events.len(), 14);
         assert!(wrc_events.iter().all(|e| e.start_date.year() == 2027));
-        assert!(wrc_events.iter().all(|e| !e.sessions.is_empty() && e.sessions.iter().all(|s| s.start_time.is_some())));
+        assert!(wrc_events
+            .iter()
+            .all(|e| !e.sessions.is_empty() && e.sessions.iter().all(|s| s.start_time.is_some())));
     }
 
     #[test]
     fn test_cli_parsing() {
-        let cli = Cli::try_parse_from(["racetui", "--refresh", "--calendar", "--series", "f1"]).unwrap();
+        let cli =
+            Cli::try_parse_from(["racetui", "--refresh", "--calendar", "--series", "f1"]).unwrap();
         assert!(cli.refresh);
         assert!(cli.calendar);
         assert_eq!(cli.series.as_deref(), Some("f1"));
@@ -1170,7 +1195,8 @@ mod tests {
         assert!(app.status_message_set_at.is_some());
 
         // Simulate set_at 4 seconds in the past
-        app.status_message_set_at = Some(std::time::Instant::now() - std::time::Duration::from_secs(4));
+        app.status_message_set_at =
+            Some(std::time::Instant::now() - std::time::Duration::from_secs(4));
         if let Some(set_at) = app.status_message_set_at {
             if set_at.elapsed() >= std::time::Duration::from_secs(3) {
                 app.status_message = None;
@@ -1183,7 +1209,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_all_scrapers_execution() {
-        let registry = data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
+        let registry =
+            data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
         assert_eq!(registry.len(), 36);
         for (id, series) in &registry {
             let scraper = scraper::get_scraper(id);
@@ -1195,9 +1222,3 @@ mod tests {
         }
     }
 }
-
-
-
-
-
-

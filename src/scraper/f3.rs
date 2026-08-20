@@ -183,16 +183,76 @@ pub fn get_official_2026_f3_schedule(series_id: &str) -> Vec<RaceEvent> {
 
 pub fn get_official_2027_f3_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Albert Park Circuit", "Melbourne", "Australia", (2027, 3, 12), (2027, 3, 14)),
-        ("Bahrain International Circuit", "Sakhir", "Bahrain", (2027, 4, 9), (2027, 4, 11)),
-        ("Autodromo Enzo e Dino Ferrari", "Imola", "Italy", (2027, 5, 14), (2027, 5, 16)),
-        ("Circuit de Monaco", "Monte Carlo", "Monaco", (2027, 5, 21), (2027, 5, 23)),
-        ("Circuit de Barcelona-Catalunya", "Barcelona", "Spain", (2027, 5, 28), (2027, 5, 30)),
-        ("Red Bull Ring", "Spielberg", "Austria", (2027, 6, 25), (2027, 6, 27)),
-        ("Silverstone Circuit", "Silverstone", "UK", (2027, 7, 2), (2027, 7, 4)),
-        ("Circuit de Spa-Francorchamps", "Spa-Francorchamps", "Belgium", (2027, 7, 23), (2027, 7, 25)),
-        ("Hungaroring", "Budapest", "Hungary", (2027, 7, 30), (2027, 8, 1)),
-        ("Autodromo Nazionale Monza", "Monza", "Italy", (2027, 9, 3), (2027, 9, 5)),
+        (
+            "Albert Park Circuit",
+            "Melbourne",
+            "Australia",
+            (2027, 3, 12),
+            (2027, 3, 14),
+        ),
+        (
+            "Bahrain International Circuit",
+            "Sakhir",
+            "Bahrain",
+            (2027, 4, 9),
+            (2027, 4, 11),
+        ),
+        (
+            "Autodromo Enzo e Dino Ferrari",
+            "Imola",
+            "Italy",
+            (2027, 5, 14),
+            (2027, 5, 16),
+        ),
+        (
+            "Circuit de Monaco",
+            "Monte Carlo",
+            "Monaco",
+            (2027, 5, 21),
+            (2027, 5, 23),
+        ),
+        (
+            "Circuit de Barcelona-Catalunya",
+            "Barcelona",
+            "Spain",
+            (2027, 5, 28),
+            (2027, 5, 30),
+        ),
+        (
+            "Red Bull Ring",
+            "Spielberg",
+            "Austria",
+            (2027, 6, 25),
+            (2027, 6, 27),
+        ),
+        (
+            "Silverstone Circuit",
+            "Silverstone",
+            "UK",
+            (2027, 7, 2),
+            (2027, 7, 4),
+        ),
+        (
+            "Circuit de Spa-Francorchamps",
+            "Spa-Francorchamps",
+            "Belgium",
+            (2027, 7, 23),
+            (2027, 7, 25),
+        ),
+        (
+            "Hungaroring",
+            "Budapest",
+            "Hungary",
+            (2027, 7, 30),
+            (2027, 8, 1),
+        ),
+        (
+            "Autodromo Nazionale Monza",
+            "Monza",
+            "Italy",
+            (2027, 9, 3),
+            (2027, 9, 5),
+        ),
     ];
 
     raw_events
@@ -203,14 +263,35 @@ pub fn get_official_2027_f3_schedule(series_id: &str) -> Vec<RaceEvent> {
             let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
             let sat_date = sun_date.pred_opt().unwrap_or(sun_date);
 
-            let quali_time = fri_date.and_hms_opt(13, 0, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let sprint_time = sat_date.and_hms_opt(9, 15, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let feature_time = sun_date.and_hms_opt(8, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let quali_time = fri_date
+                .and_hms_opt(13, 0, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let sprint_time = sat_date
+                .and_hms_opt(9, 15, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let feature_time = sun_date
+                .and_hms_opt(8, 30, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
-                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
-                Session { name: "Sprint Race".to_string(), session_type: SessionType::Sprint, start_time: sprint_time, end_time: None },
-                Session { name: "Feature Race".to_string(), session_type: SessionType::Race, start_time: feature_time, end_time: None },
+                Session {
+                    name: "Qualifying".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: quali_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Sprint Race".to_string(),
+                    session_type: SessionType::Sprint,
+                    start_time: sprint_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Feature Race".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: feature_time,
+                    end_time: None,
+                },
             ];
 
             RaceEvent {

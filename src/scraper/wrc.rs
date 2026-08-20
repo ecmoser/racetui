@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for WrcScraper {
         if events.is_empty() {
             events = get_official_2026_wrc_schedule(&series.id);
             events.extend(get_official_2027_wrc_schedule(&series.id));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_wrc_schedule(&series.id));
         }
 
@@ -52,20 +55,92 @@ pub fn get_official_2026_wrc_schedule(series_id: &str) -> Vec<RaceEvent> {
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Rallye Monte-Carlo", "Gap / Monaco", "Monaco", "Tarmac / Snow", (2026, 1, 25)),
+        (
+            "Rallye Monte-Carlo",
+            "Gap / Monaco",
+            "Monaco",
+            "Tarmac / Snow",
+            (2026, 1, 25),
+        ),
         ("Rally Sweden", "Umeå", "Sweden", "Snow", (2026, 2, 15)),
-        ("Safari Rally Kenya", "Naivasha", "Kenya", "Gravel", (2026, 3, 22)),
-        ("Rally Islas Canarias", "Las Palmas", "Spain", "Tarmac", (2026, 4, 26)),
-        ("Rally de Portugal", "Matosinhos", "Portugal", "Gravel", (2026, 5, 17)),
-        ("Rally Italia Sardegna", "Olbia", "Italy", "Gravel", (2026, 6, 7)),
-        ("Acropolis Rally Greece", "Lamia", "Greece", "Gravel", (2026, 6, 28)),
+        (
+            "Safari Rally Kenya",
+            "Naivasha",
+            "Kenya",
+            "Gravel",
+            (2026, 3, 22),
+        ),
+        (
+            "Rally Islas Canarias",
+            "Las Palmas",
+            "Spain",
+            "Tarmac",
+            (2026, 4, 26),
+        ),
+        (
+            "Rally de Portugal",
+            "Matosinhos",
+            "Portugal",
+            "Gravel",
+            (2026, 5, 17),
+        ),
+        (
+            "Rally Italia Sardegna",
+            "Olbia",
+            "Italy",
+            "Gravel",
+            (2026, 6, 7),
+        ),
+        (
+            "Acropolis Rally Greece",
+            "Lamia",
+            "Greece",
+            "Gravel",
+            (2026, 6, 28),
+        ),
         ("Rally Estonia", "Tartu", "Estonia", "Gravel", (2026, 7, 19)),
-        ("Secto Rally Finland", "Jyväskylä", "Finland", "Gravel", (2026, 8, 2)),
-        ("Rally del Paraguay", "Encarnación", "Paraguay", "Gravel", (2026, 8, 30)),
-        ("Rally Chile Bio Bío", "Concepción", "Chile", "Gravel", (2026, 9, 13)),
-        ("Central European Rally", "Passau / Prague", "Germany / Czechia", "Tarmac", (2026, 10, 18)),
-        ("FORUM8 Rally Japan", "Toyota City", "Japan", "Tarmac", (2026, 11, 8)),
-        ("Rally Saudi Arabia", "Jeddah", "Saudi Arabia", "Gravel", (2026, 11, 29)),
+        (
+            "Secto Rally Finland",
+            "Jyväskylä",
+            "Finland",
+            "Gravel",
+            (2026, 8, 2),
+        ),
+        (
+            "Rally del Paraguay",
+            "Encarnación",
+            "Paraguay",
+            "Gravel",
+            (2026, 8, 30),
+        ),
+        (
+            "Rally Chile Bio Bío",
+            "Concepción",
+            "Chile",
+            "Gravel",
+            (2026, 9, 13),
+        ),
+        (
+            "Central European Rally",
+            "Passau / Prague",
+            "Germany / Czechia",
+            "Tarmac",
+            (2026, 10, 18),
+        ),
+        (
+            "FORUM8 Rally Japan",
+            "Toyota City",
+            "Japan",
+            "Tarmac",
+            (2026, 11, 8),
+        ),
+        (
+            "Rally Saudi Arabia",
+            "Jeddah",
+            "Saudi Arabia",
+            "Gravel",
+            (2026, 11, 29),
+        ),
     ];
 
     raw_events
@@ -73,7 +148,13 @@ pub fn get_official_2026_wrc_schedule(series_id: &str) -> Vec<RaceEvent> {
         .enumerate()
         .map(|(i, (name, loc, country, surface, date))| {
             let race_date = NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap();
-            let thu_date = race_date.pred_opt().unwrap_or(race_date).pred_opt().unwrap_or(race_date).pred_opt().unwrap_or(race_date);
+            let thu_date = race_date
+                .pred_opt()
+                .unwrap_or(race_date)
+                .pred_opt()
+                .unwrap_or(race_date)
+                .pred_opt()
+                .unwrap_or(race_date);
             let fri_date = thu_date.succ_opt().unwrap_or(thu_date);
             let sat_date = fri_date.succ_opt().unwrap_or(fri_date);
 
@@ -89,25 +170,33 @@ pub fn get_official_2026_wrc_schedule(series_id: &str) -> Vec<RaceEvent> {
                 Session {
                     name: format!("Shakedown ({})", surface),
                     session_type: SessionType::Practice,
-                    start_time: thu_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: thu_date
+                        .and_hms_opt(8, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Leg 1 Stages".to_string(),
                     session_type: SessionType::Race,
-                    start_time: fri_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(7, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Leg 2 Stages".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sat_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(7, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Power Stage / Final".to_string(),
                     session_type: SessionType::Race,
-                    start_time: race_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: race_date
+                        .and_hms_opt(12, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];
@@ -131,20 +220,92 @@ pub fn get_official_2026_wrc_schedule(series_id: &str) -> Vec<RaceEvent> {
 
 pub fn get_official_2027_wrc_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Rallye Monte-Carlo", "Gap / Monaco", "Monaco", "Tarmac / Snow", (2027, 1, 24)),
+        (
+            "Rallye Monte-Carlo",
+            "Gap / Monaco",
+            "Monaco",
+            "Tarmac / Snow",
+            (2027, 1, 24),
+        ),
         ("Rally Sweden", "Umeå", "Sweden", "Snow", (2027, 2, 14)),
-        ("Safari Rally Kenya", "Naivasha", "Kenya", "Gravel", (2027, 3, 21)),
-        ("Rally Islas Canarias", "Las Palmas", "Spain", "Tarmac", (2027, 4, 25)),
-        ("Rally de Portugal", "Matosinhos", "Portugal", "Gravel", (2027, 5, 16)),
-        ("Rally Italia Sardegna", "Olbia", "Italy", "Gravel", (2027, 6, 6)),
-        ("Acropolis Rally Greece", "Lamia", "Greece", "Gravel", (2027, 6, 27)),
+        (
+            "Safari Rally Kenya",
+            "Naivasha",
+            "Kenya",
+            "Gravel",
+            (2027, 3, 21),
+        ),
+        (
+            "Rally Islas Canarias",
+            "Las Palmas",
+            "Spain",
+            "Tarmac",
+            (2027, 4, 25),
+        ),
+        (
+            "Rally de Portugal",
+            "Matosinhos",
+            "Portugal",
+            "Gravel",
+            (2027, 5, 16),
+        ),
+        (
+            "Rally Italia Sardegna",
+            "Olbia",
+            "Italy",
+            "Gravel",
+            (2027, 6, 6),
+        ),
+        (
+            "Acropolis Rally Greece",
+            "Lamia",
+            "Greece",
+            "Gravel",
+            (2027, 6, 27),
+        ),
         ("Rally Estonia", "Tartu", "Estonia", "Gravel", (2027, 7, 18)),
-        ("Secto Rally Finland", "Jyväskylä", "Finland", "Gravel", (2027, 8, 1)),
-        ("Rally del Paraguay", "Encarnación", "Paraguay", "Gravel", (2027, 8, 29)),
-        ("Rally Chile Bio Bío", "Concepción", "Chile", "Gravel", (2027, 9, 12)),
-        ("Central European Rally", "Passau / Prague", "Germany / Czechia", "Tarmac", (2027, 10, 17)),
-        ("FORUM8 Rally Japan", "Toyota City", "Japan", "Tarmac", (2027, 11, 7)),
-        ("Rally Saudi Arabia", "Jeddah", "Saudi Arabia", "Gravel", (2027, 11, 28)),
+        (
+            "Secto Rally Finland",
+            "Jyväskylä",
+            "Finland",
+            "Gravel",
+            (2027, 8, 1),
+        ),
+        (
+            "Rally del Paraguay",
+            "Encarnación",
+            "Paraguay",
+            "Gravel",
+            (2027, 8, 29),
+        ),
+        (
+            "Rally Chile Bio Bío",
+            "Concepción",
+            "Chile",
+            "Gravel",
+            (2027, 9, 12),
+        ),
+        (
+            "Central European Rally",
+            "Passau / Prague",
+            "Germany / Czechia",
+            "Tarmac",
+            (2027, 10, 17),
+        ),
+        (
+            "FORUM8 Rally Japan",
+            "Toyota City",
+            "Japan",
+            "Tarmac",
+            (2027, 11, 7),
+        ),
+        (
+            "Rally Saudi Arabia",
+            "Jeddah",
+            "Saudi Arabia",
+            "Gravel",
+            (2027, 11, 28),
+        ),
     ];
 
     raw_events
@@ -152,7 +313,13 @@ pub fn get_official_2027_wrc_schedule(series_id: &str) -> Vec<RaceEvent> {
         .enumerate()
         .map(|(i, (name, loc, country, surface, date))| {
             let race_date = NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap();
-            let thu_date = race_date.pred_opt().unwrap_or(race_date).pred_opt().unwrap_or(race_date).pred_opt().unwrap_or(race_date);
+            let thu_date = race_date
+                .pred_opt()
+                .unwrap_or(race_date)
+                .pred_opt()
+                .unwrap_or(race_date)
+                .pred_opt()
+                .unwrap_or(race_date);
             let fri_date = thu_date.succ_opt().unwrap_or(thu_date);
             let sat_date = fri_date.succ_opt().unwrap_or(fri_date);
 
@@ -160,25 +327,33 @@ pub fn get_official_2027_wrc_schedule(series_id: &str) -> Vec<RaceEvent> {
                 Session {
                     name: format!("Shakedown ({})", surface),
                     session_type: SessionType::Practice,
-                    start_time: thu_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: thu_date
+                        .and_hms_opt(8, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Leg 1 Stages".to_string(),
                     session_type: SessionType::Race,
-                    start_time: fri_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(7, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Leg 2 Stages".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sat_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(7, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Power Stage / Final".to_string(),
                     session_type: SessionType::Race,
-                    start_time: race_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: race_date
+                        .and_hms_opt(12, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

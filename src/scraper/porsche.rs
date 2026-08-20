@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::sportstimes::fetch_sportstimes_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for PorscheScraper {
         if events.is_empty() {
             events = get_official_porsche_schedule(&series.id, 2026);
             events.extend(get_official_porsche_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_porsche_schedule(&series.id, 2027));
         }
 
@@ -52,14 +55,44 @@ pub fn get_official_porsche_schedule(series_id: &str, year: i32) -> Vec<RaceEven
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Autodromo Enzo e Dino Ferrari", "Imola", "Italy", (5, 15), (5, 17)),
-        ("Circuit de Monaco", "Monte Carlo", "Monaco", (5, 22), (5, 24)),
+        (
+            "Autodromo Enzo e Dino Ferrari",
+            "Imola",
+            "Italy",
+            (5, 15),
+            (5, 17),
+        ),
+        (
+            "Circuit de Monaco",
+            "Monte Carlo",
+            "Monaco",
+            (5, 22),
+            (5, 24),
+        ),
         ("Red Bull Ring", "Spielberg", "Austria", (6, 26), (6, 28)),
         ("Silverstone Circuit", "Silverstone", "UK", (7, 3), (7, 5)),
-        ("Circuit de Spa-Francorchamps", "Spa-Francorchamps", "Belgium", (7, 24), (7, 26)),
+        (
+            "Circuit de Spa-Francorchamps",
+            "Spa-Francorchamps",
+            "Belgium",
+            (7, 24),
+            (7, 26),
+        ),
         ("Hungaroring", "Budapest", "Hungary", (7, 31), (8, 2)),
-        ("Circuit Zandvoort", "Zandvoort", "Netherlands", (8, 28), (8, 30)),
-        ("Autodromo Nazionale Monza", "Monza", "Italy", (9, 4), (9, 6)),
+        (
+            "Circuit Zandvoort",
+            "Zandvoort",
+            "Netherlands",
+            (8, 28),
+            (8, 30),
+        ),
+        (
+            "Autodromo Nazionale Monza",
+            "Monza",
+            "Italy",
+            (9, 4),
+            (9, 6),
+        ),
     ];
 
     raw_events
@@ -82,19 +115,25 @@ pub fn get_official_porsche_schedule(series_id: &str, year: i32) -> Vec<RaceEven
                 Session {
                     name: "Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(16, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(16, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(10, 20, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(10, 20, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(10, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(10, 45, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

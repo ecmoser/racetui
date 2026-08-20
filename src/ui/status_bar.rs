@@ -9,8 +9,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(60),  // Keybind hints
-            Constraint::Percentage(40),  // Fetch status / notifications
+            Constraint::Percentage(60), // Keybind hints
+            Constraint::Percentage(40), // Fetch status / notifications
         ])
         .split(area);
 
@@ -25,12 +25,19 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
     } else {
         format!(
             " q:Quit  j/k/↑/↓:Navigate  Tab:{}  /:Search  f:Favorite  ?:Help  Enter:Detail",
-            if view_name == "List" { "Calendar" } else { "List" }
+            if view_name == "List" {
+                "Calendar"
+            } else {
+                "List"
+            }
         )
     };
 
-    let hints_widget = Paragraph::new(hints)
-        .style(Style::default().fg(Color::DarkGray).bg(Color::Rgb(20, 20, 30)));
+    let hints_widget = Paragraph::new(hints).style(
+        Style::default()
+            .fg(Color::DarkGray)
+            .bg(Color::Rgb(20, 20, 30)),
+    );
 
     frame.render_widget(hints_widget, chunks[0]);
 
@@ -59,7 +66,10 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         let idx = app.notification_cycle_index % notifications.len();
         (format!("{} ", notifications[idx]), Color::Yellow)
     } else if fetching > 0 {
-        (format!("Fetching... {}/{} loaded ", loaded, total), Color::Yellow)
+        (
+            format!("Fetching... {}/{} loaded ", loaded, total),
+            Color::Yellow,
+        )
     } else if errors > 0 {
         let mut failed_names: Vec<&str> = app
             .fetch_status
@@ -74,7 +84,13 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             .collect();
         failed_names.sort();
         let failed_str = failed_names.join(", ");
-        (format!("{}/{} loaded, {} failed ({}) ", loaded, total, errors, failed_str), Color::Red)
+        (
+            format!(
+                "{}/{} loaded, {} failed ({}) ",
+                loaded, total, errors, failed_str
+            ),
+            Color::Red,
+        )
     } else {
         (format!("{}/{} series loaded ", loaded, total), Color::Green)
     };

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for ExtremeEScraper {
         if events.is_empty() {
             events = get_official_extreme_e_schedule(&series.id, 2026);
             events.extend(get_official_extreme_e_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_extreme_e_schedule(&series.id, 2027));
         }
 
@@ -53,10 +56,34 @@ pub fn get_official_extreme_e_schedule(series_id: &str, year: i32) -> Vec<RaceEv
 
     let raw_events = vec![
         ("Desert X-Prix", "Jeddah", "Saudi Arabia", (2, 14), (2, 15)),
-        ("Hydro X-Prix", "Dumfries and Galloway", "UK", (5, 9), (5, 10)),
-        ("Island X-Prix (Round 1)", "Sardinia", "Italy", (9, 12), (9, 13)),
-        ("Island X-Prix (Round 2)", "Sardinia", "Italy", (9, 19), (9, 20)),
-        ("Valley X-Prix", "Phoenix, Arizona", "USA", (11, 21), (11, 22)),
+        (
+            "Hydro X-Prix",
+            "Dumfries and Galloway",
+            "UK",
+            (5, 9),
+            (5, 10),
+        ),
+        (
+            "Island X-Prix (Round 1)",
+            "Sardinia",
+            "Italy",
+            (9, 12),
+            (9, 13),
+        ),
+        (
+            "Island X-Prix (Round 2)",
+            "Sardinia",
+            "Italy",
+            (9, 19),
+            (9, 20),
+        ),
+        (
+            "Valley X-Prix",
+            "Phoenix, Arizona",
+            "USA",
+            (11, 21),
+            (11, 22),
+        ),
     ];
 
     raw_events
@@ -78,19 +105,25 @@ pub fn get_official_extreme_e_schedule(series_id: &str, year: i32) -> Vec<RaceEv
                 Session {
                     name: "Qualifying 1 & 2".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(9, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Round 1 Grand Final".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Round 2 Grand Final".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

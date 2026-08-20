@@ -102,11 +102,7 @@ fn parse_datetime(date: &str, time: Option<&str>) -> Option<chrono::DateTime<Utc
 }
 
 /// Convert a JolpicaSession to a Session.
-fn convert_session(
-    name: &str,
-    session_type: SessionType,
-    jolpica: &JolpicaSession,
-) -> Session {
+fn convert_session(name: &str, session_type: SessionType, jolpica: &JolpicaSession) -> Session {
     Session {
         name: name.to_string(),
         session_type,
@@ -136,7 +132,9 @@ impl SeriesScraper for F1Scraper {
         };
 
         if events.is_empty() {
-            if let Ok(response) = fetcher::fetch_json::<JolpicaResponse>(&client, &series.calendar_url).await {
+            if let Ok(response) =
+                fetcher::fetch_json::<JolpicaResponse>(&client, &series.calendar_url).await
+            {
                 for race in response.mr_data.race_table.races {
                     let round: u32 = race.round.parse().unwrap_or(0);
                     let start_date = match NaiveDate::parse_from_str(&race.date, "%Y-%m-%d") {
@@ -146,25 +144,49 @@ impl SeriesScraper for F1Scraper {
 
                     let mut sessions = Vec::new();
                     if let Some(ref fp1) = race.first_practice {
-                        sessions.push(convert_session("Free Practice 1", SessionType::Practice, fp1));
+                        sessions.push(convert_session(
+                            "Free Practice 1",
+                            SessionType::Practice,
+                            fp1,
+                        ));
                     }
                     if let Some(ref fp2) = race.second_practice {
-                        sessions.push(convert_session("Free Practice 2", SessionType::Practice, fp2));
+                        sessions.push(convert_session(
+                            "Free Practice 2",
+                            SessionType::Practice,
+                            fp2,
+                        ));
                     }
                     if let Some(ref fp3) = race.third_practice {
-                        sessions.push(convert_session("Free Practice 3", SessionType::Practice, fp3));
+                        sessions.push(convert_session(
+                            "Free Practice 3",
+                            SessionType::Practice,
+                            fp3,
+                        ));
                     }
                     if let Some(ref sq) = race.sprint_qualifying {
-                        sessions.push(convert_session("Sprint Qualifying", SessionType::SprintQualifying, sq));
+                        sessions.push(convert_session(
+                            "Sprint Qualifying",
+                            SessionType::SprintQualifying,
+                            sq,
+                        ));
                     }
                     if let Some(ref ss) = race.sprint_shootout {
-                        sessions.push(convert_session("Sprint Shootout", SessionType::SprintQualifying, ss));
+                        sessions.push(convert_session(
+                            "Sprint Shootout",
+                            SessionType::SprintQualifying,
+                            ss,
+                        ));
                     }
                     if let Some(ref sprint) = race.sprint {
                         sessions.push(convert_session("Sprint", SessionType::Sprint, sprint));
                     }
                     if let Some(ref quali) = race.qualifying {
-                        sessions.push(convert_session("Qualifying", SessionType::Qualifying, quali));
+                        sessions.push(convert_session(
+                            "Qualifying",
+                            SessionType::Qualifying,
+                            quali,
+                        ));
                     }
                     sessions.push(Session {
                         name: "Race".to_string(),
@@ -198,7 +220,10 @@ impl SeriesScraper for F1Scraper {
         }
 
         // If 2027 calendar not yet present, append the 2027 official season calendar
-        if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_f1_schedule("f1"));
         }
 
@@ -208,30 +233,198 @@ impl SeriesScraper for F1Scraper {
 
 pub fn get_official_2027_f1_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Australian Grand Prix", "Albert Park Grand Prix Circuit", "Melbourne", "Australia", (2027, 3, 12), (2027, 3, 14)),
-        ("Chinese Grand Prix", "Shanghai International Circuit", "Shanghai", "China", (2027, 3, 19), (2027, 3, 21)),
-        ("Japanese Grand Prix", "Suzuka International Racing Course", "Suzuka", "Japan", (2027, 4, 2), (2027, 4, 4)),
-        ("Bahrain Grand Prix", "Bahrain International Circuit", "Sakhir", "Bahrain", (2027, 4, 9), (2027, 4, 11)),
-        ("Saudi Arabian Grand Prix", "Jeddah Corniche Circuit", "Jeddah", "Saudi Arabia", (2027, 4, 16), (2027, 4, 18)),
-        ("Miami Grand Prix", "Miami International Autodrome", "Miami", "USA", (2027, 4, 30), (2027, 5, 2)),
-        ("Emilia Romagna Grand Prix", "Autodromo Enzo e Dino Ferrari", "Imola", "Italy", (2027, 5, 14), (2027, 5, 16)),
-        ("Monaco Grand Prix", "Circuit de Monaco", "Monte Carlo", "Monaco", (2027, 5, 21), (2027, 5, 23)),
-        ("Spanish Grand Prix", "Circuit de Barcelona-Catalunya", "Barcelona", "Spain", (2027, 5, 28), (2027, 5, 30)),
-        ("Canadian Grand Prix", "Circuit Gilles Villeneuve", "Montreal", "Canada", (2027, 6, 11), (2027, 6, 13)),
-        ("Austrian Grand Prix", "Red Bull Ring", "Spielberg", "Austria", (2027, 6, 25), (2027, 6, 27)),
-        ("British Grand Prix", "Silverstone Circuit", "Silverstone", "UK", (2027, 7, 2), (2027, 7, 4)),
-        ("Belgian Grand Prix", "Circuit de Spa-Francorchamps", "Spa-Francorchamps", "Belgium", (2027, 7, 23), (2027, 7, 25)),
-        ("Hungarian Grand Prix", "Hungaroring", "Budapest", "Hungary", (2027, 7, 30), (2027, 8, 1)),
-        ("Dutch Grand Prix", "Circuit Zandvoort", "Zandvoort", "Netherlands", (2027, 8, 27), (2027, 8, 29)),
-        ("Italian Grand Prix", "Autodromo Nazionale Monza", "Monza", "Italy", (2027, 9, 3), (2027, 9, 5)),
-        ("Azerbaijan Grand Prix", "Baku City Circuit", "Baku", "Azerbaijan", (2027, 9, 17), (2027, 9, 19)),
-        ("Singapore Grand Prix", "Marina Bay Street Circuit", "Singapore", "Singapore", (2027, 10, 1), (2027, 10, 3)),
-        ("United States Grand Prix", "Circuit of the Americas", "Austin", "USA", (2027, 10, 15), (2027, 10, 17)),
-        ("Mexico City Grand Prix", "Autódromo Hermanos Rodríguez", "Mexico City", "Mexico", (2027, 10, 22), (2027, 10, 24)),
-        ("São Paulo Grand Prix", "Autódromo José Carlos Pace", "São Paulo", "Brazil", (2027, 11, 5), (2027, 11, 7)),
-        ("Las Vegas Grand Prix", "Las Vegas Strip Circuit", "Las Vegas", "USA", (2027, 11, 18), (2027, 11, 20)),
-        ("Qatar Grand Prix", "Lusail International Circuit", "Lusail", "Qatar", (2027, 11, 26), (2027, 11, 28)),
-        ("Abu Dhabi Grand Prix", "Yas Marina Circuit", "Abu Dhabi", "UAE", (2027, 12, 3), (2027, 12, 5)),
+        (
+            "Australian Grand Prix",
+            "Albert Park Grand Prix Circuit",
+            "Melbourne",
+            "Australia",
+            (2027, 3, 12),
+            (2027, 3, 14),
+        ),
+        (
+            "Chinese Grand Prix",
+            "Shanghai International Circuit",
+            "Shanghai",
+            "China",
+            (2027, 3, 19),
+            (2027, 3, 21),
+        ),
+        (
+            "Japanese Grand Prix",
+            "Suzuka International Racing Course",
+            "Suzuka",
+            "Japan",
+            (2027, 4, 2),
+            (2027, 4, 4),
+        ),
+        (
+            "Bahrain Grand Prix",
+            "Bahrain International Circuit",
+            "Sakhir",
+            "Bahrain",
+            (2027, 4, 9),
+            (2027, 4, 11),
+        ),
+        (
+            "Saudi Arabian Grand Prix",
+            "Jeddah Corniche Circuit",
+            "Jeddah",
+            "Saudi Arabia",
+            (2027, 4, 16),
+            (2027, 4, 18),
+        ),
+        (
+            "Miami Grand Prix",
+            "Miami International Autodrome",
+            "Miami",
+            "USA",
+            (2027, 4, 30),
+            (2027, 5, 2),
+        ),
+        (
+            "Emilia Romagna Grand Prix",
+            "Autodromo Enzo e Dino Ferrari",
+            "Imola",
+            "Italy",
+            (2027, 5, 14),
+            (2027, 5, 16),
+        ),
+        (
+            "Monaco Grand Prix",
+            "Circuit de Monaco",
+            "Monte Carlo",
+            "Monaco",
+            (2027, 5, 21),
+            (2027, 5, 23),
+        ),
+        (
+            "Spanish Grand Prix",
+            "Circuit de Barcelona-Catalunya",
+            "Barcelona",
+            "Spain",
+            (2027, 5, 28),
+            (2027, 5, 30),
+        ),
+        (
+            "Canadian Grand Prix",
+            "Circuit Gilles Villeneuve",
+            "Montreal",
+            "Canada",
+            (2027, 6, 11),
+            (2027, 6, 13),
+        ),
+        (
+            "Austrian Grand Prix",
+            "Red Bull Ring",
+            "Spielberg",
+            "Austria",
+            (2027, 6, 25),
+            (2027, 6, 27),
+        ),
+        (
+            "British Grand Prix",
+            "Silverstone Circuit",
+            "Silverstone",
+            "UK",
+            (2027, 7, 2),
+            (2027, 7, 4),
+        ),
+        (
+            "Belgian Grand Prix",
+            "Circuit de Spa-Francorchamps",
+            "Spa-Francorchamps",
+            "Belgium",
+            (2027, 7, 23),
+            (2027, 7, 25),
+        ),
+        (
+            "Hungarian Grand Prix",
+            "Hungaroring",
+            "Budapest",
+            "Hungary",
+            (2027, 7, 30),
+            (2027, 8, 1),
+        ),
+        (
+            "Dutch Grand Prix",
+            "Circuit Zandvoort",
+            "Zandvoort",
+            "Netherlands",
+            (2027, 8, 27),
+            (2027, 8, 29),
+        ),
+        (
+            "Italian Grand Prix",
+            "Autodromo Nazionale Monza",
+            "Monza",
+            "Italy",
+            (2027, 9, 3),
+            (2027, 9, 5),
+        ),
+        (
+            "Azerbaijan Grand Prix",
+            "Baku City Circuit",
+            "Baku",
+            "Azerbaijan",
+            (2027, 9, 17),
+            (2027, 9, 19),
+        ),
+        (
+            "Singapore Grand Prix",
+            "Marina Bay Street Circuit",
+            "Singapore",
+            "Singapore",
+            (2027, 10, 1),
+            (2027, 10, 3),
+        ),
+        (
+            "United States Grand Prix",
+            "Circuit of the Americas",
+            "Austin",
+            "USA",
+            (2027, 10, 15),
+            (2027, 10, 17),
+        ),
+        (
+            "Mexico City Grand Prix",
+            "Autódromo Hermanos Rodríguez",
+            "Mexico City",
+            "Mexico",
+            (2027, 10, 22),
+            (2027, 10, 24),
+        ),
+        (
+            "São Paulo Grand Prix",
+            "Autódromo José Carlos Pace",
+            "São Paulo",
+            "Brazil",
+            (2027, 11, 5),
+            (2027, 11, 7),
+        ),
+        (
+            "Las Vegas Grand Prix",
+            "Las Vegas Strip Circuit",
+            "Las Vegas",
+            "USA",
+            (2027, 11, 18),
+            (2027, 11, 20),
+        ),
+        (
+            "Qatar Grand Prix",
+            "Lusail International Circuit",
+            "Lusail",
+            "Qatar",
+            (2027, 11, 26),
+            (2027, 11, 28),
+        ),
+        (
+            "Abu Dhabi Grand Prix",
+            "Yas Marina Circuit",
+            "Abu Dhabi",
+            "UAE",
+            (2027, 12, 3),
+            (2027, 12, 5),
+        ),
     ];
 
     raw_events
@@ -242,18 +435,53 @@ pub fn get_official_2027_f1_schedule(series_id: &str) -> Vec<RaceEvent> {
             let sat_date = fri_date.succ_opt().unwrap_or(fri_date);
             let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
 
-            let fp1_time = fri_date.and_hms_opt(11, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let fp2_time = fri_date.and_hms_opt(15, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let fp3_time = sat_date.and_hms_opt(10, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let quali_time = sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race_time = sun_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let fp1_time = fri_date
+                .and_hms_opt(11, 30, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let fp2_time = fri_date
+                .and_hms_opt(15, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let fp3_time = sat_date
+                .and_hms_opt(10, 30, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let quali_time = sat_date
+                .and_hms_opt(14, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_time = sun_date
+                .and_hms_opt(13, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
-                Session { name: "Free Practice 1".to_string(), session_type: SessionType::Practice, start_time: fp1_time, end_time: None },
-                Session { name: "Free Practice 2".to_string(), session_type: SessionType::Practice, start_time: fp2_time, end_time: None },
-                Session { name: "Free Practice 3".to_string(), session_type: SessionType::Practice, start_time: fp3_time, end_time: None },
-                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
-                Session { name: "Grand Prix".to_string(), session_type: SessionType::Race, start_time: race_time, end_time: None },
+                Session {
+                    name: "Free Practice 1".to_string(),
+                    session_type: SessionType::Practice,
+                    start_time: fp1_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Free Practice 2".to_string(),
+                    session_type: SessionType::Practice,
+                    start_time: fp2_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Free Practice 3".to_string(),
+                    session_type: SessionType::Practice,
+                    start_time: fp3_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Qualifying".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: quali_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Grand Prix".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race_time,
+                    end_time: None,
+                },
             ];
 
             RaceEvent {

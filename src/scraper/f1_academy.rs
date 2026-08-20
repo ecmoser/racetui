@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::sportstimes::fetch_sportstimes_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for F1AcademyScraper {
         if events.is_empty() {
             events = get_official_f1_academy_schedule(&series.id, 2026);
             events.extend(get_official_f1_academy_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_f1_academy_schedule(&series.id, 2027));
         }
 
@@ -52,13 +55,55 @@ pub fn get_official_f1_academy_schedule(series_id: &str, year: i32) -> Vec<RaceE
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Shanghai International Circuit", "Shanghai", "China", (3, 20), (3, 22)),
-        ("Jeddah Corniche Circuit", "Jeddah", "Saudi Arabia", (4, 17), (4, 19)),
-        ("Miami International Autodrome", "Miami", "USA", (5, 1), (5, 3)),
-        ("Circuit Gilles Villeneuve", "Montreal", "Canada", (6, 12), (6, 14)),
-        ("Circuit Zandvoort", "Zandvoort", "Netherlands", (8, 28), (8, 30)),
-        ("Marina Bay Street Circuit", "Singapore", "Singapore", (10, 2), (10, 4)),
-        ("Las Vegas Strip Circuit", "Las Vegas", "USA", (11, 19), (11, 21)),
+        (
+            "Shanghai International Circuit",
+            "Shanghai",
+            "China",
+            (3, 20),
+            (3, 22),
+        ),
+        (
+            "Jeddah Corniche Circuit",
+            "Jeddah",
+            "Saudi Arabia",
+            (4, 17),
+            (4, 19),
+        ),
+        (
+            "Miami International Autodrome",
+            "Miami",
+            "USA",
+            (5, 1),
+            (5, 3),
+        ),
+        (
+            "Circuit Gilles Villeneuve",
+            "Montreal",
+            "Canada",
+            (6, 12),
+            (6, 14),
+        ),
+        (
+            "Circuit Zandvoort",
+            "Zandvoort",
+            "Netherlands",
+            (8, 28),
+            (8, 30),
+        ),
+        (
+            "Marina Bay Street Circuit",
+            "Singapore",
+            "Singapore",
+            (10, 2),
+            (10, 4),
+        ),
+        (
+            "Las Vegas Strip Circuit",
+            "Las Vegas",
+            "USA",
+            (11, 19),
+            (11, 21),
+        ),
     ];
 
     raw_events
@@ -81,25 +126,33 @@ pub fn get_official_f1_academy_schedule(series_id: &str, year: i32) -> Vec<RaceE
                 Session {
                     name: "Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(10, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: fri_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 1".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sat_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(12, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 2".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(10, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
@@ -32,7 +32,10 @@ impl SeriesScraper for LmemScraper {
         if events.is_empty() {
             events = get_official_lmem_schedule(&series.id, self.category, 2026);
             events.extend(get_official_lmem_schedule(&series.id, self.category, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_lmem_schedule(&series.id, self.category, 2027));
         }
 
@@ -60,20 +63,92 @@ pub fn get_official_lmem_schedule(series_id: &str, category: &str, year: i32) ->
 
     let raw_events: Vec<(&str, &str, &str, (u32, u32), (u32, u32))> = match category {
         "elms" => vec![
-            ("4 Hours of Barcelona", "Circuit de Barcelona-Catalunya", "Spain", (4, 11), (4, 12)),
-            ("4 Hours of Le Castellet", "Circuit Paul Ricard", "France", (5, 2), (5, 3)),
-            ("4 Hours of Imola", "Autodromo Enzo e Dino Ferrari", "Italy", (7, 4), (7, 5)),
-            ("4 Hours of Spa-Francorchamps", "Circuit de Spa-Francorchamps", "Belgium", (8, 22), (8, 23)),
-            ("4 Hours of Silverstone", "Silverstone Circuit", "UK", (9, 12), (9, 13)),
-            ("4 Hours of Portimão", "Autódromo Internacional do Algarve", "Portugal", (10, 17), (10, 18)),
+            (
+                "4 Hours of Barcelona",
+                "Circuit de Barcelona-Catalunya",
+                "Spain",
+                (4, 11),
+                (4, 12),
+            ),
+            (
+                "4 Hours of Le Castellet",
+                "Circuit Paul Ricard",
+                "France",
+                (5, 2),
+                (5, 3),
+            ),
+            (
+                "4 Hours of Imola",
+                "Autodromo Enzo e Dino Ferrari",
+                "Italy",
+                (7, 4),
+                (7, 5),
+            ),
+            (
+                "4 Hours of Spa-Francorchamps",
+                "Circuit de Spa-Francorchamps",
+                "Belgium",
+                (8, 22),
+                (8, 23),
+            ),
+            (
+                "4 Hours of Silverstone",
+                "Silverstone Circuit",
+                "UK",
+                (9, 12),
+                (9, 13),
+            ),
+            (
+                "4 Hours of Portimão",
+                "Autódromo Internacional do Algarve",
+                "Portugal",
+                (10, 17),
+                (10, 18),
+            ),
         ],
         "aslms" => vec![
-            ("4 Hours of Sepang (Race 1)", "Sepang International Circuit", "Malaysia", (12, 5), (12, 6)),
-            ("4 Hours of Sepang (Race 2)", "Sepang International Circuit", "Malaysia", (12, 6), (12, 7)),
-            ("4 Hours of Dubai (Race 1)", "Dubai Autodrome", "UAE", (1, 30), (1, 31)),
-            ("4 Hours of Dubai (Race 2)", "Dubai Autodrome", "UAE", (1, 31), (2, 1)),
-            ("4 Hours of Abu Dhabi (Race 1)", "Yas Marina Circuit", "UAE", (2, 6), (2, 7)),
-            ("4 Hours of Abu Dhabi (Race 2)", "Yas Marina Circuit", "UAE", (2, 7), (2, 8)),
+            (
+                "4 Hours of Sepang (Race 1)",
+                "Sepang International Circuit",
+                "Malaysia",
+                (12, 5),
+                (12, 6),
+            ),
+            (
+                "4 Hours of Sepang (Race 2)",
+                "Sepang International Circuit",
+                "Malaysia",
+                (12, 6),
+                (12, 7),
+            ),
+            (
+                "4 Hours of Dubai (Race 1)",
+                "Dubai Autodrome",
+                "UAE",
+                (1, 30),
+                (1, 31),
+            ),
+            (
+                "4 Hours of Dubai (Race 2)",
+                "Dubai Autodrome",
+                "UAE",
+                (1, 31),
+                (2, 1),
+            ),
+            (
+                "4 Hours of Abu Dhabi (Race 1)",
+                "Yas Marina Circuit",
+                "UAE",
+                (2, 6),
+                (2, 7),
+            ),
+            (
+                "4 Hours of Abu Dhabi (Race 2)",
+                "Yas Marina Circuit",
+                "UAE",
+                (2, 7),
+                (2, 8),
+            ),
         ],
         _ => vec![],
     };
@@ -97,13 +172,17 @@ pub fn get_official_lmem_schedule(series_id: &str, category: &str, year: i32) ->
                 Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(13, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(11, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(11, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

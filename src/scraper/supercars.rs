@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for SupercarsScraper {
         if events.is_empty() {
             events = get_official_supercars_schedule(&series.id, 2026);
             events.extend(get_official_supercars_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_supercars_schedule(&series.id, 2027));
         }
 
@@ -52,18 +55,90 @@ pub fn get_official_supercars_schedule(series_id: &str, year: i32) -> Vec<RaceEv
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Sydney 500", "Sydney Motorsport Park", "Australia", (2, 21), (2, 22)),
-        ("Melbourne SuperSprint (F1 Support)", "Albert Park Circuit", "Australia", (3, 7), (3, 8)),
-        ("Taupo Super400", "Taupo International Motorsport Park", "New Zealand", (4, 11), (4, 12)),
-        ("Tasmania SuperSprint", "Symmons Plains Raceway", "Australia", (5, 9), (5, 10)),
-        ("Perth SuperSprint", "Carco.com.au Raceway (Wanneroo)", "Australia", (6, 6), (6, 7)),
-        ("Darwin Triple Crown", "Hidden Valley Raceway", "Australia", (6, 20), (6, 21)),
-        ("Townsville 500", "Reid Park Street Circuit", "Australia", (7, 11), (7, 12)),
-        ("Ipswich SuperSprint", "Queensland Raceway", "Australia", (8, 8), (8, 9)),
-        ("The Bend 500 (Enduro)", "Shell V-Power Motorsport Park", "Australia", (9, 12), (9, 13)),
-        ("Repco Bathurst 1000", "Mount Panorama Circuit", "Australia", (10, 10), (10, 11)),
-        ("Boost Mobile Gold Coast 500", "Surfers Paradise Street Circuit", "Australia", (10, 24), (10, 25)),
-        ("VAILO Adelaide 500", "Adelaide Street Circuit", "Australia", (11, 28), (11, 29)),
+        (
+            "Sydney 500",
+            "Sydney Motorsport Park",
+            "Australia",
+            (2, 21),
+            (2, 22),
+        ),
+        (
+            "Melbourne SuperSprint (F1 Support)",
+            "Albert Park Circuit",
+            "Australia",
+            (3, 7),
+            (3, 8),
+        ),
+        (
+            "Taupo Super400",
+            "Taupo International Motorsport Park",
+            "New Zealand",
+            (4, 11),
+            (4, 12),
+        ),
+        (
+            "Tasmania SuperSprint",
+            "Symmons Plains Raceway",
+            "Australia",
+            (5, 9),
+            (5, 10),
+        ),
+        (
+            "Perth SuperSprint",
+            "Carco.com.au Raceway (Wanneroo)",
+            "Australia",
+            (6, 6),
+            (6, 7),
+        ),
+        (
+            "Darwin Triple Crown",
+            "Hidden Valley Raceway",
+            "Australia",
+            (6, 20),
+            (6, 21),
+        ),
+        (
+            "Townsville 500",
+            "Reid Park Street Circuit",
+            "Australia",
+            (7, 11),
+            (7, 12),
+        ),
+        (
+            "Ipswich SuperSprint",
+            "Queensland Raceway",
+            "Australia",
+            (8, 8),
+            (8, 9),
+        ),
+        (
+            "The Bend 500 (Enduro)",
+            "Shell V-Power Motorsport Park",
+            "Australia",
+            (9, 12),
+            (9, 13),
+        ),
+        (
+            "Repco Bathurst 1000",
+            "Mount Panorama Circuit",
+            "Australia",
+            (10, 10),
+            (10, 11),
+        ),
+        (
+            "Boost Mobile Gold Coast 500",
+            "Surfers Paradise Street Circuit",
+            "Australia",
+            (10, 24),
+            (10, 25),
+        ),
+        (
+            "VAILO Adelaide 500",
+            "Adelaide Street Circuit",
+            "Australia",
+            (11, 28),
+            (11, 29),
+        ),
     ];
 
     raw_events
@@ -85,19 +160,25 @@ pub fn get_official_supercars_schedule(series_id: &str, year: i32) -> Vec<RaceEv
                 Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(3, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(3, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 1".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sat_date.and_hms_opt(5, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(5, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race 2".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(5, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(5, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

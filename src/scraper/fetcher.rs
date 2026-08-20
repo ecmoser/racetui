@@ -67,9 +67,7 @@ pub async fn fetch_with_browser(url: &str) -> Result<String> {
     .context("Failed to launch headless browser")?;
 
     // The handler must be polled in the background
-    tokio::spawn(async move {
-        while let Some(_) = handler.next().await {}
-    });
+    tokio::spawn(async move { while let Some(_) = handler.next().await {} });
 
     let page = browser.new_page(url).await.context("Failed to open page")?;
 

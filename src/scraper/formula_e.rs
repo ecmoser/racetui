@@ -220,33 +220,152 @@ pub fn get_official_2026_formula_e_schedule(series_id: &str) -> Vec<RaceEvent> {
 
 pub fn get_official_2027_formula_e_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Mexico City E-Prix", "Autódromo Hermanos Rodríguez", "Mexico City", "Mexico", (2027, 1, 9), 2),
-        ("Miami E-Prix", "Homestead-Miami Speedway", "Miami", "USA", (2027, 1, 30), 3),
-        ("Diriyah E-Prix (Race 1)", "Riyadh Street Circuit", "Diriyah", "Saudi Arabia", (2027, 2, 12), 4),
-        ("Diriyah E-Prix (Race 2)", "Riyadh Street Circuit", "Diriyah", "Saudi Arabia", (2027, 2, 13), 5),
-        ("Monaco E-Prix (Race 1)", "Circuit de Monaco", "Monte Carlo", "Monaco", (2027, 5, 1), 6),
-        ("Monaco E-Prix (Race 2)", "Circuit de Monaco", "Monte Carlo", "Monaco", (2027, 5, 2), 7),
-        ("Tokyo E-Prix (Race 1)", "Tokyo Street Circuit", "Tokyo", "Japan", (2027, 5, 15), 8),
-        ("Tokyo E-Prix (Race 2)", "Tokyo Street Circuit", "Tokyo", "Japan", (2027, 5, 16), 9),
-        ("Shanghai E-Prix (Race 1)", "Shanghai International Circuit", "Shanghai", "China", (2027, 5, 29), 10),
-        ("Shanghai E-Prix (Race 2)", "Shanghai International Circuit", "Shanghai", "China", (2027, 5, 30), 11),
-        ("Jakarta E-Prix", "Jakarta International E-Prix Circuit", "Jakarta", "Indonesia", (2027, 6, 19), 12),
-        ("Berlin E-Prix (Race 1)", "Tempelhof Airport Street Circuit", "Berlin", "Germany", (2027, 7, 10), 13),
-        ("Berlin E-Prix (Race 2)", "Tempelhof Airport Street Circuit", "Berlin", "Germany", (2027, 7, 11), 14),
-        ("London E-Prix (Race 1)", "ExCeL London", "London", "UK", (2027, 7, 24), 15),
-        ("London E-Prix (Race 2)", "ExCeL London", "London", "UK", (2027, 7, 25), 16),
+        (
+            "Mexico City E-Prix",
+            "Autódromo Hermanos Rodríguez",
+            "Mexico City",
+            "Mexico",
+            (2027, 1, 9),
+            2,
+        ),
+        (
+            "Miami E-Prix",
+            "Homestead-Miami Speedway",
+            "Miami",
+            "USA",
+            (2027, 1, 30),
+            3,
+        ),
+        (
+            "Diriyah E-Prix (Race 1)",
+            "Riyadh Street Circuit",
+            "Diriyah",
+            "Saudi Arabia",
+            (2027, 2, 12),
+            4,
+        ),
+        (
+            "Diriyah E-Prix (Race 2)",
+            "Riyadh Street Circuit",
+            "Diriyah",
+            "Saudi Arabia",
+            (2027, 2, 13),
+            5,
+        ),
+        (
+            "Monaco E-Prix (Race 1)",
+            "Circuit de Monaco",
+            "Monte Carlo",
+            "Monaco",
+            (2027, 5, 1),
+            6,
+        ),
+        (
+            "Monaco E-Prix (Race 2)",
+            "Circuit de Monaco",
+            "Monte Carlo",
+            "Monaco",
+            (2027, 5, 2),
+            7,
+        ),
+        (
+            "Tokyo E-Prix (Race 1)",
+            "Tokyo Street Circuit",
+            "Tokyo",
+            "Japan",
+            (2027, 5, 15),
+            8,
+        ),
+        (
+            "Tokyo E-Prix (Race 2)",
+            "Tokyo Street Circuit",
+            "Tokyo",
+            "Japan",
+            (2027, 5, 16),
+            9,
+        ),
+        (
+            "Shanghai E-Prix (Race 1)",
+            "Shanghai International Circuit",
+            "Shanghai",
+            "China",
+            (2027, 5, 29),
+            10,
+        ),
+        (
+            "Shanghai E-Prix (Race 2)",
+            "Shanghai International Circuit",
+            "Shanghai",
+            "China",
+            (2027, 5, 30),
+            11,
+        ),
+        (
+            "Jakarta E-Prix",
+            "Jakarta International E-Prix Circuit",
+            "Jakarta",
+            "Indonesia",
+            (2027, 6, 19),
+            12,
+        ),
+        (
+            "Berlin E-Prix (Race 1)",
+            "Tempelhof Airport Street Circuit",
+            "Berlin",
+            "Germany",
+            (2027, 7, 10),
+            13,
+        ),
+        (
+            "Berlin E-Prix (Race 2)",
+            "Tempelhof Airport Street Circuit",
+            "Berlin",
+            "Germany",
+            (2027, 7, 11),
+            14,
+        ),
+        (
+            "London E-Prix (Race 1)",
+            "ExCeL London",
+            "London",
+            "UK",
+            (2027, 7, 24),
+            15,
+        ),
+        (
+            "London E-Prix (Race 2)",
+            "ExCeL London",
+            "London",
+            "UK",
+            (2027, 7, 25),
+            16,
+        ),
     ];
 
     raw_events
         .into_iter()
         .map(|(name, circuit, loc, country, date, round)| {
             let race_date = NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap();
-            let quali_time = race_date.and_hms_opt(10, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race_time = race_date.and_hms_opt(15, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let quali_time = race_date
+                .and_hms_opt(10, 30, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_time = race_date
+                .and_hms_opt(15, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
-                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
-                Session { name: "Race".to_string(), session_type: SessionType::Race, start_time: race_time, end_time: None },
+                Session {
+                    name: "Qualifying".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: quali_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Race".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race_time,
+                    end_time: None,
+                },
             ];
 
             RaceEvent {

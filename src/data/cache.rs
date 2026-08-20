@@ -67,8 +67,7 @@ pub fn write_cache(series_id: &str, events: &[RaceEvent]) -> Result<()> {
         fetched_at: Utc::now(),
         events: events.to_vec(),
     };
-    let content = serde_json::to_string_pretty(&entry)
-        .context("Failed to serialize cache")?;
+    let content = serde_json::to_string_pretty(&entry).context("Failed to serialize cache")?;
     std::fs::write(&path, content)
         .with_context(|| format!("Failed to write cache to {}", path.display()))?;
     Ok(())

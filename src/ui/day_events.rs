@@ -13,7 +13,9 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
 
     let area = frame.area();
     let popup_width = (area.width * 60 / 100).max(45).min(area.width);
-    let popup_height = ((events.len() as u16 + 4) * 2).max(8).min(area.height * 70 / 100);
+    let popup_height = ((events.len() as u16 + 4) * 2)
+        .max(8)
+        .min(area.height * 70 / 100);
     let popup_x = (area.width.saturating_sub(popup_width)) / 2;
     let popup_y = (area.height.saturating_sub(popup_height)) / 2;
     let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
@@ -42,10 +44,22 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             let star = if is_fav { "★" } else { " " };
 
             ListItem::new(Line::from(vec![
-                Span::styled(format!(" {:<9} ", time_str), Style::default().fg(Color::Gray)),
-                Span::styled(format!("{}{:<8} ", star, short_name), Style::default().bold().fg(series_color)),
-                Span::styled(session.display_title(), Style::default().bold().fg(Color::White)),
-                Span::styled(format!(" · {}", event.circuit_name), Style::default().fg(Color::DarkGray)),
+                Span::styled(
+                    format!(" {:<9} ", time_str),
+                    Style::default().fg(Color::Gray),
+                ),
+                Span::styled(
+                    format!("{}{:<8} ", star, short_name),
+                    Style::default().bold().fg(series_color),
+                ),
+                Span::styled(
+                    session.display_title(),
+                    Style::default().bold().fg(Color::White),
+                ),
+                Span::styled(
+                    format!(" · {}", event.circuit_name),
+                    Style::default().fg(Color::DarkGray),
+                ),
             ]))
         })
         .collect();
@@ -62,13 +76,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
 
-    let list = List::new(list_items)
-        .block(block)
-        .highlight_style(
-            Style::default()
-                .bg(Color::Rgb(40, 40, 60))
-                .add_modifier(Modifier::BOLD),
-        );
+    let list = List::new(list_items).block(block).highlight_style(
+        Style::default()
+            .bg(Color::Rgb(40, 40, 60))
+            .add_modifier(Modifier::BOLD),
+    );
 
     frame.render_stateful_widget(list, popup_area, &mut app.day_events_state);
 }
@@ -123,9 +135,11 @@ mod tests {
         app.update_series_data("f1".to_string(), vec![event1]);
         app.show_day_events = true;
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();

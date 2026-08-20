@@ -25,7 +25,10 @@ impl SeriesScraper for WecScraper {
         if events.is_empty() {
             events = get_official_2026_wec_schedule(&series.id);
             events.extend(get_official_2027_wec_schedule(&series.id));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_wec_schedule(&series.id));
         }
 
@@ -161,62 +164,128 @@ pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
 
 pub fn get_official_2027_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Qatar 1812 Km", "Lusail International Circuit", "Lusail", "Qatar", (2027, 2, 27), (8, 0)),
-        ("6 Hours of Imola", "Autodromo Enzo e Dino Ferrari", "Imola", "Italy", (2027, 4, 18), (11, 0)),
-        ("6 Hours of Spa-Francorchamps", "Circuit de Spa-Francorchamps", "Spa-Francorchamps", "Belgium", (2027, 5, 8), (11, 0)),
-        ("24 Hours of Le Mans", "Circuit de la Sarthe", "Le Mans", "France", (2027, 6, 12), (14, 0)),
-        ("6 Hours of São Paulo", "Autódromo José Carlos Pace", "São Paulo", "Brazil", (2027, 7, 11), (14, 30)),
-        ("Lone Star Le Mans (6 Hours of COTA)", "Circuit of the Americas", "Austin, TX", "USA", (2027, 9, 5), (18, 0)),
-        ("6 Hours of Fuji", "Fuji International Speedway", "Oyama", "Japan", (2027, 9, 26), (2, 0)),
-        ("Bapco Energies 8 Hours of Bahrain", "Bahrain International Circuit", "Sakhir", "Bahrain", (2027, 11, 6), (11, 0)),
+        (
+            "Qatar 1812 Km",
+            "Lusail International Circuit",
+            "Lusail",
+            "Qatar",
+            (2027, 2, 27),
+            (8, 0),
+        ),
+        (
+            "6 Hours of Imola",
+            "Autodromo Enzo e Dino Ferrari",
+            "Imola",
+            "Italy",
+            (2027, 4, 18),
+            (11, 0),
+        ),
+        (
+            "6 Hours of Spa-Francorchamps",
+            "Circuit de Spa-Francorchamps",
+            "Spa-Francorchamps",
+            "Belgium",
+            (2027, 5, 8),
+            (11, 0),
+        ),
+        (
+            "24 Hours of Le Mans",
+            "Circuit de la Sarthe",
+            "Le Mans",
+            "France",
+            (2027, 6, 12),
+            (14, 0),
+        ),
+        (
+            "6 Hours of São Paulo",
+            "Autódromo José Carlos Pace",
+            "São Paulo",
+            "Brazil",
+            (2027, 7, 11),
+            (14, 30),
+        ),
+        (
+            "Lone Star Le Mans (6 Hours of COTA)",
+            "Circuit of the Americas",
+            "Austin, TX",
+            "USA",
+            (2027, 9, 5),
+            (18, 0),
+        ),
+        (
+            "6 Hours of Fuji",
+            "Fuji International Speedway",
+            "Oyama",
+            "Japan",
+            (2027, 9, 26),
+            (2, 0),
+        ),
+        (
+            "Bapco Energies 8 Hours of Bahrain",
+            "Bahrain International Circuit",
+            "Sakhir",
+            "Bahrain",
+            (2027, 11, 6),
+            (11, 0),
+        ),
     ];
 
     raw_events
         .into_iter()
         .enumerate()
-        .map(|(i, (name, circuit, loc, country, (y, m, d), (hour, min)))| {
-            let race_date = NaiveDate::from_ymd_opt(y, m, d).unwrap();
-            let fri_date = race_date.pred_opt().unwrap_or(race_date).pred_opt().unwrap_or(race_date);
-            let sat_date = race_date.pred_opt().unwrap_or(race_date);
-            let start_time = race_date
-                .and_hms_opt(hour, min, 0)
-                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+        .map(
+            |(i, (name, circuit, loc, country, (y, m, d), (hour, min)))| {
+                let race_date = NaiveDate::from_ymd_opt(y, m, d).unwrap();
+                let fri_date = race_date
+                    .pred_opt()
+                    .unwrap_or(race_date)
+                    .pred_opt()
+                    .unwrap_or(race_date);
+                let sat_date = race_date.pred_opt().unwrap_or(race_date);
+                let start_time = race_date
+                    .and_hms_opt(hour, min, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
-            let sessions = vec![
-                Session {
-                    name: "Free Practice".to_string(),
-                    session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Qualifying".to_string(),
-                    session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Race".to_string(),
-                    session_type: SessionType::Race,
-                    start_time,
-                    end_time: None,
-                },
-            ];
+                let sessions = vec![
+                    Session {
+                        name: "Free Practice".to_string(),
+                        session_type: SessionType::Practice,
+                        start_time: fri_date
+                            .and_hms_opt(8, 0, 0)
+                            .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                        end_time: None,
+                    },
+                    Session {
+                        name: "Qualifying".to_string(),
+                        session_type: SessionType::Qualifying,
+                        start_time: sat_date
+                            .and_hms_opt(14, 0, 0)
+                            .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                        end_time: None,
+                    },
+                    Session {
+                        name: "Race".to_string(),
+                        session_type: SessionType::Race,
+                        start_time,
+                        end_time: None,
+                    },
+                ];
 
-            RaceEvent {
-                series_id: series_id.to_string(),
-                event_name: name.to_string(),
-                circuit_name: circuit.to_string(),
-                location: loc.to_string(),
-                country: country.to_string(),
-                start_date: fri_date,
-                end_date: race_date,
-                round: Some((i + 1) as u32),
-                sessions,
-                stream_links: wec_stream_links(),
-                status: EventStatus::Upcoming,
-            }
-        })
+                RaceEvent {
+                    series_id: series_id.to_string(),
+                    event_name: name.to_string(),
+                    circuit_name: circuit.to_string(),
+                    location: loc.to_string(),
+                    country: country.to_string(),
+                    start_date: fri_date,
+                    end_date: race_date,
+                    round: Some((i + 1) as u32),
+                    sessions,
+                    stream_links: wec_stream_links(),
+                    status: EventStatus::Upcoming,
+                }
+            },
+        )
         .collect()
 }
 

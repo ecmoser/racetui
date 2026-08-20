@@ -1,7 +1,7 @@
-use std::collections::HashSet;
 use anyhow::Result;
 use chrono::{DateTime, Datelike, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use scraper::{Html, Selector};
+use std::collections::HashSet;
 
 use super::sportstimes::fetch_sportstimes_calendar;
 use super::{fetcher, SeriesScraper};
@@ -94,7 +94,11 @@ pub fn parse_month_day(date_str: &str, year: i32) -> Option<NaiveDate> {
 /// Parse time string like "12:00 PM ET" or "11:30 AM ET" into a DateTime<Utc>.
 /// Assumes ET (EDT UTC-4 during daylight saving months Mar-Nov, EST UTC-5 in winter).
 pub fn parse_indycar_time(date: NaiveDate, time_str: &str) -> Option<DateTime<Utc>> {
-    let clean = time_str.trim().replace("ET", "").replace("EDT", "").replace("EST", "");
+    let clean = time_str
+        .trim()
+        .replace("ET", "")
+        .replace("EDT", "")
+        .replace("EST", "");
     let clean = clean.trim();
     let parts: Vec<&str> = clean.split_whitespace().collect();
     if parts.len() < 2 {
@@ -120,7 +124,11 @@ pub fn parse_indycar_time(date: NaiveDate, time_str: &str) -> Option<DateTime<Ut
     let naive_dt = NaiveDateTime::new(date, naive_time);
 
     // US Eastern offset (EDT is UTC-4 from 2nd Sunday in March to 1st Sunday in November)
-    let offset_hours = if (3..=11).contains(&date.month()) { 4 } else { 5 };
+    let offset_hours = if (3..=11).contains(&date.month()) {
+        4
+    } else {
+        5
+    };
     let offset = chrono::FixedOffset::west_opt(offset_hours * 3600)?;
     let local_dt = offset.from_local_datetime(&naive_dt).single()?;
     Some(local_dt.with_timezone(&Utc))
@@ -197,11 +205,12 @@ pub fn parse_indycar_html(html_text: &str, series_id: &str) -> Result<Vec<RaceEv
             let parts: Vec<&str> = location.split(',').collect();
             let city = parts[0].trim().to_string();
             let state_or_country = parts[1].trim();
-            let country = if state_or_country.contains("Ontario") || state_or_country.contains("Canada") {
-                "Canada".to_string()
-            } else {
-                "USA".to_string()
-            };
+            let country =
+                if state_or_country.contains("Ontario") || state_or_country.contains("Canada") {
+                    "Canada".to_string()
+                } else {
+                    "USA".to_string()
+                };
             (country, city)
         } else {
             ("USA".to_string(), location.clone())
@@ -271,24 +280,132 @@ pub fn parse_indycar_html(html_text: &str, series_id: &str) -> Result<Vec<RaceEv
 
 pub fn get_official_2027_indycar_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Firestone Grand Prix of St. Petersburg", "Streets of St. Petersburg", "St. Petersburg", "USA", (2027, 2, 28)),
-        ("Java House Grand Prix of Arlington", "Streets of Arlington", "Arlington", "USA", (2027, 3, 14)),
-        ("The Thermal Club $1 Million Challenge", "The Thermal Club", "Thermal", "USA", (2027, 3, 21)),
-        ("Acura Grand Prix of Long Beach", "Streets of Long Beach", "Long Beach", "USA", (2027, 4, 18)),
-        ("Children's of Alabama Indy Grand Prix", "Barber Motorsports Park", "Birmingham", "USA", (2027, 5, 2)),
-        ("Sonsio Grand Prix", "Indianapolis Motor Speedway (Road Course)", "Indianapolis", "USA", (2027, 5, 15)),
-        ("111th Running of the Indianapolis 500", "Indianapolis Motor Speedway", "Indianapolis", "USA", (2027, 5, 30)),
-        ("Chevrolet Detroit Grand Prix", "Streets of Detroit", "Detroit", "USA", (2027, 6, 6)),
-        ("Bommarito Automotive Group 500", "World Wide Technology Raceway", "Madison", "USA", (2027, 6, 13)),
-        ("XPEL Grand Prix at Road America", "Road America", "Elkhart Lake", "USA", (2027, 6, 27)),
-        ("Honda Indy 200 at Mid-Ohio", "Mid-Ohio Sports Car Course", "Lexington", "USA", (2027, 7, 11)),
-        ("Hy-Vee IndyCar Race Weekend (Race 1)", "Iowa Speedway", "Newton", "USA", (2027, 7, 17)),
-        ("Hy-Vee IndyCar Race Weekend (Race 2)", "Iowa Speedway", "Newton", "USA", (2027, 7, 18)),
-        ("Ontario Honda Dealers Indy Toronto", "Exhibition Place", "Toronto", "Canada", (2027, 7, 25)),
-        ("BitNile.com Grand Prix of Portland", "Portland International Raceway", "Portland", "USA", (2027, 8, 15)),
-        ("Milwaukee Mile 250 (Race 1)", "Milwaukee Mile", "West Allis", "USA", (2027, 8, 28)),
-        ("Milwaukee Mile 250 (Race 2)", "Milwaukee Mile", "West Allis", "USA", (2027, 8, 29)),
-        ("Big Machine Music City Grand Prix", "Nashville Superspeedway", "Lebanon", "USA", (2027, 9, 12)),
+        (
+            "Firestone Grand Prix of St. Petersburg",
+            "Streets of St. Petersburg",
+            "St. Petersburg",
+            "USA",
+            (2027, 2, 28),
+        ),
+        (
+            "Java House Grand Prix of Arlington",
+            "Streets of Arlington",
+            "Arlington",
+            "USA",
+            (2027, 3, 14),
+        ),
+        (
+            "The Thermal Club $1 Million Challenge",
+            "The Thermal Club",
+            "Thermal",
+            "USA",
+            (2027, 3, 21),
+        ),
+        (
+            "Acura Grand Prix of Long Beach",
+            "Streets of Long Beach",
+            "Long Beach",
+            "USA",
+            (2027, 4, 18),
+        ),
+        (
+            "Children's of Alabama Indy Grand Prix",
+            "Barber Motorsports Park",
+            "Birmingham",
+            "USA",
+            (2027, 5, 2),
+        ),
+        (
+            "Sonsio Grand Prix",
+            "Indianapolis Motor Speedway (Road Course)",
+            "Indianapolis",
+            "USA",
+            (2027, 5, 15),
+        ),
+        (
+            "111th Running of the Indianapolis 500",
+            "Indianapolis Motor Speedway",
+            "Indianapolis",
+            "USA",
+            (2027, 5, 30),
+        ),
+        (
+            "Chevrolet Detroit Grand Prix",
+            "Streets of Detroit",
+            "Detroit",
+            "USA",
+            (2027, 6, 6),
+        ),
+        (
+            "Bommarito Automotive Group 500",
+            "World Wide Technology Raceway",
+            "Madison",
+            "USA",
+            (2027, 6, 13),
+        ),
+        (
+            "XPEL Grand Prix at Road America",
+            "Road America",
+            "Elkhart Lake",
+            "USA",
+            (2027, 6, 27),
+        ),
+        (
+            "Honda Indy 200 at Mid-Ohio",
+            "Mid-Ohio Sports Car Course",
+            "Lexington",
+            "USA",
+            (2027, 7, 11),
+        ),
+        (
+            "Hy-Vee IndyCar Race Weekend (Race 1)",
+            "Iowa Speedway",
+            "Newton",
+            "USA",
+            (2027, 7, 17),
+        ),
+        (
+            "Hy-Vee IndyCar Race Weekend (Race 2)",
+            "Iowa Speedway",
+            "Newton",
+            "USA",
+            (2027, 7, 18),
+        ),
+        (
+            "Ontario Honda Dealers Indy Toronto",
+            "Exhibition Place",
+            "Toronto",
+            "Canada",
+            (2027, 7, 25),
+        ),
+        (
+            "BitNile.com Grand Prix of Portland",
+            "Portland International Raceway",
+            "Portland",
+            "USA",
+            (2027, 8, 15),
+        ),
+        (
+            "Milwaukee Mile 250 (Race 1)",
+            "Milwaukee Mile",
+            "West Allis",
+            "USA",
+            (2027, 8, 28),
+        ),
+        (
+            "Milwaukee Mile 250 (Race 2)",
+            "Milwaukee Mile",
+            "West Allis",
+            "USA",
+            (2027, 8, 29),
+        ),
+        (
+            "Big Machine Music City Grand Prix",
+            "Nashville Superspeedway",
+            "Lebanon",
+            "USA",
+            (2027, 9, 12),
+        ),
     ];
 
     raw_events
@@ -297,13 +414,34 @@ pub fn get_official_2027_indycar_schedule(series_id: &str) -> Vec<RaceEvent> {
         .map(|(i, (name, circuit, loc, country, date))| {
             let race_date = NaiveDate::from_ymd_opt(date.0, date.1, date.2).unwrap();
             let sat_date = race_date.pred_opt().unwrap_or(race_date);
-            let quali_time = sat_date.and_hms_opt(18, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race_time = race_date.and_hms_opt(19, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let quali_time = sat_date
+                .and_hms_opt(18, 30, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_time = race_date
+                .and_hms_opt(19, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
-                Session { name: "Practice 1".to_string(), session_type: SessionType::Practice, start_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)), end_time: None },
-                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
-                Session { name: "Race".to_string(), session_type: SessionType::Race, start_time: race_time, end_time: None },
+                Session {
+                    name: "Practice 1".to_string(),
+                    session_type: SessionType::Practice,
+                    start_time: sat_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: None,
+                },
+                Session {
+                    name: "Qualifying".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: quali_time,
+                    end_time: None,
+                },
+                Session {
+                    name: "Race".to_string(),
+                    session_type: SessionType::Race,
+                    start_time: race_time,
+                    end_time: None,
+                },
             ];
 
             RaceEvent {
@@ -377,7 +515,10 @@ mod tests {
 
         let events = parse_indycar_html(sample_html, "indycar").unwrap();
         assert_eq!(events.len(), 1);
-        assert_eq!(events[0].event_name, "110th Running of the Indianapolis 500");
+        assert_eq!(
+            events[0].event_name,
+            "110th Running of the Indianapolis 500"
+        );
         assert_eq!(events[0].circuit_name, "Indianapolis Motor Speedway");
         assert_eq!(events[0].location, "Indianapolis");
         assert_eq!(events[0].country, "USA");

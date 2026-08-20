@@ -214,7 +214,7 @@ notify-rust = "4"
 
 ---
 
-### [ ] Step 2: Define championship standings data models
+### [x] Step 2: Define championship standings data models
 
 **What to do**: Create `src/data/standings.rs` with the data structures needed to represent championship standings for any series. These models must support both driver-only standings (e.g., IndyCar) and driver + constructor/manufacturer standings (e.g., F1, NASCAR).
 

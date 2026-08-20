@@ -29,18 +29,28 @@ pub fn draw(frame: &mut Frame, app: &App) {
 
     let action_verb = if is_fav { "remove" } else { "add" };
     let preposition = if is_fav { "from" } else { "to" };
-    let title = if is_fav { " Remove Favorite " } else { " Add Favorite " };
+    let title = if is_fav {
+        " Remove Favorite "
+    } else {
+        " Add Favorite "
+    };
 
     let lines = vec![
         Line::from(""),
         Line::from(vec![
             Span::raw(" Are you sure you want to "),
-            Span::styled(action_verb, Style::default().bold().fg(if is_fav { Color::Red } else { Color::Green })),
-            Span::styled(format!(" {}", series_name), Style::default().bold().fg(Color::Yellow)),
+            Span::styled(
+                action_verb,
+                Style::default()
+                    .bold()
+                    .fg(if is_fav { Color::Red } else { Color::Green }),
+            ),
+            Span::styled(
+                format!(" {}", series_name),
+                Style::default().bold().fg(Color::Yellow),
+            ),
         ]),
-        Line::from(vec![
-            Span::raw(format!(" {} your favorites?", preposition)),
-        ]),
+        Line::from(vec![Span::raw(format!(" {} your favorites?", preposition))]),
         Line::from(""),
         Line::from(vec![
             Span::styled(" [y/Enter] Yes", Style::default().bold().fg(Color::Green)),

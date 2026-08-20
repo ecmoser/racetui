@@ -33,7 +33,9 @@ impl SeriesScraper for ImsaScraper {
             if events.is_empty() {
                 if let Ok(response) = client.get(&series.calendar_url).send().await {
                     if let Ok(html_text) = response.text().await {
-                        if !html_text.contains("Just a moment...") && !html_text.contains("challenges.cloudflare.com") {
+                        if !html_text.contains("Just a moment...")
+                            && !html_text.contains("challenges.cloudflare.com")
+                        {
                             if let Ok(parsed) = parse_imsa_html(&html_text, &series.id) {
                                 if !parsed.is_empty() {
                                     events = parsed;
@@ -49,7 +51,10 @@ impl SeriesScraper for ImsaScraper {
             events = get_official_2026_imsa_schedule(&series.id);
         }
 
-        if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_imsa_schedule(&series.id));
         }
 
@@ -214,87 +219,193 @@ pub fn get_official_2026_imsa_schedule(series_id: &str) -> Vec<RaceEvent> {
     raw_events
         .into_iter()
         .enumerate()
-        .map(|(i, (name, circuit, loc, country, _start, end, (hour, min)))| {
-            let race_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
-            let start_time = race_date
-                .and_hms_opt(hour, min, 0)
-                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+        .map(
+            |(i, (name, circuit, loc, country, _start, end, (hour, min)))| {
+                let race_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
+                let start_time = race_date
+                    .and_hms_opt(hour, min, 0)
+                    .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
-            let status = if race_date < today {
-                EventStatus::Completed
-            } else if race_date == today {
-                EventStatus::Live
-            } else {
-                EventStatus::Upcoming
-            };
+                let status = if race_date < today {
+                    EventStatus::Completed
+                } else if race_date == today {
+                    EventStatus::Live
+                } else {
+                    EventStatus::Upcoming
+                };
 
-            let sessions = vec![Session {
-                name: "Race".to_string(),
-                session_type: SessionType::Race,
-                start_time,
-                end_time: None,
-            }];
+                let sessions = vec![Session {
+                    name: "Race".to_string(),
+                    session_type: SessionType::Race,
+                    start_time,
+                    end_time: None,
+                }];
 
-            RaceEvent {
-                series_id: series_id.to_string(),
-                event_name: name.to_string(),
-                circuit_name: circuit.to_string(),
-                location: loc.to_string(),
-                country: country.to_string(),
-                start_date: race_date,
-                end_date: race_date,
-                round: Some((i + 1) as u32),
-                sessions,
-                stream_links: imsa_stream_links(),
-                status,
-            }
-        })
+                RaceEvent {
+                    series_id: series_id.to_string(),
+                    event_name: name.to_string(),
+                    circuit_name: circuit.to_string(),
+                    location: loc.to_string(),
+                    country: country.to_string(),
+                    start_date: race_date,
+                    end_date: race_date,
+                    round: Some((i + 1) as u32),
+                    sessions,
+                    stream_links: imsa_stream_links(),
+                    status,
+                }
+            },
+        )
         .collect()
 }
 
 pub fn get_official_2027_imsa_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Rolex 24 at Daytona", "Daytona International Speedway", "Daytona Beach, FL", "USA", (2027, 1, 30), (2027, 1, 31), (18, 40)),
-        ("Mobil 1 Twelve Hours of Sebring", "Sebring International Raceway", "Sebring, FL", "USA", (2027, 3, 20), (2027, 3, 20), (13, 40)),
-        ("Acura Grand Prix of Long Beach", "Long Beach Street Circuit", "Long Beach, CA", "USA", (2027, 4, 17), (2027, 4, 17), (20, 35)),
-        ("Motul Course de Monterey", "WeatherTech Raceway Laguna Seca", "Monterey, CA", "USA", (2027, 5, 9), (2027, 5, 9), (19, 10)),
-        ("Detroit Grand Prix", "Detroit Street Circuit", "Detroit, MI", "USA", (2027, 6, 5), (2027, 6, 5), (19, 10)),
-        ("Sahlen's Six Hours of The Glen", "Watkins Glen International", "Watkins Glen, NY", "USA", (2027, 6, 27), (2027, 6, 27), (15, 10)),
-        ("Chevrolet Grand Prix", "Canadian Tire Motorsport Park", "Bowmanville, ON", "Canada", (2027, 7, 11), (2027, 7, 11), (15, 5)),
-        ("IMSA SportsCar Weekend", "Road America", "Elkhart Lake, WI", "USA", (2027, 8, 1), (2027, 8, 1), (18, 10)),
-        ("Michelin GT Challenge at VIR", "VIRginia International Raceway", "Alton, VA", "USA", (2027, 8, 22), (2027, 8, 22), (18, 10)),
-        ("TireRack.com Battle on the Bricks", "Indianapolis Motor Speedway", "Indianapolis, IN", "USA", (2027, 9, 19), (2027, 9, 19), (15, 40)),
-        ("Motul Petit Le Mans", "Michelin Raceway Road Atlanta", "Braselton, GA", "USA", (2027, 10, 9), (2027, 10, 9), (16, 10)),
+        (
+            "Rolex 24 at Daytona",
+            "Daytona International Speedway",
+            "Daytona Beach, FL",
+            "USA",
+            (2027, 1, 30),
+            (2027, 1, 31),
+            (18, 40),
+        ),
+        (
+            "Mobil 1 Twelve Hours of Sebring",
+            "Sebring International Raceway",
+            "Sebring, FL",
+            "USA",
+            (2027, 3, 20),
+            (2027, 3, 20),
+            (13, 40),
+        ),
+        (
+            "Acura Grand Prix of Long Beach",
+            "Long Beach Street Circuit",
+            "Long Beach, CA",
+            "USA",
+            (2027, 4, 17),
+            (2027, 4, 17),
+            (20, 35),
+        ),
+        (
+            "Motul Course de Monterey",
+            "WeatherTech Raceway Laguna Seca",
+            "Monterey, CA",
+            "USA",
+            (2027, 5, 9),
+            (2027, 5, 9),
+            (19, 10),
+        ),
+        (
+            "Detroit Grand Prix",
+            "Detroit Street Circuit",
+            "Detroit, MI",
+            "USA",
+            (2027, 6, 5),
+            (2027, 6, 5),
+            (19, 10),
+        ),
+        (
+            "Sahlen's Six Hours of The Glen",
+            "Watkins Glen International",
+            "Watkins Glen, NY",
+            "USA",
+            (2027, 6, 27),
+            (2027, 6, 27),
+            (15, 10),
+        ),
+        (
+            "Chevrolet Grand Prix",
+            "Canadian Tire Motorsport Park",
+            "Bowmanville, ON",
+            "Canada",
+            (2027, 7, 11),
+            (2027, 7, 11),
+            (15, 5),
+        ),
+        (
+            "IMSA SportsCar Weekend",
+            "Road America",
+            "Elkhart Lake, WI",
+            "USA",
+            (2027, 8, 1),
+            (2027, 8, 1),
+            (18, 10),
+        ),
+        (
+            "Michelin GT Challenge at VIR",
+            "VIRginia International Raceway",
+            "Alton, VA",
+            "USA",
+            (2027, 8, 22),
+            (2027, 8, 22),
+            (18, 10),
+        ),
+        (
+            "TireRack.com Battle on the Bricks",
+            "Indianapolis Motor Speedway",
+            "Indianapolis, IN",
+            "USA",
+            (2027, 9, 19),
+            (2027, 9, 19),
+            (15, 40),
+        ),
+        (
+            "Motul Petit Le Mans",
+            "Michelin Raceway Road Atlanta",
+            "Braselton, GA",
+            "USA",
+            (2027, 10, 9),
+            (2027, 10, 9),
+            (16, 10),
+        ),
     ];
 
     raw_events
         .into_iter()
         .enumerate()
-        .map(|(i, (name, circuit, loc, country, _start, end, (hour, min)))| {
-            let race_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
-            let sat_date = race_date.pred_opt().unwrap_or(race_date);
-            let quali_time = sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race_time = race_date.and_hms_opt(hour, min, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+        .map(
+            |(i, (name, circuit, loc, country, _start, end, (hour, min)))| {
+                let race_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
+                let sat_date = race_date.pred_opt().unwrap_or(race_date);
+                let quali_time = sat_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_time = race_date
+                    .and_hms_opt(hour, min, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
-            let sessions = vec![
-                Session { name: "Qualifying".to_string(), session_type: SessionType::Qualifying, start_time: quali_time, end_time: None },
-                Session { name: "Race".to_string(), session_type: SessionType::Race, start_time: race_time, end_time: None },
-            ];
+                let sessions = vec![
+                    Session {
+                        name: "Qualifying".to_string(),
+                        session_type: SessionType::Qualifying,
+                        start_time: quali_time,
+                        end_time: None,
+                    },
+                    Session {
+                        name: "Race".to_string(),
+                        session_type: SessionType::Race,
+                        start_time: race_time,
+                        end_time: None,
+                    },
+                ];
 
-            RaceEvent {
-                series_id: series_id.to_string(),
-                event_name: name.to_string(),
-                circuit_name: circuit.to_string(),
-                location: loc.to_string(),
-                country: country.to_string(),
-                start_date: sat_date,
-                end_date: race_date,
-                round: Some((i + 1) as u32),
-                sessions,
-                stream_links: imsa_stream_links(),
-                status: EventStatus::Upcoming,
-            }
-        })
+                RaceEvent {
+                    series_id: series_id.to_string(),
+                    event_name: name.to_string(),
+                    circuit_name: circuit.to_string(),
+                    location: loc.to_string(),
+                    country: country.to_string(),
+                    start_date: sat_date,
+                    end_date: race_date,
+                    round: Some((i + 1) as u32),
+                    sessions,
+                    stream_links: imsa_stream_links(),
+                    status: EventStatus::Upcoming,
+                }
+            },
+        )
         .collect()
 }
 

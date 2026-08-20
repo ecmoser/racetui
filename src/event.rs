@@ -15,17 +15,11 @@ pub enum AppEvent {
         events: Vec<RaceEvent>,
     },
     /// A series fetch failed
-    FetchError {
-        series_id: String,
-        error: String,
-    },
+    FetchError { series_id: String, error: String },
     /// A series started fetching (update status indicator)
-    FetchStarted {
-        series_id: String,
-    },
+    FetchStarted { series_id: String },
     /// Periodic tick for updating time-sensitive displays (e.g., countdowns)
     Tick,
     /// User requested a data refresh
     RefreshRequested,
 }
-

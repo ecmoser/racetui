@@ -21,9 +21,7 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 let style = Style::default()
                     .fg(Color::DarkGray)
                     .add_modifier(Modifier::BOLD);
-                ListItem::new(Line::from(vec![
-                    Span::styled(*title, style),
-                ]))
+                ListItem::new(Line::from(vec![Span::styled(*title, style)]))
             }
             FilterItem::Entry { label, option } => {
                 let is_active = app.is_filter_option_active(option);
@@ -59,13 +57,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
 
-    let list = List::new(list_items)
-        .block(block)
-        .highlight_style(
-            Style::default()
-                .bg(Color::Rgb(40, 40, 60))
-                .add_modifier(Modifier::BOLD),
-        );
+    let list = List::new(list_items).block(block).highlight_style(
+        Style::default()
+            .bg(Color::Rgb(40, 40, 60))
+            .add_modifier(Modifier::BOLD),
+    );
 
     frame.render_stateful_widget(list, panel_area, &mut app.filter_list_state);
 }

@@ -54,8 +54,8 @@ impl SeriesTomlEntry {
 pub fn load_series_registry(path: &Path) -> Result<HashMap<String, Series>> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read series registry at {}", path.display()))?;
-    let parsed: SeriesToml = toml::from_str(&content)
-        .with_context(|| "Failed to parse series.toml")?;
+    let parsed: SeriesToml =
+        toml::from_str(&content).with_context(|| "Failed to parse series.toml")?;
     let mut map = HashMap::new();
     for entry in parsed.series {
         let id = entry.id.clone();
@@ -86,4 +86,3 @@ mod tests {
         assert!(dtm.requires_js);
     }
 }
-

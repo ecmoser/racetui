@@ -25,7 +25,10 @@ impl SeriesScraper for SuperFormulaScraper {
         if events.is_empty() {
             events = get_official_2026_super_formula_schedule(&series.id);
             events.extend(get_official_2027_super_formula_schedule(&series.id));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_super_formula_schedule(&series.id));
         }
 
@@ -52,11 +55,21 @@ pub fn get_official_2026_super_formula_schedule(series_id: &str) -> Vec<RaceEven
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Mobility Resort Motegi", "Motegi", (2026, 4, 4), (2026, 4, 5)),
+        (
+            "Mobility Resort Motegi",
+            "Motegi",
+            (2026, 4, 4),
+            (2026, 4, 5),
+        ),
         ("Autopolis", "Hita", (2026, 5, 16), (2026, 5, 17)),
         ("Sportsland SUGO", "Murata", (2026, 6, 20), (2026, 6, 21)),
         ("Fuji Speedway", "Oyama", (2026, 7, 18), (2026, 7, 19)),
-        ("Mobility Resort Motegi", "Motegi", (2026, 8, 22), (2026, 8, 23)),
+        (
+            "Mobility Resort Motegi",
+            "Motegi",
+            (2026, 8, 22),
+            (2026, 8, 23),
+        ),
         ("Fuji Speedway", "Oyama", (2026, 10, 10), (2026, 10, 11)),
         ("Suzuka Circuit", "Suzuka", (2026, 11, 21), (2026, 11, 22)),
     ];
@@ -118,11 +131,21 @@ pub fn get_official_2026_super_formula_schedule(series_id: &str) -> Vec<RaceEven
 
 pub fn get_official_2027_super_formula_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Mobility Resort Motegi", "Motegi", (2027, 4, 3), (2027, 4, 4)),
+        (
+            "Mobility Resort Motegi",
+            "Motegi",
+            (2027, 4, 3),
+            (2027, 4, 4),
+        ),
         ("Autopolis", "Hita", (2027, 5, 15), (2027, 5, 16)),
         ("Sportsland SUGO", "Murata", (2027, 6, 19), (2027, 6, 20)),
         ("Fuji Speedway", "Oyama", (2027, 7, 17), (2027, 7, 18)),
-        ("Mobility Resort Motegi", "Motegi", (2027, 8, 21), (2027, 8, 22)),
+        (
+            "Mobility Resort Motegi",
+            "Motegi",
+            (2027, 8, 21),
+            (2027, 8, 22),
+        ),
         ("Fuji Speedway", "Oyama", (2027, 10, 9), (2027, 10, 10)),
         ("Suzuka Circuit", "Suzuka", (2027, 11, 20), (2027, 11, 21)),
     ];
@@ -134,8 +157,12 @@ pub fn get_official_2027_super_formula_schedule(series_id: &str) -> Vec<RaceEven
             let sat_date = NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap();
             let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
 
-            let quali_time = sat_date.and_hms_opt(0, 0, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race_time = sun_date.and_hms_opt(5, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let quali_time = sat_date
+                .and_hms_opt(0, 0, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_time = sun_date
+                .and_hms_opt(5, 30, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
                 Session {

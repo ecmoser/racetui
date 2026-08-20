@@ -25,7 +25,10 @@ impl SeriesScraper for SuperGtScraper {
         if events.is_empty() {
             events = get_official_2026_super_gt_schedule(&series.id);
             events.extend(get_official_2027_super_gt_schedule(&series.id));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_super_gt_schedule(&series.id));
         }
 
@@ -52,14 +55,56 @@ pub fn get_official_2026_super_gt_schedule(series_id: &str) -> Vec<RaceEvent> {
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Okayama International Circuit", "Mimasaka", "Japan", (2026, 4, 11), (2026, 4, 12)),
-        ("Fuji Speedway", "Oyama", "Japan", (2026, 5, 3), (2026, 5, 4)),
-        ("Suzuka Circuit", "Suzuka", "Japan", (2026, 5, 30), (2026, 5, 31)),
-        ("Fuji Speedway", "Oyama", "Japan", (2026, 8, 8), (2026, 8, 9)),
-        ("Sepang International Circuit", "Sepang", "Malaysia", (2026, 8, 29), (2026, 8, 30)),
-        ("Sportsland SUGO", "Murata", "Japan", (2026, 9, 19), (2026, 9, 20)),
+        (
+            "Okayama International Circuit",
+            "Mimasaka",
+            "Japan",
+            (2026, 4, 11),
+            (2026, 4, 12),
+        ),
+        (
+            "Fuji Speedway",
+            "Oyama",
+            "Japan",
+            (2026, 5, 3),
+            (2026, 5, 4),
+        ),
+        (
+            "Suzuka Circuit",
+            "Suzuka",
+            "Japan",
+            (2026, 5, 30),
+            (2026, 5, 31),
+        ),
+        (
+            "Fuji Speedway",
+            "Oyama",
+            "Japan",
+            (2026, 8, 8),
+            (2026, 8, 9),
+        ),
+        (
+            "Sepang International Circuit",
+            "Sepang",
+            "Malaysia",
+            (2026, 8, 29),
+            (2026, 8, 30),
+        ),
+        (
+            "Sportsland SUGO",
+            "Murata",
+            "Japan",
+            (2026, 9, 19),
+            (2026, 9, 20),
+        ),
         ("Autopolis", "Hita", "Japan", (2026, 10, 17), (2026, 10, 18)),
-        ("Mobility Resort Motegi", "Motegi", "Japan", (2026, 11, 7), (2026, 11, 8)),
+        (
+            "Mobility Resort Motegi",
+            "Motegi",
+            "Japan",
+            (2026, 11, 7),
+            (2026, 11, 8),
+        ),
     ];
 
     raw_events
@@ -119,14 +164,56 @@ pub fn get_official_2026_super_gt_schedule(series_id: &str) -> Vec<RaceEvent> {
 
 pub fn get_official_2027_super_gt_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Okayama International Circuit", "Mimasaka", "Japan", (2027, 4, 10), (2027, 4, 11)),
-        ("Fuji Speedway", "Oyama", "Japan", (2027, 5, 2), (2027, 5, 3)),
-        ("Suzuka Circuit", "Suzuka", "Japan", (2027, 5, 29), (2027, 5, 30)),
-        ("Fuji Speedway", "Oyama", "Japan", (2027, 8, 7), (2027, 8, 8)),
-        ("Sepang International Circuit", "Sepang", "Malaysia", (2027, 8, 28), (2027, 8, 29)),
-        ("Sportsland SUGO", "Murata", "Japan", (2027, 9, 18), (2027, 9, 19)),
+        (
+            "Okayama International Circuit",
+            "Mimasaka",
+            "Japan",
+            (2027, 4, 10),
+            (2027, 4, 11),
+        ),
+        (
+            "Fuji Speedway",
+            "Oyama",
+            "Japan",
+            (2027, 5, 2),
+            (2027, 5, 3),
+        ),
+        (
+            "Suzuka Circuit",
+            "Suzuka",
+            "Japan",
+            (2027, 5, 29),
+            (2027, 5, 30),
+        ),
+        (
+            "Fuji Speedway",
+            "Oyama",
+            "Japan",
+            (2027, 8, 7),
+            (2027, 8, 8),
+        ),
+        (
+            "Sepang International Circuit",
+            "Sepang",
+            "Malaysia",
+            (2027, 8, 28),
+            (2027, 8, 29),
+        ),
+        (
+            "Sportsland SUGO",
+            "Murata",
+            "Japan",
+            (2027, 9, 18),
+            (2027, 9, 19),
+        ),
         ("Autopolis", "Hita", "Japan", (2027, 10, 16), (2027, 10, 17)),
-        ("Mobility Resort Motegi", "Motegi", "Japan", (2027, 11, 6), (2027, 11, 7)),
+        (
+            "Mobility Resort Motegi",
+            "Motegi",
+            "Japan",
+            (2027, 11, 6),
+            (2027, 11, 7),
+        ),
     ];
 
     raw_events
@@ -136,8 +223,12 @@ pub fn get_official_2027_super_gt_schedule(series_id: &str) -> Vec<RaceEvent> {
             let sat_date = NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap();
             let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
 
-            let quali_time = sat_date.and_hms_opt(5, 0, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race_time = sun_date.and_hms_opt(4, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let quali_time = sat_date
+                .and_hms_opt(5, 0, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_time = sun_date
+                .and_hms_opt(4, 30, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
                 Session {

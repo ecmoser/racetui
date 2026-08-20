@@ -52,46 +52,51 @@ pub fn draw(frame: &mut Frame, app: &App) {
     let mut lines: Vec<Line> = Vec::new();
 
     // 1. Title
-    lines.push(Line::from(vec![
-        Span::styled(
-            &event.event_name,
-            Style::default().bold().fg(Color::Cyan).add_modifier(Modifier::UNDERLINED),
-        ),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        &event.event_name,
+        Style::default()
+            .bold()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::UNDERLINED),
+    )]));
 
     // 2. Subtitle
     let subtitle = match event.round {
         Some(round) => format!("{} · Round {}", series_name, round),
         None => series_name.to_string(),
     };
-    lines.push(Line::from(vec![
-        Span::styled(subtitle, Style::default().fg(Color::Yellow)),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        subtitle,
+        Style::default().fg(Color::Yellow),
+    )]));
 
     // 3. Circuit Info
     let circuit_info = format!(
         "{} · {}, {}",
         event.circuit_name, event.location, event.country
     );
-    lines.push(Line::from(vec![
-        Span::styled(circuit_info, Style::default().fg(Color::White)),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        circuit_info,
+        Style::default().fg(Color::White),
+    )]));
 
     // Separator
     lines.push(Line::from(""));
 
     // 4. Session schedule
-    lines.push(Line::from(vec![
-        Span::styled("── Sessions ──", Style::default().bold().fg(Color::Yellow)),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        "── Sessions ──",
+        Style::default().bold().fg(Color::Yellow),
+    )]));
 
     let now_utc = Utc::now();
     let next_session_time = event.next_session_time();
 
     if event.sessions.is_empty() {
-        lines.push(Line::from(vec![
-            Span::styled("  No session times available", Style::default().fg(Color::DarkGray)),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            "  No session times available",
+            Style::default().fg(Color::DarkGray),
+        )]));
     } else {
         for session in &event.sessions {
             let (date_str, time_str, is_past, is_live, is_next) = match session.start_time {
@@ -100,10 +105,11 @@ pub fn draw(frame: &mut Frame, app: &App) {
                     let d = local_dt.format("%a, %b %d").to_string();
                     let t = local_dt.format("%l:%M %p").to_string();
 
-                    let is_past = session.end_time.map_or(
-                        start + chrono::Duration::hours(2) < now_utc,
-                        |e| e < now_utc,
-                    );
+                    let is_past = session
+                        .end_time
+                        .map_or(start + chrono::Duration::hours(2) < now_utc, |e| {
+                            e < now_utc
+                        });
                     let is_live = start <= now_utc && !is_past;
                     let is_next = Some(start) == next_session_time;
                     (d, t, is_past, is_live, is_next)
@@ -150,26 +156,40 @@ pub fn draw(frame: &mut Frame, app: &App) {
     lines.push(Line::from(""));
 
     // 5. Stream Links
-    lines.push(Line::from(vec![
-        Span::styled("── Watch Links ──", Style::default().bold().fg(Color::Yellow)),
-    ]));
+    lines.push(Line::from(vec![Span::styled(
+        "── Watch Links ──",
+        Style::default().bold().fg(Color::Yellow),
+    )]));
 
     if event.stream_links.is_empty() {
-        lines.push(Line::from(vec![
-            Span::styled("  No streaming links available", Style::default().fg(Color::DarkGray)),
-        ]));
+        lines.push(Line::from(vec![Span::styled(
+            "  No streaming links available",
+            Style::default().fg(Color::DarkGray),
+        )]));
     } else {
         for (i, link) in event.stream_links.iter().enumerate() {
             let access_badge = match link.access {
-                StreamAccess::Free => Span::styled(" [Free] ", Style::default().bold().fg(Color::Green)),
-                StreamAccess::Paid => Span::styled(" [Paid $] ", Style::default().bold().fg(Color::Yellow)),
+                StreamAccess::Free => {
+                    Span::styled(" [Free] ", Style::default().bold().fg(Color::Green))
+                }
+                StreamAccess::Paid => {
+                    Span::styled(" [Paid $] ", Style::default().bold().fg(Color::Yellow))
+                }
                 StreamAccess::Mixed => Span::styled(" [Mixed] ", Style::default().fg(Color::Cyan)),
-                StreamAccess::Unknown => Span::styled(" [Link] ", Style::default().fg(Color::DarkGray)),
+                StreamAccess::Unknown => {
+                    Span::styled(" [Link] ", Style::default().fg(Color::DarkGray))
+                }
             };
 
             lines.push(Line::from(vec![
-                Span::styled(format!("  [{}] ", i + 1), Style::default().bold().fg(Color::Cyan)),
-                Span::styled(format!("{:<15}", link.platform), Style::default().bold().fg(Color::White)),
+                Span::styled(
+                    format!("  [{}] ", i + 1),
+                    Style::default().bold().fg(Color::Cyan),
+                ),
+                Span::styled(
+                    format!("{:<15}", link.platform),
+                    Style::default().bold().fg(Color::White),
+                ),
                 access_badge,
                 Span::styled(&link.url, Style::default().fg(Color::Blue)),
             ]));
@@ -187,13 +207,19 @@ pub fn draw(frame: &mut Frame, app: &App) {
             lines.push(Line::from(vec![
                 Span::styled("⏱  Next: ", Style::default().bold().fg(Color::Yellow)),
                 Span::styled(&next_session.name, Style::default().bold().fg(Color::White)),
-                Span::styled(format!(" in {}", formatted_countdown), Style::default().bold().fg(Color::Green)),
+                Span::styled(
+                    format!(" in {}", formatted_countdown),
+                    Style::default().bold().fg(Color::Green),
+                ),
             ]));
         }
     }
 
     let block = Block::default()
-        .title(format!(" {} Details (Press Esc/Enter/q to close) ", event.event_name))
+        .title(format!(
+            " {} Details (Press Esc/Enter/q to close) ",
+            event.event_name
+        ))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
 
@@ -210,8 +236,18 @@ mod tests {
 
     #[test]
     fn test_format_duration() {
-        assert_eq!(format_duration(chrono::Duration::days(2) + chrono::Duration::hours(3) + chrono::Duration::minutes(15)), "2d 3h 15m");
-        assert_eq!(format_duration(chrono::Duration::hours(4) + chrono::Duration::minutes(20)), "4h 20m");
+        assert_eq!(
+            format_duration(
+                chrono::Duration::days(2)
+                    + chrono::Duration::hours(3)
+                    + chrono::Duration::minutes(15)
+            ),
+            "2d 3h 15m"
+        );
+        assert_eq!(
+            format_duration(chrono::Duration::hours(4) + chrono::Duration::minutes(20)),
+            "4h 20m"
+        );
         assert_eq!(format_duration(chrono::Duration::minutes(35)), "35m");
         assert_eq!(format_duration(chrono::Duration::seconds(20)), "< 1m");
         assert_eq!(format_duration(chrono::Duration::seconds(-10)), "now");

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use chrono::{Datelike, DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::sportstimes::fetch_sportstimes_calendar;
@@ -25,7 +25,10 @@ impl SeriesScraper for IndyNxtScraper {
         if events.is_empty() {
             events = get_official_indy_nxt_schedule(&series.id, 2026);
             events.extend(get_official_indy_nxt_schedule(&series.id, 2027));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_indy_nxt_schedule(&series.id, 2027));
         }
 
@@ -54,7 +57,12 @@ pub fn get_official_indy_nxt_schedule(series_id: &str, year: i32) -> Vec<RaceEve
     let raw_events = vec![
         ("Streets of St. Petersburg", "St. Petersburg", "USA", (3, 1)),
         ("Barber Motorsports Park", "Birmingham", "USA", (5, 3)),
-        ("Indianapolis Motor Speedway (Road Course)", "Indianapolis", "USA", (5, 15)),
+        (
+            "Indianapolis Motor Speedway (Road Course)",
+            "Indianapolis",
+            "USA",
+            (5, 15),
+        ),
         ("Streets of Detroit", "Detroit", "USA", (6, 7)),
         ("Road America", "Elkhart Lake", "USA", (6, 28)),
         ("Mid-Ohio Sports Car Course", "Lexington", "USA", (7, 12)),
@@ -85,19 +93,25 @@ pub fn get_official_indy_nxt_schedule(series_id: &str, year: i32) -> Vec<RaceEve
                 Session {
                     name: "Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(17, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(17, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
                     name: "Race".to_string(),
                     session_type: SessionType::Race,
-                    start_time: race_date.and_hms_opt(16, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: race_date
+                        .and_hms_opt(16, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
             ];

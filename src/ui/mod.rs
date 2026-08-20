@@ -7,8 +7,8 @@ pub mod help;
 pub mod list_view;
 pub mod status_bar;
 
-use ratatui::prelude::*;
 use crate::app::{App, ViewMode};
+use ratatui::prelude::*;
 
 /// Main draw function — dispatches to the appropriate view.
 pub fn draw(frame: &mut Frame, app: &mut App) {
@@ -16,8 +16,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(1),     // Main content
-            Constraint::Length(1),  // Status bar
+            Constraint::Min(1),    // Main content
+            Constraint::Length(1), // Status bar
         ])
         .split(frame.area());
 
@@ -72,9 +72,11 @@ mod tests {
         let mut app = App::new(HashMap::new(), UserConfig::default());
 
         // 1. Empty state
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -99,9 +101,11 @@ mod tests {
         };
         app.update_series_data("f1".to_string(), vec![event]);
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -129,9 +133,11 @@ mod tests {
         };
         app.update_series_data("f1".to_string(), vec![event]);
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -146,9 +152,11 @@ mod tests {
         let mut app = App::new(HashMap::new(), UserConfig::default());
         app.view_mode = ViewMode::Calendar;
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -192,9 +200,11 @@ mod tests {
         app.update_series_data("f1".to_string(), vec![event]);
         app.show_detail = true;
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -209,9 +219,11 @@ mod tests {
         let mut app = App::new(HashMap::new(), UserConfig::default());
         app.show_filter_panel = true;
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -242,9 +254,11 @@ mod tests {
         let mut app = App::new(registry, UserConfig::default());
         app.pending_favorite_toggle = Some("f1".to_string());
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -261,9 +275,11 @@ mod tests {
         let mut app = App::new(HashMap::new(), UserConfig::default());
         app.show_help = true;
 
-        terminal.draw(|f| {
-            draw(f, &mut app);
-        }).unwrap();
+        terminal
+            .draw(|f| {
+                draw(f, &mut app);
+            })
+            .unwrap();
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
@@ -273,7 +289,3 @@ mod tests {
         assert!(content.contains("General"));
     }
 }
-
-
-
-

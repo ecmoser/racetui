@@ -249,7 +249,10 @@ impl RaceEvent {
     /// Format race start time in local time (e.g. " 3:00 PM" or "TBD").
     pub fn format_local_time(&self) -> String {
         match self.race_start_time() {
-            Some(t) => t.with_timezone(&chrono::Local).format("%l:%M %p").to_string(),
+            Some(t) => t
+                .with_timezone(&chrono::Local)
+                .format("%l:%M %p")
+                .to_string(),
             None => "TBD".to_string(),
         }
     }
@@ -296,7 +299,10 @@ impl<'a> ScheduledSession<'a> {
     /// Format start time in local time (e.g. " 3:00 PM" or "TBD").
     pub fn format_local_time(&self) -> String {
         match self.start_time {
-            Some(t) => t.with_timezone(&chrono::Local).format("%l:%M %p").to_string(),
+            Some(t) => t
+                .with_timezone(&chrono::Local)
+                .format("%l:%M %p")
+                .to_string(),
             None => "TBD".to_string(),
         }
     }

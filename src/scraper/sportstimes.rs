@@ -5,9 +5,7 @@ use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use reqwest::Client;
 use serde::Deserialize;
 
-use crate::data::models::{
-    EventStatus, RaceEvent, Session, SessionType, StreamLink,
-};
+use crate::data::models::{EventStatus, RaceEvent, Session, SessionType, StreamLink};
 
 #[derive(Debug, Deserialize)]
 pub struct CalendarApiResponse {
@@ -59,7 +57,9 @@ pub async fn fetch_sportstimes_calendar(
         {
             if resp.status().is_success() {
                 if let Ok(text) = resp.text().await {
-                    if let Ok(mut events) = parse_sportstimes_json(&text, series_id, default_stream_links) {
+                    if let Ok(mut events) =
+                        parse_sportstimes_json(&text, series_id, default_stream_links)
+                    {
                         all_events.append(&mut events);
                     }
                 }
@@ -199,7 +199,8 @@ fn session_sort_order(key: &str) -> u32 {
 
 fn map_session_type(key: &str) -> SessionType {
     let k = key.to_lowercase();
-    if k.contains("fp") || k.contains("practice") || k.contains("shakedown") || k.contains("warmup") {
+    if k.contains("fp") || k.contains("practice") || k.contains("shakedown") || k.contains("warmup")
+    {
         SessionType::Practice
     } else if k.contains("qualifying") || k.contains("superpole") {
         SessionType::Qualifying

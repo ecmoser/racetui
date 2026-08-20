@@ -69,8 +69,12 @@ pub fn get_scraper(series_id: &str) -> Option<Box<dyn SeriesScraperBoxed>> {
         "dtm" => Some(Box::new(dtm::DtmScraper)),
         "super_formula" => Some(Box::new(super_formula::SuperFormulaScraper)),
         "super_gt" => Some(Box::new(super_gt::SuperGtScraper)),
-        "gtwc_eu" => Some(Box::new(sro::SroScraper { category: "gtwc_eu" })),
-        "gtwc_am" => Some(Box::new(sro::SroScraper { category: "gtwc_am" })),
+        "gtwc_eu" => Some(Box::new(sro::SroScraper {
+            category: "gtwc_eu",
+        })),
+        "gtwc_am" => Some(Box::new(sro::SroScraper {
+            category: "gtwc_am",
+        })),
         "igtc" => Some(Box::new(sro::SroScraper { category: "igtc" })),
         "elms" => Some(Box::new(lmem::LmemScraper { category: "elms" })),
         "aslms" => Some(Box::new(lmem::LmemScraper { category: "aslms" })),
@@ -199,4 +203,3 @@ mod tests {
         assert!(get_scraper("unknown_series").is_none());
     }
 }
-

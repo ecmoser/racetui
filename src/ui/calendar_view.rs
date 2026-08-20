@@ -40,7 +40,11 @@ pub fn month_name(month: u32) -> &'static str {
 
 /// Draw the calendar grid view.
 pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
-    let title = format!("◀ {} {} ▶", month_name(app.calendar_month), app.calendar_year);
+    let title = format!(
+        "◀ {} {} ▶",
+        month_name(app.calendar_month),
+        app.calendar_year
+    );
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
@@ -51,8 +55,8 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
     if inner_area.height < 8 || inner_area.width < 28 {
         // Area too small to render calendar grid
-        let fallback = Paragraph::new("Terminal too small for calendar view")
-            .alignment(Alignment::Center);
+        let fallback =
+            Paragraph::new("Terminal too small for calendar view").alignment(Alignment::Center);
         frame.render_widget(fallback, inner_area);
         return;
     }
@@ -97,10 +101,15 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
     // Pre-group filtered sessions by date to avoid calling filtered_sessions() for each cell
     let all_sessions = app.filtered_sessions();
-    let mut events_by_date: std::collections::HashMap<NaiveDate, Vec<&crate::data::models::ScheduledSession<'_>>> =
-        std::collections::HashMap::new();
+    let mut events_by_date: std::collections::HashMap<
+        NaiveDate,
+        Vec<&crate::data::models::ScheduledSession<'_>>,
+    > = std::collections::HashMap::new();
     for session in &all_sessions {
-        events_by_date.entry(session.date).or_default().push(session);
+        events_by_date
+            .entry(session.date)
+            .or_default()
+            .push(session);
     }
     let empty_events: Vec<&crate::data::models::ScheduledSession<'_>> = Vec::new();
 
@@ -126,10 +135,11 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             let day = day_counter;
             day_counter += 1;
 
-            let cell_date = match NaiveDate::from_ymd_opt(app.calendar_year, app.calendar_month, day) {
-                Some(d) => d,
-                None => continue,
-            };
+            let cell_date =
+                match NaiveDate::from_ymd_opt(app.calendar_year, app.calendar_month, day) {
+                    Some(d) => d,
+                    None => continue,
+                };
 
             let is_today = cell_date == today;
             let is_selected = day == app.calendar_selected_day;
@@ -151,9 +161,10 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::DarkGray)
             };
 
-            lines.push(Line::from(vec![
-                Span::styled(format!(" {:2} ", day), day_style),
-            ]));
+            lines.push(Line::from(vec![Span::styled(
+                format!(" {:2} ", day),
+                day_style,
+            )]));
 
             // Calculate dynamic capacity for event lines in this cell
             let available_lines = (cell_rect.height.saturating_sub(3)) as usize;
@@ -205,12 +216,10 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
 
             if show_more && available_lines > 0 {
                 let remaining = day_events.len() - display_count;
-                lines.push(Line::from(vec![
-                    Span::styled(
-                        format!("+{} more", remaining),
-                        Style::default().fg(Color::DarkGray),
-                    ),
-                ]));
+                lines.push(Line::from(vec![Span::styled(
+                    format!("+{} more", remaining),
+                    Style::default().fg(Color::DarkGray),
+                )]));
             }
 
             let border_style = if is_selected {

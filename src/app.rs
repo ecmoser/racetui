@@ -82,10 +82,7 @@ pub enum FilterOption {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FilterItem {
     Header(&'static str),
-    Entry {
-        label: String,
-        option: FilterOption,
-    },
+    Entry { label: String, option: FilterOption },
 }
 
 /// Item in the main list table (day section header or scheduled session entry)
@@ -368,7 +365,9 @@ impl App {
             FilterOption::All => self.active_filters.is_default(),
             FilterOption::Favorites => self.active_filters.favorites_only,
             FilterOption::Status(status) => self.active_filters.statuses.contains(status),
-            FilterOption::SessionCategory(cat) => self.active_filters.session_categories.contains(cat),
+            FilterOption::SessionCategory(cat) => {
+                self.active_filters.session_categories.contains(cat)
+            }
             FilterOption::CarStyle(style) => self.active_filters.car_styles.contains(style),
             FilterOption::Region(region) => self.active_filters.regions.contains(region),
             FilterOption::Series(series_id) => self.active_filters.series.contains(series_id),
@@ -454,7 +453,11 @@ impl App {
             return;
         }
         let current = self.filter_list_state.selected().unwrap_or(0);
-        let mut prev = if current == 0 { items.len() - 1 } else { current - 1 };
+        let mut prev = if current == 0 {
+            items.len() - 1
+        } else {
+            current - 1
+        };
         while matches!(items[prev], FilterItem::Header(_)) {
             prev = if prev == 0 { items.len() - 1 } else { prev - 1 };
             if prev == current {
@@ -491,7 +494,8 @@ impl App {
                             let end = session.end_time.unwrap_or(st + chrono::Duration::hours(2));
                             if event.status == EventStatus::Completed {
                                 EventStatus::Completed
-                            } else if event.status == EventStatus::Live || (st <= now && now <= end) {
+                            } else if event.status == EventStatus::Live || (st <= now && now <= end)
+                            {
                                 EventStatus::Live
                             } else if now > end {
                                 EventStatus::Completed
@@ -553,7 +557,9 @@ impl App {
                 self.series_registry
                     .get(&s.event.series_id)
                     .map_or(false, |ser| {
-                        self.active_filters.car_styles.contains(ser.car_style.as_str())
+                        self.active_filters
+                            .car_styles
+                            .contains(ser.car_style.as_str())
                     })
             });
         }
@@ -563,7 +569,9 @@ impl App {
             sessions.retain(|s| {
                 self.series_registry
                     .get(&s.event.series_id)
-                    .map_or(false, |ser| self.active_filters.regions.contains(&ser.region))
+                    .map_or(false, |ser| {
+                        self.active_filters.regions.contains(&ser.region)
+                    })
             });
         }
 
@@ -672,7 +680,11 @@ impl App {
         }
 
         let current = self.table_state.selected().unwrap_or(0);
-        let mut prev = if current == 0 { items.len() - 1 } else { current - 1 };
+        let mut prev = if current == 0 {
+            items.len() - 1
+        } else {
+            current - 1
+        };
         while matches!(items.get(prev), Some(ListTableItem::Header(_))) {
             prev = if prev == 0 { items.len() - 1 } else { prev - 1 };
             if prev == current {
@@ -728,7 +740,8 @@ impl App {
     pub fn update_series_data(&mut self, series_id: String, events: Vec<RaceEvent>) {
         let count = events.len();
         self.events.insert(series_id.clone(), events);
-        self.fetch_status.insert(series_id, FetchStatus::Loaded(count));
+        self.fetch_status
+            .insert(series_id, FetchStatus::Loaded(count));
 
         // Adjust selection if it's out of bounds or on a header
         let total = self.list_table_items().len();
@@ -736,7 +749,10 @@ impl App {
             if self.table_state.selected().map_or(true, |i| i >= total) {
                 self.select_first_event();
             } else if let Some(idx) = self.table_state.selected() {
-                if matches!(self.list_table_items().get(idx), Some(ListTableItem::Header(_))) {
+                if matches!(
+                    self.list_table_items().get(idx),
+                    Some(ListTableItem::Header(_))
+                ) {
                     self.select_first_event();
                 }
             }
@@ -757,8 +773,10 @@ impl App {
 
     /// Mark a series as loaded from cache.
     pub fn mark_cached_load(&mut self, series_id: &str, count: usize, age_hours: u64) {
-        self.fetch_status
-            .insert(series_id.to_string(), FetchStatus::CachedLoad(count, age_hours));
+        self.fetch_status.insert(
+            series_id.to_string(),
+            FetchStatus::CachedLoad(count, age_hours),
+        );
     }
 
     /// Days in the currently displayed calendar month
@@ -947,7 +965,10 @@ mod tests {
     #[test]
     fn test_app_initial_state() {
         let mut registry = HashMap::new();
-        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
         let config = UserConfig::default();
         let app = App::new(registry, config);
 
@@ -961,7 +982,10 @@ mod tests {
     #[test]
     fn test_navigation() {
         let mut registry = HashMap::new();
-        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
         let mut app = App::new(registry, UserConfig::default());
 
         // Empty event list navigation
@@ -978,35 +1002,59 @@ mod tests {
 
         // Initial selection should be on first event (index 0)
         assert_eq!(app.table_state.selected(), Some(0));
-        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 1"));
+        assert_eq!(
+            app.selected_event().map(|e| e.event_name.as_str()),
+            Some("Race 1")
+        );
 
         // Select next: skips separator at index 1, moves to index 2 (Race 2)
         app.select_next();
         assert_eq!(app.table_state.selected(), Some(2));
-        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 2"));
+        assert_eq!(
+            app.selected_event().map(|e| e.event_name.as_str()),
+            Some("Race 2")
+        );
 
         // Select next: skips separator at index 3, moves to index 4 (Race 3)
         app.select_next();
         assert_eq!(app.table_state.selected(), Some(4));
-        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 3"));
+        assert_eq!(
+            app.selected_event().map(|e| e.event_name.as_str()),
+            Some("Race 3")
+        );
 
         // Wrap around: wraps to index 0 (Race 1)
         app.select_next();
         assert_eq!(app.table_state.selected(), Some(0));
-        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 1"));
+        assert_eq!(
+            app.selected_event().map(|e| e.event_name.as_str()),
+            Some("Race 1")
+        );
 
         // Prev navigation: wraps to index 4 (Race 3)
         app.select_previous();
         assert_eq!(app.table_state.selected(), Some(4));
-        assert_eq!(app.selected_event().map(|e| e.event_name.as_str()), Some("Race 3"));
+        assert_eq!(
+            app.selected_event().map(|e| e.event_name.as_str()),
+            Some("Race 3")
+        );
     }
 
     #[test]
     fn test_chronological_time_sorting_and_tbd_at_bottom() {
         let mut registry = HashMap::new();
-        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
-        registry.insert("nascar".to_string(), mock_series("nascar", "NASCAR", CarStyle::StockCar, "USA"));
-        registry.insert("indycar".to_string(), mock_series("indycar", "IndyCar", CarStyle::OpenWheel, "USA"));
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
+        registry.insert(
+            "nascar".to_string(),
+            mock_series("nascar", "NASCAR", CarStyle::StockCar, "USA"),
+        );
+        registry.insert(
+            "indycar".to_string(),
+            mock_series("indycar", "IndyCar", CarStyle::OpenWheel, "USA"),
+        );
 
         let mut app = App::new(registry, UserConfig::default());
 
@@ -1030,7 +1078,11 @@ mod tests {
         ev_230pm.sessions = vec![crate::data::models::Session {
             name: "Race".to_string(),
             session_type: crate::data::models::SessionType::Race,
-            start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 5, 24, 18, 30, 0).unwrap()), // 2:30 PM EDT
+            start_time: Some(
+                chrono::Utc
+                    .with_ymd_and_hms(2027, 5, 24, 18, 30, 0)
+                    .unwrap(),
+            ), // 2:30 PM EDT
             end_time: None,
         }];
 
@@ -1051,17 +1103,37 @@ mod tests {
     #[test]
     fn test_multi_select_filtering() {
         let mut registry = HashMap::new();
-        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
-        registry.insert("nascar".to_string(), mock_series("nascar", "NASCAR", CarStyle::StockCar, "USA"));
-        registry.insert("wec".to_string(), mock_series("wec", "WEC", CarStyle::SportsCar, "International"));
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
+        registry.insert(
+            "nascar".to_string(),
+            mock_series("nascar", "NASCAR", CarStyle::StockCar, "USA"),
+        );
+        registry.insert(
+            "wec".to_string(),
+            mock_series("wec", "WEC", CarStyle::SportsCar, "International"),
+        );
 
         let mut config = UserConfig::default();
-        config.favorites = ["f1".to_string(), "nascar".to_string()].into_iter().collect();
+        config.favorites = ["f1".to_string(), "nascar".to_string()]
+            .into_iter()
+            .collect();
 
         let mut app = App::new(registry, config);
-        app.update_series_data("f1".to_string(), vec![mock_event("f1", "Bahrain GP", (2026, 3, 1))]);
-        app.update_series_data("nascar".to_string(), vec![mock_event("nascar", "Daytona 500", (2026, 2, 15))]);
-        app.update_series_data("wec".to_string(), vec![mock_event("wec", "Qatar 1812km", (2026, 2, 28))]);
+        app.update_series_data(
+            "f1".to_string(),
+            vec![mock_event("f1", "Bahrain GP", (2026, 3, 1))],
+        );
+        app.update_series_data(
+            "nascar".to_string(),
+            vec![mock_event("nascar", "Daytona 500", (2026, 2, 15))],
+        );
+        app.update_series_data(
+            "wec".to_string(),
+            vec![mock_event("wec", "Qatar 1812km", (2026, 2, 28))],
+        );
 
         // Default: all 3 events
         assert_eq!(app.filtered_events().len(), 3);
@@ -1083,7 +1155,10 @@ mod tests {
     #[test]
     fn test_status_filtering() {
         let mut registry = HashMap::new();
-        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
 
         let mut app = App::new(registry, UserConfig::default());
         let mut upcoming = mock_event("f1", "Upcoming Race", (2026, 6, 1));
@@ -1122,7 +1197,10 @@ mod tests {
     #[test]
     fn test_session_type_filtering() {
         let mut registry = HashMap::new();
-        registry.insert("f1".to_string(), mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"));
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
 
         let mut app = App::new(registry, UserConfig::default());
         let mut event = mock_event("f1", "Bahrain GP", (2027, 3, 1));
@@ -1130,7 +1208,11 @@ mod tests {
             crate::data::models::Session {
                 name: "Practice 1".to_string(),
                 session_type: crate::data::models::SessionType::Practice,
-                start_time: Some(chrono::Utc.with_ymd_and_hms(2027, 2, 27, 11, 30, 0).unwrap()),
+                start_time: Some(
+                    chrono::Utc
+                        .with_ymd_and_hms(2027, 2, 27, 11, 30, 0)
+                        .unwrap(),
+                ),
                 end_time: None,
             },
             crate::data::models::Session {

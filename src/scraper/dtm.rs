@@ -25,7 +25,10 @@ impl SeriesScraper for DtmScraper {
         if events.is_empty() {
             events = get_official_2026_dtm_schedule(&series.id);
             events.extend(get_official_2027_dtm_schedule(&series.id));
-        } else if !events.iter().any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027) {
+        } else if !events
+            .iter()
+            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
+        {
             events.extend(get_official_2027_dtm_schedule(&series.id));
         }
 
@@ -52,14 +55,34 @@ pub fn get_official_2026_dtm_schedule(series_id: &str) -> Vec<RaceEvent> {
     let today = Utc::now().date_naive();
 
     let raw_events = vec![
-        ("Motorsport Arena Oschersleben", "Oschersleben", "Germany", (2026, 4, 26)),
+        (
+            "Motorsport Arena Oschersleben",
+            "Oschersleben",
+            "Germany",
+            (2026, 4, 26),
+        ),
         ("DEKRA Lausitzring", "Klettwitz", "Germany", (2026, 5, 24)),
-        ("Circuit Zandvoort", "Zandvoort", "Netherlands", (2026, 6, 7)),
+        (
+            "Circuit Zandvoort",
+            "Zandvoort",
+            "Netherlands",
+            (2026, 6, 7),
+        ),
         ("Norisring", "Nuremberg", "Germany", (2026, 7, 5)),
         ("Nürburgring", "Nürburg", "Germany", (2026, 8, 9)),
-        ("Sachsenring", "Hohenstein-Ernstthal", "Germany", (2026, 9, 6)),
+        (
+            "Sachsenring",
+            "Hohenstein-Ernstthal",
+            "Germany",
+            (2026, 9, 6),
+        ),
         ("Red Bull Ring", "Spielberg", "Austria", (2026, 9, 27)),
-        ("Hockenheimring Baden-Württemberg", "Hockenheim", "Germany", (2026, 10, 18)),
+        (
+            "Hockenheimring Baden-Württemberg",
+            "Hockenheim",
+            "Germany",
+            (2026, 10, 18),
+        ),
     ];
 
     raw_events
@@ -118,14 +141,62 @@ pub fn get_official_2026_dtm_schedule(series_id: &str) -> Vec<RaceEvent> {
 
 pub fn get_official_2027_dtm_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
-        ("Motorsport Arena Oschersleben", "Oschersleben", "Germany", (2027, 4, 24), (2027, 4, 25)),
-        ("DEKRA Lausitzring", "Klettwitz", "Germany", (2027, 5, 22), (2027, 5, 23)),
-        ("Circuit Zandvoort", "Zandvoort", "Netherlands", (2027, 6, 12), (2027, 6, 13)),
-        ("Norisring", "Nuremberg", "Germany", (2027, 7, 3), (2027, 7, 4)),
-        ("Nürburgring (Sprint)", "Nürburg", "Germany", (2027, 8, 7), (2027, 8, 8)),
-        ("Sachsenring", "Hohenstein-Ernstthal", "Germany", (2027, 9, 4), (2027, 9, 5)),
-        ("Red Bull Ring", "Spielberg", "Austria", (2027, 9, 25), (2027, 9, 26)),
-        ("Hockenheimring Baden-Württemberg", "Hockenheim", "Germany", (2027, 10, 16), (2027, 10, 17)),
+        (
+            "Motorsport Arena Oschersleben",
+            "Oschersleben",
+            "Germany",
+            (2027, 4, 24),
+            (2027, 4, 25),
+        ),
+        (
+            "DEKRA Lausitzring",
+            "Klettwitz",
+            "Germany",
+            (2027, 5, 22),
+            (2027, 5, 23),
+        ),
+        (
+            "Circuit Zandvoort",
+            "Zandvoort",
+            "Netherlands",
+            (2027, 6, 12),
+            (2027, 6, 13),
+        ),
+        (
+            "Norisring",
+            "Nuremberg",
+            "Germany",
+            (2027, 7, 3),
+            (2027, 7, 4),
+        ),
+        (
+            "Nürburgring (Sprint)",
+            "Nürburg",
+            "Germany",
+            (2027, 8, 7),
+            (2027, 8, 8),
+        ),
+        (
+            "Sachsenring",
+            "Hohenstein-Ernstthal",
+            "Germany",
+            (2027, 9, 4),
+            (2027, 9, 5),
+        ),
+        (
+            "Red Bull Ring",
+            "Spielberg",
+            "Austria",
+            (2027, 9, 25),
+            (2027, 9, 26),
+        ),
+        (
+            "Hockenheimring Baden-Württemberg",
+            "Hockenheim",
+            "Germany",
+            (2027, 10, 16),
+            (2027, 10, 17),
+        ),
     ];
 
     raw_events
@@ -135,14 +206,20 @@ pub fn get_official_2027_dtm_schedule(series_id: &str) -> Vec<RaceEvent> {
             let sat_date = NaiveDate::from_ymd_opt(start.0, start.1, start.2).unwrap();
             let sun_date = NaiveDate::from_ymd_opt(end.0, end.1, end.2).unwrap();
 
-            let race1_time = sat_date.and_hms_opt(11, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
-            let race2_time = sun_date.and_hms_opt(11, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race1_time = sat_date
+                .and_hms_opt(11, 30, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race2_time = sun_date
+                .and_hms_opt(11, 30, 0)
+                .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
             let sessions = vec![
                 Session {
                     name: "Qualifying 1".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(7, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(7, 30, 0)
+                        .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {
@@ -154,7 +231,9 @@ pub fn get_official_2027_dtm_schedule(series_id: &str) -> Vec<RaceEvent> {
                 Session {
                     name: "Qualifying 2".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sun_date.and_hms_opt(7, 30, 0).map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(7, 30, 0)
+                        .map(|ndt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                     end_time: None,
                 },
                 Session {

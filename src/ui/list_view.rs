@@ -59,17 +59,15 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     let rows: Vec<Row> = items
         .iter()
         .map(|item| match item {
-            ListTableItem::Header(_) => {
-                Row::new(vec![
-                    Cell::from(""),
-                    Cell::from(""),
-                    Cell::from(""),
-                    Cell::from(""),
-                    Cell::from(""),
-                    Cell::from(""),
-                    Cell::from(""),
-                ])
-            }
+            ListTableItem::Header(_) => Row::new(vec![
+                Cell::from(""),
+                Cell::from(""),
+                Cell::from(""),
+                Cell::from(""),
+                Cell::from(""),
+                Cell::from(""),
+                Cell::from(""),
+            ]),
             ListTableItem::Session(session) => {
                 let event = session.event;
                 // Get series color
@@ -170,13 +168,13 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
 
     // Column widths
     let widths = [
-        Constraint::Length(12),  // Date (e.g. "Sat, Aug 16")
-        Constraint::Length(11),  // Time (e.g. "● 12:00 PM")
-        Constraint::Length(12),  // Series (e.g. "★ IndyCar")
-        Constraint::Min(20),     // Event name (flexible)
-        Constraint::Max(25),     // Circuit
-        Constraint::Max(15),     // Country
-        Constraint::Length(10),  // Status
+        Constraint::Length(12), // Date (e.g. "Sat, Aug 16")
+        Constraint::Length(11), // Time (e.g. "● 12:00 PM")
+        Constraint::Length(12), // Series (e.g. "★ IndyCar")
+        Constraint::Min(20),    // Event name (flexible)
+        Constraint::Max(25),    // Circuit
+        Constraint::Max(15),    // Country
+        Constraint::Length(10), // Status
     ];
 
     // Build table
@@ -196,8 +194,8 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     // Draw scrollbar if there are enough items
     if items_count > area.height as usize {
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-        let mut scrollbar_state = ScrollbarState::new(items_count)
-            .position(app.table_state.selected().unwrap_or(0));
+        let mut scrollbar_state =
+            ScrollbarState::new(items_count).position(app.table_state.selected().unwrap_or(0));
         frame.render_stateful_widget(scrollbar, area, &mut scrollbar_state);
     }
 }
