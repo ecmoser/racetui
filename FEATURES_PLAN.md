@@ -769,7 +769,7 @@ Add imports and the two new traits (`StandingsFetcher`, `ResultsFetcher`) with t
 
 ---
 
-### [ ] Step 9: Implement F1 results fetcher
+### [x] Step 9: Implement F1 results fetcher
 
 **What to do**: Implement `ResultsFetcher` for F1 using the Jolpica API.
 

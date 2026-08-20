@@ -1,11 +1,12 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Datelike, NaiveDate, NaiveTime, TimeZone, Utc};
 use serde::Deserialize;
 
 use super::fetcher;
 use super::sportstimes::fetch_sportstimes_calendar;
-use super::{SeriesScraper, StandingsFetcher};
+use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::*;
+use crate::data::results::{DriverResult, RaceResults};
 use crate::data::standings::{ConstructorStanding, DriverStanding, SeasonStandings};
 
 pub fn f1_stream_links() -> Vec<StreamLink> {
@@ -159,6 +160,81 @@ pub struct JolpicaConstructorStanding {
     pub wins: String,
     #[serde(rename = "Constructor")]
     pub constructor: JolpicaConstructor,
+}
+
+// --- Jolpica Results API response structs ---
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaResultsResponse {
+    #[serde(rename = "MRData")]
+    pub mr_data: ResultsMRData,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResultsMRData {
+    #[serde(rename = "RaceTable")]
+    pub race_table: ResultsRaceTable,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ResultsRaceTable {
+    pub season: Option<String>,
+    pub round: Option<String>,
+    #[serde(rename = "Races", default)]
+    pub races: Vec<JolpicaResultsRace>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaResultsRace {
+    pub season: String,
+    pub round: String,
+    #[serde(rename = "raceName")]
+    pub race_name: String,
+    #[serde(rename = "Circuit")]
+    pub circuit: JolpicaCircuit,
+    pub date: String,
+    pub time: Option<String>,
+    #[serde(rename = "Results", default)]
+    pub results: Vec<JolpicaRaceResultEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaRaceResultEntry {
+    pub number: String,
+    pub position: String,
+    #[serde(rename = "positionText")]
+    pub position_text: Option<String>,
+    pub points: String,
+    #[serde(rename = "Driver")]
+    pub driver: JolpicaDriver,
+    #[serde(rename = "Constructor")]
+    pub constructor: JolpicaConstructor,
+    pub grid: String,
+    pub laps: String,
+    pub status: String,
+    #[serde(rename = "Time")]
+    pub time: Option<JolpicaTime>,
+    #[serde(rename = "FastestLap")]
+    pub fastest_lap: Option<JolpicaFastestLap>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaTime {
+    pub millis: Option<String>,
+    pub time: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaFastestLap {
+    pub rank: Option<String>,
+    pub lap: Option<String>,
+    #[serde(rename = "Time")]
+    pub time: Option<JolpicaFastestLapTime>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct JolpicaFastestLapTime {
+    pub time: String,
 }
 
 // --- Helper functions ---
@@ -654,6 +730,88 @@ impl StandingsFetcher for F1Scraper {
     }
 }
 
+/// Parse Jolpica race results JSON response into RaceResults.
+pub fn parse_jolpica_race_results(json: &str) -> Result<RaceResults> {
+    let data: JolpicaResultsResponse = serde_json::from_str(json)?;
+    let race = data
+        .mr_data
+        .race_table
+        .races
+        .into_iter()
+        .next()
+        .context("No race results in Jolpica response")?;
+
+    let round: u32 = race.round.parse().unwrap_or(0);
+    let race_date = NaiveDate::parse_from_str(&race.date, "%Y-%m-%d")
+        .unwrap_or_else(|_| Utc::now().date_naive());
+
+    let results: Vec<DriverResult> = race
+        .results
+        .into_iter()
+        .map(|r| {
+            let position = r.position.parse::<u32>().ok();
+            let driver_name = format!("{} {}", r.driver.given_name, r.driver.family_name);
+            let driver_code = r.driver.code;
+            let driver_number = r
+                .driver
+                .permanent_number
+                .as_deref()
+                .or(Some(&r.number))
+                .and_then(|n| n.parse::<u32>().ok());
+            let team = r.constructor.name;
+            let gap_to_leader = r
+                .time
+                .as_ref()
+                .map(|t| t.time.clone())
+                .unwrap_or_else(|| r.status.clone());
+            let grid_position = r.grid.parse::<u32>().ok();
+            let points = r.points.parse::<f64>().unwrap_or(0.0);
+            let fastest_lap = r
+                .fastest_lap
+                .as_ref()
+                .map_or(false, |fl| fl.rank.as_deref() == Some("1"));
+            let status = r.status;
+
+            DriverResult {
+                position,
+                driver_name,
+                driver_code,
+                driver_number,
+                team,
+                gap_to_leader,
+                gap_to_ahead: String::new(),
+                grid_position,
+                points,
+                fastest_lap,
+                penalty: None,
+                status,
+            }
+        })
+        .collect();
+
+    Ok(RaceResults {
+        series_id: "f1".to_string(),
+        round,
+        event_name: race.race_name,
+        circuit_name: race.circuit.circuit_name,
+        race_date,
+        results,
+        fetched_at: Utc::now(),
+    })
+}
+
+impl ResultsFetcher for F1Scraper {
+    async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+        let client = fetcher::create_http_client()?;
+        let url = format!(
+            "https://api.jolpica.com/ergast/f1/{}/{}/results.json",
+            season, round
+        );
+        let resp_text = client.get(&url).send().await?.text().await?;
+        parse_jolpica_race_results(&resp_text)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -846,5 +1004,134 @@ mod tests {
         assert_eq!(constructors[1].name, "McLaren");
         assert_eq!(constructors[1].points, 28.0);
         assert_eq!(constructors[1].wins, 0);
+    }
+
+    #[test]
+    fn test_parse_jolpica_race_results() {
+        let json_data = r#"{
+            "MRData": {
+                "xmlns": "http://ergast.com/mrd/1.5",
+                "series": "f1",
+                "url": "http://api.jolpica.com/ergast/f1/2026/1/results.json",
+                "limit": "30",
+                "offset": "0",
+                "total": "2",
+                "RaceTable": {
+                    "season": "2026",
+                    "round": "1",
+                    "Races": [
+                        {
+                            "season": "2026",
+                            "round": "1",
+                            "raceName": "Bahrain Grand Prix",
+                            "Circuit": {
+                                "circuitName": "Bahrain International Circuit",
+                                "Location": {
+                                    "locality": "Sakhir",
+                                    "country": "Bahrain"
+                                }
+                            },
+                            "date": "2026-03-01",
+                            "time": "15:00:00Z",
+                            "Results": [
+                                {
+                                    "number": "1",
+                                    "position": "1",
+                                    "positionText": "1",
+                                    "points": "26",
+                                    "Driver": {
+                                        "driverId": "max_verstappen",
+                                        "permanentNumber": "1",
+                                        "code": "VER",
+                                        "givenName": "Max",
+                                        "familyName": "Verstappen"
+                                    },
+                                    "Constructor": {
+                                        "constructorId": "red_bull",
+                                        "name": "Red Bull"
+                                    },
+                                    "grid": "1",
+                                    "laps": "57",
+                                    "status": "Finished",
+                                    "Time": {
+                                        "millis": "5504742",
+                                        "time": "1:31:44.742"
+                                    },
+                                    "FastestLap": {
+                                        "rank": "1",
+                                        "lap": "39",
+                                        "Time": {
+                                            "time": "1:32.608"
+                                        }
+                                    }
+                                },
+                                {
+                                    "number": "4",
+                                    "position": "2",
+                                    "positionText": "2",
+                                    "points": "18",
+                                    "Driver": {
+                                        "driverId": "norris",
+                                        "permanentNumber": "4",
+                                        "code": "NOR",
+                                        "givenName": "Lando",
+                                        "familyName": "Norris"
+                                    },
+                                    "Constructor": {
+                                        "constructorId": "mclaren",
+                                        "name": "McLaren"
+                                    },
+                                    "grid": "3",
+                                    "laps": "57",
+                                    "status": "Finished",
+                                    "Time": {
+                                        "millis": "5527199",
+                                        "time": "+22.457"
+                                    },
+                                    "FastestLap": {
+                                        "rank": "2",
+                                        "lap": "42",
+                                        "Time": {
+                                            "time": "1:33.123"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        }"#;
+
+        let results = parse_jolpica_race_results(json_data).unwrap();
+        assert_eq!(results.series_id, "f1");
+        assert_eq!(results.round, 1);
+        assert_eq!(results.event_name, "Bahrain Grand Prix");
+        assert_eq!(results.circuit_name, "Bahrain International Circuit");
+        assert_eq!(results.results.len(), 2);
+
+        let p1 = &results.results[0];
+        assert_eq!(p1.position, Some(1));
+        assert_eq!(p1.driver_name, "Max Verstappen");
+        assert_eq!(p1.driver_code.as_deref(), Some("VER"));
+        assert_eq!(p1.driver_number, Some(1));
+        assert_eq!(p1.team, "Red Bull");
+        assert_eq!(p1.grid_position, Some(1));
+        assert_eq!(p1.positions_gained(), Some(0));
+        assert_eq!(p1.points, 26.0);
+        assert!(p1.fastest_lap);
+        assert_eq!(p1.gap_to_leader, "1:31:44.742");
+
+        let p2 = &results.results[1];
+        assert_eq!(p2.position, Some(2));
+        assert_eq!(p2.driver_name, "Lando Norris");
+        assert_eq!(p2.driver_code.as_deref(), Some("NOR"));
+        assert_eq!(p2.driver_number, Some(4));
+        assert_eq!(p2.team, "McLaren");
+        assert_eq!(p2.grid_position, Some(3));
+        assert_eq!(p2.positions_gained(), Some(1));
+        assert_eq!(p2.points, 18.0);
+        assert!(!p2.fastest_lap);
+        assert_eq!(p2.gap_to_leader, "+22.457");
     }
 }

@@ -198,8 +198,11 @@ impl<T: ResultsFetcher> ResultsFetcherBoxed for T {
 }
 
 /// Get the results fetcher for a series ID.
-pub fn get_results_fetcher(_series_id: &str) -> Option<Box<dyn ResultsFetcherBoxed>> {
-    None
+pub fn get_results_fetcher(series_id: &str) -> Option<Box<dyn ResultsFetcherBoxed>> {
+    match series_id {
+        "f1" => Some(Box::new(f1::F1Scraper)),
+        _ => None,
+    }
 }
 
 #[cfg(test)]
@@ -301,5 +304,37 @@ mod tests {
     fn test_get_standings_fetcher() {
         assert!(get_standings_fetcher("f1").is_some());
         assert!(get_standings_fetcher("unknown_series").is_none());
+    }
+
+    struct DummyResultsFetcher;
+    impl ResultsFetcher for DummyResultsFetcher {
+        async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+            Ok(RaceResults {
+                series_id: "test".to_string(),
+                round,
+                event_name: "Test GP".to_string(),
+                circuit_name: "Test Circuit".to_string(),
+                race_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+                results: vec![],
+                fetched_at: chrono::Utc::now(),
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn test_results_fetcher_boxed_dispatch() {
+        let dummy = DummyResultsFetcher;
+        let boxed: Box<dyn ResultsFetcherBoxed> = Box::new(dummy);
+        let res = boxed.fetch_results_boxed(2026, 1).await;
+        assert!(res.is_ok());
+        let results = res.unwrap();
+        assert_eq!(results.round, 1);
+        assert_eq!(results.event_name, "Test GP");
+    }
+
+    #[test]
+    fn test_get_results_fetcher() {
+        assert!(get_results_fetcher("f1").is_some());
+        assert!(get_results_fetcher("unknown_series").is_none());
     }
 }
