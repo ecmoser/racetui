@@ -702,11 +702,11 @@ impl StandingsFetcher for F1Scraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
         let client = fetcher::create_http_client()?;
         let driver_url = format!(
-            "https://api.jolpica.com/ergast/f1/{}/driverStandings.json",
+            "https://api.jolpi.ca/ergast/f1/{}/driverStandings.json",
             season
         );
         let constr_url = format!(
-            "https://api.jolpica.com/ergast/f1/{}/constructorStandings.json",
+            "https://api.jolpi.ca/ergast/f1/{}/constructorStandings.json",
             season
         );
 
@@ -804,7 +804,7 @@ impl ResultsFetcher for F1Scraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
         let client = fetcher::create_http_client()?;
         let url = format!(
-            "https://api.jolpica.com/ergast/f1/{}/{}/results.json",
+            "https://api.jolpi.ca/ergast/f1/{}/{}/results.json",
             season, round
         );
         let resp_text = client.get(&url).send().await?.text().await?;
@@ -1133,5 +1133,27 @@ mod tests {
         assert_eq!(p2.points, 18.0);
         assert!(!p2.fastest_lap);
         assert_eq!(p2.gap_to_leader, "+22.457");
+    }
+
+    #[tokio::test]
+    async fn test_f1_live_standings_fetch() {
+        let scraper = F1Scraper;
+        let standings = scraper.fetch_standings(2026).await;
+        assert!(
+            standings.is_ok(),
+            "F1 standings fetch failed: {:?}",
+            standings.err()
+        );
+        let s = standings.unwrap();
+        assert_eq!(s.series_id, "f1");
+        assert_eq!(s.season, 2026);
+        assert!(
+            !s.drivers.is_empty(),
+            "Expected drivers in F1 2026 standings"
+        );
+        assert!(
+            !s.constructors.is_empty(),
+            "Expected constructors in F1 2026 standings"
+        );
     }
 }

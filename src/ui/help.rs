@@ -44,17 +44,23 @@ pub fn draw(frame: &mut Frame, _app: &App) {
     ]));
     lines.push(Line::from(vec![
         Span::styled(
-            "   h / ← (calendar)  ",
+            "   h / ←             ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Previous day", Style::default().fg(Color::White)),
+        Span::styled(
+            "Prev day (calendar) / Prev series (standings)",
+            Style::default().fg(Color::White),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::styled(
-            "   l / → (calendar)  ",
+            "   l / →             ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Next day", Style::default().fg(Color::White)),
+        Span::styled(
+            "Next day (calendar) / Next series (standings)",
+            Style::default().fg(Color::White),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::styled(
@@ -115,7 +121,10 @@ pub fn draw(frame: &mut Frame, _app: &App) {
             "   /                 ",
             Style::default().bold().fg(Color::Yellow),
         ),
-        Span::styled("Search events", Style::default().fg(Color::White)),
+        Span::styled(
+            "Search events / series (standings)",
+            Style::default().fg(Color::White),
+        ),
     ]));
     lines.push(Line::from(vec![
         Span::styled(

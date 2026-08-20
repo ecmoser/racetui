@@ -836,7 +836,7 @@ For each series: implement the traits following F1/NASCAR patterns. For series w
 
 ---
 
-### [ ] Step 12: Wire up standings and results background fetching
+### [x] Step 12: Wire up standings and results background fetching
 
 **What to do**: Spawn background tasks at startup to fetch standings for all series and results for the most recent completed event per series.
 

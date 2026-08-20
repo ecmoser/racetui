@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use ratatui::prelude::*;
 use ratatui::widgets::{
     Block, Borders, Cell, HighlightSpacing, Paragraph, Row, Scrollbar, ScrollbarOrientation,
@@ -13,16 +14,20 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::DarkGray));
 
-    if app.standings.is_empty() {
+    let series_ids = app.standings_series_list();
+
+    if series_ids.is_empty() {
+        let msg = if let Some(ref q) = app.search_query {
+            format!("No series found matching \"{}\".", q)
+        } else {
+            "No racing series registered.".to_string()
+        };
         let empty_text = vec![
             Line::from(""),
-            Line::from(Span::styled(
-                "No standings data loaded yet.",
-                Style::default().fg(Color::DarkGray).bold(),
-            )),
+            Line::from(Span::styled(msg, Style::default().fg(Color::Yellow).bold())),
             Line::from(""),
             Line::from(Span::styled(
-                "Standings will be loaded in the background or press 'r' to refresh.",
+                "Press Backspace/Esc to clear search or 'r' to refresh.",
                 Style::default().fg(Color::DarkGray),
             )),
         ];
@@ -33,14 +38,12 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         return;
     }
 
-    // Auto-select first favorited series (or first alphabetically) if none selected
-    let mut series_ids: Vec<String> = app.standings.keys().cloned().collect();
-    series_ids.sort();
+    // Auto-select first favorited series (or first in list) if none selected or selection not in filtered list
     if app.standings_selected_series.is_none()
         || !app
             .standings_selected_series
             .as_ref()
-            .map_or(false, |id| app.standings.contains_key(id))
+            .map_or(false, |id| series_ids.contains(id))
     {
         let default_series = series_ids
             .iter()
@@ -60,12 +63,6 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         None => return,
     };
 
-    let standings = match app.standings.get(selected_id) {
-        Some(s) => s,
-        None => return,
-    };
-
-    // Series display name and color
     let series_name = app
         .series_registry
         .get(selected_id)
@@ -78,18 +75,20 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         .map(|s| Color::Rgb(s.color.0, s.color.1, s.color.2))
         .unwrap_or(Color::Yellow);
 
+    let standings = app.standings.get(selected_id);
+    let has_drivers = standings.map_or(false, |s| !s.drivers.is_empty());
+    let has_constructors = standings.map_or(false, |s| s.has_constructor_standings());
+
     // Inner area for rendering content
     let inner_area = block.inner(area);
     frame.render_widget(block, area);
 
-    let has_constructors = standings.has_constructor_standings();
-
     // Layout: Selector bar + Driver table + (Optional Constructor table)
-    let chunks = if has_constructors {
+    let chunks = if has_drivers && has_constructors {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1),      // Series selector bar
+                Constraint::Length(1),      // Series selector / search bar
                 Constraint::Percentage(60), // Driver standings table
                 Constraint::Percentage(40), // Constructor standings table
             ])
@@ -98,28 +97,79 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
         Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(1), // Series selector bar
-                Constraint::Min(1),    // Driver standings table
+                Constraint::Length(1), // Series selector / search bar
+                Constraint::Min(1),    // Driver standings table or empty state
             ])
             .split(inner_area)
     };
 
-    // 1. Series Selector Bar
-    let selector_line = Line::from(vec![
-        Span::styled(" Series: ", Style::default().fg(Color::DarkGray).bold()),
-        Span::styled("◀ ", Style::default().fg(Color::Yellow).bold()),
-        Span::styled(
-            format!(" {} ", series_name),
-            Style::default().fg(series_color).bold(),
-        ),
-        Span::styled(" ▶", Style::default().fg(Color::Yellow).bold()),
-        Span::styled(
-            "  (←/→ or h/l to switch series)",
-            Style::default().fg(Color::DarkGray),
-        ),
-    ]);
+    // 1. Series Selector / Search Bar
+    let selector_line = if app.search_active || app.search_query.is_some() {
+        let query = app.search_query.as_deref().unwrap_or("");
+        let cursor = if app.search_active { "_" } else { "" };
+        Line::from(vec![
+            Span::styled(" Search: ", Style::default().fg(Color::Yellow).bold()),
+            Span::styled(
+                format!("{}{}", query, cursor),
+                Style::default().fg(Color::White).bold(),
+            ),
+            Span::styled(
+                format!(
+                    "  ({} match{})  Series: ◀ {} ▶",
+                    series_ids.len(),
+                    if series_ids.len() == 1 { "" } else { "es" },
+                    series_name
+                ),
+                Style::default().fg(Color::Cyan),
+            ),
+            Span::styled(
+                " (Esc: clear, Enter: done)",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ])
+    } else {
+        Line::from(vec![
+            Span::styled(" Series: ", Style::default().fg(Color::DarkGray).bold()),
+            Span::styled("◀ ", Style::default().fg(Color::Yellow).bold()),
+            Span::styled(
+                format!(" {} ", series_name),
+                Style::default().fg(series_color).bold(),
+            ),
+            Span::styled(" ▶", Style::default().fg(Color::Yellow).bold()),
+            Span::styled(
+                "  (/ to search, ←/→ or h/l to switch series)",
+                Style::default().fg(Color::DarkGray),
+            ),
+        ])
+    };
     let selector_widget = Paragraph::new(selector_line);
     frame.render_widget(selector_widget, chunks[0]);
+
+    // If no standings data for this series, render a friendly empty message
+    if !has_drivers {
+        let current_year = chrono::Utc::now().year();
+        let empty_lines = vec![
+            Line::from(""),
+            Line::from(""),
+            Line::from(Span::styled(
+                format!(
+                    "No championship standings data available yet for {} ({}).",
+                    series_name, current_year
+                ),
+                Style::default().fg(Color::White).bold(),
+            )),
+            Line::from(""),
+            Line::from(Span::styled(
+                "Standings will populate when published. Press 'r' to refresh, or '/' to search series.",
+                Style::default().fg(Color::DarkGray),
+            )),
+        ];
+        let empty_p = Paragraph::new(empty_lines).alignment(Alignment::Center);
+        frame.render_widget(empty_p, chunks[1]);
+        return;
+    }
+
+    let standings = standings.unwrap();
 
     // 2. Driver Standings Table
     let driver_header = Row::new(vec![
@@ -273,7 +323,41 @@ mod tests {
 
         let buffer = terminal.backend().buffer();
         let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
-        assert!(content.contains("No standings data loaded yet"));
+        assert!(content.contains("No racing series registered"));
+    }
+
+    #[test]
+    fn test_draw_standings_view_unpopulated_series() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: CarStyle::OpenWheel,
+                color: (235, 0, 0),
+                region: "Global".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, UserConfig::default());
+
+        terminal
+            .draw(|f| {
+                draw(f, &mut app, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Formula 1"));
+        assert!(content.contains("No championship standings data available yet for Formula 1"));
     }
 
     #[test]
@@ -332,5 +416,41 @@ mod tests {
         assert!(content.contains("Formula 1"));
         assert!(content.contains("Max Verstappen"));
         assert!(content.contains("Red Bull Racing"));
+    }
+
+    #[test]
+    fn test_draw_standings_view_search() {
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: CarStyle::OpenWheel,
+                color: (235, 0, 0),
+                region: "Global".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, UserConfig::default());
+        app.search_active = true;
+        app.search_query = Some("f1".to_string());
+
+        terminal
+            .draw(|f| {
+                draw(f, &mut app, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Search:"));
+        assert!(content.contains("f1"));
     }
 }

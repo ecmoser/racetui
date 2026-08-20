@@ -327,11 +327,41 @@ impl App {
         live
     }
 
+    /// Get the sorted list of series IDs available for the Standings view.
+    /// If there is an active search query, filters by series ID, name, or short_name.
+    pub fn standings_series_list(&self) -> Vec<String> {
+        let mut list: Vec<String> = self.series_registry.keys().cloned().collect();
+        // Sort alphabetically by series name
+        list.sort_by(|a, b| {
+            let name_a = self.series_registry.get(a).map(|s| &s.name).unwrap_or(a);
+            let name_b = self.series_registry.get(b).map(|s| &s.name).unwrap_or(b);
+            name_a.cmp(name_b)
+        });
+
+        if let Some(ref query) = self.search_query {
+            let q = query.trim().to_lowercase();
+            if !q.is_empty() {
+                list.retain(|id| {
+                    if id.to_lowercase().contains(&q) {
+                        return true;
+                    }
+                    if let Some(series) = self.series_registry.get(id) {
+                        series.name.to_lowercase().contains(&q)
+                            || series.short_name.to_lowercase().contains(&q)
+                    } else {
+                        false
+                    }
+                });
+            }
+        }
+
+        list
+    }
+
     /// Cycle through series in the Standings view.
     /// `direction`: -1 for previous, +1 for next.
     pub fn standings_cycle_series(&mut self, direction: i32) {
-        let mut series_ids: Vec<String> = self.standings.keys().cloned().collect();
-        series_ids.sort();
+        let series_ids = self.standings_series_list();
         if series_ids.is_empty() {
             return;
         }
@@ -1444,39 +1474,24 @@ mod tests {
 
     #[test]
     fn test_standings_cycle_series() {
-        let mut app = App::new(HashMap::new(), UserConfig::default());
-        app.standings.insert(
+        let mut registry = HashMap::new();
+        registry.insert(
             "f1".to_string(),
-            crate::data::standings::SeasonStandings {
-                series_id: "f1".to_string(),
-                season: 2026,
-                drivers: vec![],
-                constructors: vec![],
-                fetched_at: chrono::Utc::now(),
-            },
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
         );
-        app.standings.insert(
+        registry.insert(
             "indycar".to_string(),
-            crate::data::standings::SeasonStandings {
-                series_id: "indycar".to_string(),
-                season: 2026,
-                drivers: vec![],
-                constructors: vec![],
-                fetched_at: chrono::Utc::now(),
-            },
+            mock_series("indycar", "IndyCar", CarStyle::OpenWheel, "USA"),
         );
-        app.standings.insert(
+        registry.insert(
             "nascar_cup".to_string(),
-            crate::data::standings::SeasonStandings {
-                series_id: "nascar_cup".to_string(),
-                season: 2026,
-                drivers: vec![],
-                constructors: vec![],
-                fetched_at: chrono::Utc::now(),
-            },
+            mock_series("nascar_cup", "NASCAR Cup", CarStyle::StockCar, "USA"),
         );
 
-        // Initially None, cycle +1 -> first series alphabetically ("f1") -> index 0 + 1 = "indycar" (index 1)
+        let mut app = App::new(registry, UserConfig::default());
+
+        // Alphabetical order by name: "Formula 1" (f1), "IndyCar" (indycar), "NASCAR Cup" (nascar_cup)
+        // Initially None, cycle +1 -> index 0 + 1 = "indycar" (index 1)
         app.standings_cycle_series(1);
         assert_eq!(app.standings_selected_series.as_deref(), Some("indycar"));
 
@@ -1488,6 +1503,42 @@ mod tests {
 
         app.standings_cycle_series(-1);
         assert_eq!(app.standings_selected_series.as_deref(), Some("nascar_cup"));
+    }
+
+    #[test]
+    fn test_standings_series_list_search() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            mock_series("f1", "Formula 1", CarStyle::OpenWheel, "International"),
+        );
+        registry.insert(
+            "indycar".to_string(),
+            mock_series("indycar", "IndyCar", CarStyle::OpenWheel, "USA"),
+        );
+        registry.insert(
+            "nascar_cup".to_string(),
+            mock_series("nascar_cup", "NASCAR Cup Series", CarStyle::StockCar, "USA"),
+        );
+
+        let mut app = App::new(registry, UserConfig::default());
+
+        // No query: all 3 series
+        assert_eq!(app.standings_series_list().len(), 3);
+
+        // Search by series ID
+        app.search_query = Some("f1".to_string());
+        let results = app.standings_series_list();
+        assert_eq!(results, vec!["f1".to_string()]);
+
+        // Search by series name
+        app.search_query = Some("cup".to_string());
+        let results = app.standings_series_list();
+        assert_eq!(results, vec!["nascar_cup".to_string()]);
+
+        // Non-matching query
+        app.search_query = Some("xyz".to_string());
+        assert!(app.standings_series_list().is_empty());
     }
 
     #[test]

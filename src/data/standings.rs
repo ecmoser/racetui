@@ -1,4 +1,6 @@
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 /// A single entry in a driver championship standings table.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -52,6 +54,55 @@ impl SeasonStandings {
     pub fn has_constructor_standings(&self) -> bool {
         !self.constructors.is_empty()
     }
+}
+
+/// Get the standings cache directory: ~/.local/share/racetui/standings/
+fn standings_cache_dir() -> Result<PathBuf> {
+    let data_dir = dirs::data_dir()
+        .context("Could not determine data directory")?
+        .join("racetui")
+        .join("standings");
+    Ok(data_dir)
+}
+
+/// Build the cache file path for a specific series and season standings.
+/// Format: ~/.local/share/racetui/standings/{series_id}_{season}.json
+fn standings_cache_path(series_id: &str, season: u32) -> Result<PathBuf> {
+    let dir = standings_cache_dir()?;
+    Ok(dir.join(format!("{}_{}.json", series_id, season)))
+}
+
+/// Write season standings to the cache file.
+pub fn write_standings_cache(standings: &SeasonStandings) -> Result<()> {
+    let path = standings_cache_path(&standings.series_id, standings.season)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).with_context(|| {
+            format!("Failed to create standings cache dir {}", parent.display())
+        })?;
+    }
+    let json = serde_json::to_string_pretty(standings).context("Failed to serialize standings")?;
+    std::fs::write(&path, json)
+        .with_context(|| format!("Failed to write standings cache to {}", path.display()))?;
+    tracing::debug!(
+        "Cached standings for {} season {} at {}",
+        standings.series_id,
+        standings.season,
+        path.display()
+    );
+    Ok(())
+}
+
+/// Read season standings from the cache file. Returns None if no cache exists.
+pub fn read_standings_cache(series_id: &str, season: u32) -> Result<Option<SeasonStandings>> {
+    let path = standings_cache_path(series_id, season)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = std::fs::read_to_string(&path)
+        .with_context(|| format!("Failed to read standings cache at {}", path.display()))?;
+    let standings: SeasonStandings = serde_json::from_str(&content)
+        .with_context(|| format!("Failed to parse standings cache at {}", path.display()))?;
+    Ok(Some(standings))
 }
 
 #[cfg(test)]
@@ -161,5 +212,38 @@ mod tests {
         assert_eq!(standings.season, deserialized.season);
         assert_eq!(standings.drivers, deserialized.drivers);
         assert_eq!(standings.constructors, deserialized.constructors);
+    }
+
+    #[test]
+    fn test_standings_cache_read_write() {
+        let standings = SeasonStandings {
+            series_id: "test_standings_cache_series".to_string(),
+            season: 2026,
+            drivers: vec![DriverStanding {
+                position: 1,
+                driver_name: "Test Driver".to_string(),
+                driver_code: Some("TST".to_string()),
+                driver_number: Some(99),
+                team: "Test Team".to_string(),
+                points: 100.0,
+                wins: 5,
+            }],
+            constructors: vec![],
+            fetched_at: Utc::now(),
+        };
+
+        write_standings_cache(&standings).unwrap();
+        let read = read_standings_cache("test_standings_cache_series", 2026)
+            .unwrap()
+            .expect("should read cached standings");
+        assert_eq!(read.series_id, "test_standings_cache_series");
+        assert_eq!(read.season, 2026);
+        assert_eq!(read.drivers.len(), 1);
+        assert_eq!(read.drivers[0].driver_name, "Test Driver");
+
+        // Clean up
+        if let Ok(path) = standings_cache_path("test_standings_cache_series", 2026) {
+            let _ = std::fs::remove_file(path);
+        }
     }
 }

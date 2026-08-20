@@ -8,6 +8,7 @@ mod ui;
 
 use anyhow::Result;
 use app::App;
+use chrono::Datelike;
 use clap::Parser;
 use crossterm::{
     event::{self as crossterm_event, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -120,6 +121,126 @@ fn spawn_data_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>, force_
                 }
             }
         });
+    }
+}
+
+/// Spawn background tasks to load standings for all series.
+fn spawn_standings_loaders(
+    app: &mut App,
+    tx: mpsc::UnboundedSender<AppEvent>,
+    force_refresh: bool,
+) {
+    let current_year = chrono::Utc::now().year() as u32;
+    let series_ids: Vec<String> = app.series_registry.keys().cloned().collect();
+
+    for series_id in series_ids {
+        // 1. Try loading from cache (unless forced refresh)
+        if !force_refresh {
+            if let Ok(Some(cached)) =
+                data::standings::read_standings_cache(&series_id, current_year)
+            {
+                let age_hours = chrono::Utc::now()
+                    .signed_duration_since(cached.fetched_at)
+                    .num_hours() as u64;
+                app.standings.insert(series_id.clone(), cached);
+
+                if age_hours < app.config.cache_ttl_hours {
+                    continue;
+                }
+            }
+        }
+
+        // 2. Check if we have a standings fetcher for this series
+        let fetcher = match scraper::get_standings_fetcher(&series_id) {
+            Some(f) => f,
+            None => continue,
+        };
+
+        // 3. Spawn async fetch task
+        let fetch_tx = tx.clone();
+        let sid = series_id.clone();
+        tokio::spawn(async move {
+            match fetcher.fetch_standings_boxed(current_year).await {
+                Ok(standings) => {
+                    if let Err(e) = data::standings::write_standings_cache(&standings) {
+                        tracing::warn!("Failed to write standings cache for {}: {}", sid, e);
+                    }
+                    let _ = fetch_tx.send(AppEvent::StandingsFetched {
+                        series_id: sid,
+                        standings,
+                    });
+                }
+                Err(e) => {
+                    let _ = fetch_tx.send(AppEvent::StandingsFetchError {
+                        series_id: sid,
+                        error: e.to_string(),
+                    });
+                }
+            }
+        });
+    }
+}
+
+/// Spawn background tasks to load race results for the most recent completed event per series.
+fn spawn_results_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
+    let series_ids: Vec<String> = app.series_registry.keys().cloned().collect();
+
+    for series_id in series_ids {
+        // Find most recent completed event with a round number for this series
+        let recent_completed = app.events.get(&series_id).and_then(|evs| {
+            evs.iter()
+                .filter(|e| e.status == data::models::EventStatus::Completed && e.round.is_some())
+                .max_by_key(|e| e.end_date)
+        });
+
+        if let Some(event) = recent_completed {
+            let round = match event.round {
+                Some(r) => r,
+                None => continue,
+            };
+            let season = event.end_date.year() as u32;
+
+            // Check cache first
+            if let Ok(Some(cached)) = data::results::read_results_cache(&series_id, round) {
+                app.results.insert((series_id.clone(), round), cached);
+                continue;
+            }
+
+            // Check if we have a results fetcher
+            let fetcher = match scraper::get_results_fetcher(&series_id) {
+                Some(f) => f,
+                None => continue,
+            };
+
+            let fetch_tx = tx.clone();
+            let sid = series_id.clone();
+            tokio::spawn(async move {
+                match fetcher.fetch_results_boxed(season, round).await {
+                    Ok(results) => {
+                        if let Err(e) = data::results::write_results_cache(&results) {
+                            tracing::warn!(
+                                "Failed to write results cache for {} round {}: {}",
+                                sid,
+                                round,
+                                e
+                            );
+                        }
+                        let _ = fetch_tx.send(AppEvent::ResultsFetched {
+                            series_id: sid,
+                            round,
+                            results,
+                        });
+                    }
+                    Err(e) => {
+                        let _ = fetch_tx.send(AppEvent::ResultsFetchError {
+                            series_id: sid,
+                            round,
+                            error: e.to_string(),
+                        });
+                    }
+                }
+            });
+        }
     }
 }
 
@@ -242,6 +363,7 @@ async fn main() -> Result<()> {
 
     // Start loading data (cached first, then async fetch)
     spawn_data_loaders(&mut app, tx.clone(), cli.refresh);
+    spawn_standings_loaders(&mut app, tx.clone(), cli.refresh);
 
     // Main loop
     while app.running {
@@ -253,7 +375,9 @@ async fn main() -> Result<()> {
         // Handle refresh requested from app
         if app.refresh_requested {
             app.refresh_requested = false;
+            app.results_loading_started = false;
             spawn_data_loaders(&mut app, tx.clone(), true);
+            spawn_standings_loaders(&mut app, tx.clone(), true);
         }
 
         // Wait for next event, then drain any pending events to prevent momentum/lag
@@ -285,10 +409,16 @@ async fn main() -> Result<()> {
                         }
                     }
                     AppEvent::RefreshRequested => {
+                        app.results_loading_started = false;
                         spawn_data_loaders(&mut app, tx.clone(), true);
+                        spawn_standings_loaders(&mut app, tx.clone(), true);
                     }
                     AppEvent::SeriesDataFetched { series_id, events } => {
                         app.update_series_data(series_id, events);
+                        if !app.results_loading_started {
+                            app.results_loading_started = true;
+                            spawn_results_loaders(&mut app, tx.clone());
+                        }
                     }
                     AppEvent::FetchError { series_id, error } => {
                         tracing::warn!("Failed to fetch series {}: {}", series_id, error);
@@ -380,9 +510,29 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                         app.search_query = None;
                     }
                 }
+                if app.view_mode == app::ViewMode::Standings {
+                    let matching = app.standings_series_list();
+                    if let Some(first) = matching.first() {
+                        app.standings_selected_series = Some(first.clone());
+                        app.standings_series_index = 0;
+                        app.standings_table_state = ratatui::widgets::TableState::default();
+                    }
+                }
             }
             KeyCode::Char(c) => {
                 app.search_query.get_or_insert_with(String::new).push(c);
+                if app.view_mode == app::ViewMode::Standings {
+                    let matching = app.standings_series_list();
+                    if let Some(first) = matching.first() {
+                        app.standings_selected_series = Some(first.clone());
+                        app.standings_series_index = 0;
+                        app.standings_table_state = ratatui::widgets::TableState::default();
+                    }
+                }
+            }
+            KeyCode::Left | KeyCode::Right if app.view_mode == app::ViewMode::Standings => {
+                let dir = if key.code == KeyCode::Right { 1 } else { -1 };
+                app.standings_cycle_series(dir);
             }
             _ => {}
         }
@@ -744,7 +894,35 @@ mod tests {
 
     #[test]
     fn test_standings_view_keybindings() {
-        let mut app = App::new(HashMap::new(), config::UserConfig::default());
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (235, 0, 0),
+                region: "Global".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+        registry.insert(
+            "indycar".to_string(),
+            data::models::Series {
+                id: "indycar".to_string(),
+                name: "IndyCar".to_string(),
+                short_name: "IndyCar".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (0, 100, 255),
+                region: "USA".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, config::UserConfig::default());
         app.view_mode = app::ViewMode::Standings;
         app.standings.insert(
             "f1".to_string(),
@@ -775,16 +953,6 @@ mod tests {
                 fetched_at: chrono::Utc::now(),
             },
         );
-        app.standings.insert(
-            "indycar".to_string(),
-            crate::data::standings::SeasonStandings {
-                series_id: "indycar".to_string(),
-                season: 2026,
-                drivers: vec![],
-                constructors: vec![],
-                fetched_at: chrono::Utc::now(),
-            },
-        );
         app.standings_selected_series = Some("f1".to_string());
 
         // Test Left/Right/h/l series cycling
@@ -800,6 +968,55 @@ mod tests {
 
         handle_key_event(&mut app, key(KeyCode::Char('k')));
         assert_eq!(app.standings_table_state.selected(), Some(0));
+    }
+
+    #[test]
+    fn test_standings_view_search_keybindings() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (235, 0, 0),
+                region: "Global".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+        registry.insert(
+            "indycar".to_string(),
+            data::models::Series {
+                id: "indycar".to_string(),
+                name: "IndyCar Series".to_string(),
+                short_name: "IndyCar".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (0, 100, 255),
+                region: "USA".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, config::UserConfig::default());
+        app.view_mode = app::ViewMode::Standings;
+
+        // Activate search
+        handle_key_event(&mut app, key(KeyCode::Char('/')));
+        assert!(app.search_active);
+
+        // Type 'i' 'n' 'd' -> matches indycar
+        handle_key_event(&mut app, key(KeyCode::Char('i')));
+        handle_key_event(&mut app, key(KeyCode::Char('n')));
+        handle_key_event(&mut app, key(KeyCode::Char('d')));
+        assert_eq!(app.standings_selected_series.as_deref(), Some("indycar"));
+
+        // Enter finishes search
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(!app.search_active);
+        assert_eq!(app.standings_selected_series.as_deref(), Some("indycar"));
     }
 
     #[test]
@@ -1321,5 +1538,62 @@ mod tests {
             let events = res.unwrap();
             assert!(!events.is_empty(), "Scraper returned 0 events for {}", id);
         }
+    }
+
+    #[tokio::test]
+    async fn test_spawn_standings_loaders() {
+        let registry =
+            data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
+        let mut app = App::new(registry, config::UserConfig::default());
+        let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
+
+        spawn_standings_loaders(&mut app, tx, false);
+
+        // Receive at least one standings event or timeout gracefully
+        let timeout = tokio::time::sleep(std::time::Duration::from_millis(500));
+        tokio::pin!(timeout);
+
+        loop {
+            tokio::select! {
+                Some(event) = rx.recv() => {
+                    match event {
+                        AppEvent::StandingsFetched { series_id, standings } => {
+                            app.standings.insert(series_id, standings);
+                            break;
+                        }
+                        AppEvent::StandingsFetchError { .. } => {}
+                        _ => {}
+                    }
+                }
+                _ = &mut timeout => {
+                    break;
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_spawn_results_loaders() {
+        let registry =
+            data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
+        let mut app = App::new(registry, config::UserConfig::default());
+
+        let completed_event = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Bahrain GP".to_string(),
+            circuit_name: "Bahrain".to_string(),
+            location: "Sakhir".to_string(),
+            country: "Bahrain".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            round: Some(1),
+            sessions: vec![],
+            stream_links: vec![],
+            status: data::models::EventStatus::Completed,
+        };
+        app.update_series_data("f1".to_string(), vec![completed_event]);
+
+        let (tx, _rx) = mpsc::unbounded_channel::<AppEvent>();
+        spawn_results_loaders(&mut app, tx);
     }
 }
