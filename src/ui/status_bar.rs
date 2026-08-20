@@ -15,24 +15,12 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     // Left side: keybind hints
-    let view_name = match app.view_mode {
-        ViewMode::List => "List",
-        ViewMode::Calendar => "Calendar",
-        ViewMode::Live => "Live",
-        ViewMode::Standings => "Standings",
-    };
 
     let hints = if app.search_active {
         " Type to search | Enter: confirm | Esc: cancel".to_string()
     } else {
-        format!(
-            " q:Quit  j/k/↑/↓:Navigate  Tab:{}  /:Search  f:Favorite  ?:Help  Enter:Detail",
-            if view_name == "List" {
-                "Calendar"
-            } else {
-                "List"
-            }
-        )
+        " 1-4:Views  q:Quit  j/k/↑/↓:Navigate  /:Search  f:Favorite  ?:Help  Enter:Detail"
+            .to_string()
     };
 
     let hints_widget = Paragraph::new(hints).style(

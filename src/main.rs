@@ -580,13 +580,18 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 app.calendar_jump_to_today();
             }
         }
-        // Toggle view mode
-        KeyCode::Tab => {
-            app.view_mode = match app.view_mode {
-                app::ViewMode::List => app::ViewMode::Calendar,
-                app::ViewMode::Calendar => app::ViewMode::List,
-                _ => app.view_mode.clone(),
-            };
+        // View switching
+        KeyCode::Char('1') => {
+            app.view_mode = app::ViewMode::List;
+        }
+        KeyCode::Char('2') => {
+            app.view_mode = app::ViewMode::Calendar;
+        }
+        KeyCode::Char('3') => {
+            app.view_mode = app::ViewMode::Live;
+        }
+        KeyCode::Char('4') => {
+            app.view_mode = app::ViewMode::Standings;
         }
         // Search
         KeyCode::Char('/') => {
@@ -713,9 +718,20 @@ mod tests {
         let mut app = App::new(HashMap::new(), config::UserConfig::default());
         assert_eq!(app.view_mode, app::ViewMode::List);
 
-        handle_key_event(&mut app, key(KeyCode::Tab));
+        // Keys 1-4 switch views
+        handle_key_event(&mut app, key(KeyCode::Char('2')));
         assert_eq!(app.view_mode, app::ViewMode::Calendar);
 
+        handle_key_event(&mut app, key(KeyCode::Char('3')));
+        assert_eq!(app.view_mode, app::ViewMode::Live);
+
+        handle_key_event(&mut app, key(KeyCode::Char('4')));
+        assert_eq!(app.view_mode, app::ViewMode::Standings);
+
+        handle_key_event(&mut app, key(KeyCode::Char('1')));
+        assert_eq!(app.view_mode, app::ViewMode::List);
+
+        // Tab should do nothing in normal mode now
         handle_key_event(&mut app, key(KeyCode::Tab));
         assert_eq!(app.view_mode, app::ViewMode::List);
 

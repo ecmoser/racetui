@@ -673,7 +673,7 @@ Add these new variants to the `AppEvent` enum:
 
 ---
 
-### [ ] Step 6: Update keybindings — number keys for view switching
+### [x] Step 6: Update keybindings — number keys for view switching
 
 **What to do**: Change the global keybinding scheme so keys `1`–`4` switch between view modes. Remove the `Tab` key view toggle.
 

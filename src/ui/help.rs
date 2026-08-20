@@ -72,11 +72,11 @@ pub fn draw(frame: &mut Frame, _app: &App) {
     ]));
     lines.push(Line::from(vec![
         Span::styled(
-            "   Tab               ",
+            "   1 / 2 / 3 / 4     ",
             Style::default().bold().fg(Color::Yellow),
         ),
         Span::styled(
-            "Toggle List / Calendar view",
+            "Switch view (1:List, 2:Calendar, 3:Live, 4:Standings)",
             Style::default().fg(Color::White),
         ),
     ]));
