@@ -786,7 +786,7 @@ Add imports and the two new traits (`StandingsFetcher`, `ResultsFetcher`) with t
 
 ---
 
-### [ ] Step 10: Implement NASCAR standings and results fetchers
+### [x] Step 10: Implement NASCAR standings and results fetchers
 
 **What to do**: Add `StandingsFetcher` and `ResultsFetcher` implementations for NASCAR using `cf.nascar.com` CDN API.
 

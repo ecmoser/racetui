@@ -164,6 +164,22 @@ impl<T: StandingsFetcher> StandingsFetcherBoxed for T {
 pub fn get_standings_fetcher(series_id: &str) -> Option<Box<dyn StandingsFetcherBoxed>> {
     match series_id {
         "f1" => Some(Box::new(f1::F1Scraper)),
+        "nascar_cup" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 1,
+            racetui_series_id: "nascar_cup",
+        })),
+        "nascar_xfinity" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 2,
+            racetui_series_id: "nascar_xfinity",
+        })),
+        "nascar_trucks" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 3,
+            racetui_series_id: "nascar_trucks",
+        })),
+        "arca" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 4,
+            racetui_series_id: "arca",
+        })),
         _ => None,
     }
 }
@@ -201,6 +217,22 @@ impl<T: ResultsFetcher> ResultsFetcherBoxed for T {
 pub fn get_results_fetcher(series_id: &str) -> Option<Box<dyn ResultsFetcherBoxed>> {
     match series_id {
         "f1" => Some(Box::new(f1::F1Scraper)),
+        "nascar_cup" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 1,
+            racetui_series_id: "nascar_cup",
+        })),
+        "nascar_xfinity" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 2,
+            racetui_series_id: "nascar_xfinity",
+        })),
+        "nascar_trucks" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 3,
+            racetui_series_id: "nascar_trucks",
+        })),
+        "arca" => Some(Box::new(nascar::NascarScraper {
+            nascar_series_id: 4,
+            racetui_series_id: "arca",
+        })),
         _ => None,
     }
 }
@@ -303,12 +335,16 @@ mod tests {
     #[test]
     fn test_get_standings_fetcher() {
         assert!(get_standings_fetcher("f1").is_some());
+        assert!(get_standings_fetcher("nascar_cup").is_some());
+        assert!(get_standings_fetcher("nascar_xfinity").is_some());
+        assert!(get_standings_fetcher("nascar_trucks").is_some());
+        assert!(get_standings_fetcher("arca").is_some());
         assert!(get_standings_fetcher("unknown_series").is_none());
     }
 
     struct DummyResultsFetcher;
     impl ResultsFetcher for DummyResultsFetcher {
-        async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+        async fn fetch_results(&self, _season: u32, round: u32) -> Result<RaceResults> {
             Ok(RaceResults {
                 series_id: "test".to_string(),
                 round,
@@ -335,6 +371,10 @@ mod tests {
     #[test]
     fn test_get_results_fetcher() {
         assert!(get_results_fetcher("f1").is_some());
+        assert!(get_results_fetcher("nascar_cup").is_some());
+        assert!(get_results_fetcher("nascar_xfinity").is_some());
+        assert!(get_results_fetcher("nascar_trucks").is_some());
+        assert!(get_results_fetcher("arca").is_some());
         assert!(get_results_fetcher("unknown_series").is_none());
     }
 }

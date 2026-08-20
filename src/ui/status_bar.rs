@@ -1,7 +1,7 @@
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
 
-use crate::app::{App, ViewMode};
+use crate::app::App;
 use crate::data::models::FetchStatus;
 
 /// Draw the bottom status bar with keybind hints and fetch status.
