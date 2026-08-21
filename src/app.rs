@@ -231,9 +231,9 @@ pub struct App {
     /// Tick counter for blinking the LIVE indicator (toggles every N ticks)
     pub live_blink_on: bool,
     /// Current live timing data snapshot (updated by LiveEvent::TimingUpdate)
-    pub live_timing_data: Option<()>,
+    pub live_timing_data: Option<crate::live::event::LiveTimingData>,
     /// Cached circuit geometry for the current live session
-    pub track_map_geometry: Option<()>,
+    pub track_map_geometry: Option<Vec<crate::live::track_map::TrackPoint>>,
 }
 
 impl App {

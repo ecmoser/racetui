@@ -926,7 +926,7 @@ Check `event.status == Completed && event.round.map_or(false, |r| app.results.co
 
 ---
 
-### [ ] Step 19: Create live timing infrastructure — LiveEvent, LiveProvider trait, LiveSessionManager
+### [x] Step 19: Create live timing infrastructure — LiveEvent, LiveProvider trait, LiveSessionManager
 
 **What to do**: Create the `src/live/` module with core infrastructure.
 

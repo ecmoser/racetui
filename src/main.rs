@@ -3,6 +3,7 @@ mod app;
 mod config;
 mod data;
 mod event;
+mod live;
 mod scraper;
 mod ui;
 
