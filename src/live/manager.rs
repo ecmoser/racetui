@@ -122,17 +122,17 @@ mod tests {
         let (tx, mut rx) = mpsc::unbounded_channel();
         let mut manager = LiveSessionManager::new(tx);
 
-        assert!(!manager.is_active("f1"));
+        assert!(!manager.is_active("unknown_series"));
         assert!(manager.active_series().is_empty());
 
         // Start session for series without provider -> sends error event
-        manager.start_session("f1", 2);
-        assert!(!manager.is_active("f1"));
+        manager.start_session("unknown_series", 2);
+        assert!(!manager.is_active("unknown_series"));
 
         if let Some(event) = rx.recv().await {
             match event {
                 LiveEvent::LiveError { series_id, error } => {
-                    assert_eq!(series_id, "f1");
+                    assert_eq!(series_id, "unknown_series");
                     assert!(error.contains("No live timing provider"));
                 }
                 _ => panic!("Expected LiveError event"),
@@ -141,6 +141,22 @@ mod tests {
             panic!("Expected an event from manager");
         }
 
+        // Start session for series with provider (f1)
+        manager.start_session("f1", 2);
+        assert!(manager.is_active("f1"));
+        assert_eq!(manager.active_series(), vec!["f1".to_string()]);
+
+        if let Some(event) = rx.recv().await {
+            match event {
+                LiveEvent::SessionStarted { series_id, .. } => {
+                    assert_eq!(series_id, "f1");
+                }
+                _ => {} // Might be TimingUpdate or LiveError if network is down
+            }
+        }
+
+        manager.stop_session("f1");
+        assert!(!manager.is_active("f1"));
         manager.stop_all();
     }
 }

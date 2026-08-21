@@ -5,6 +5,7 @@ pub mod dtm;
 pub mod extreme_e;
 pub mod f1;
 pub mod f1_academy;
+pub mod f1_live;
 pub mod f2;
 pub mod f3;
 pub mod fetcher;

@@ -948,7 +948,7 @@ Replace placeholder types in `App` struct from Step 4 with real types.
 
 ---
 
-### [ ] Step 20: Implement F1 live timing provider (OpenF1 REST)
+### [x] Step 20: Implement F1 live timing provider (OpenF1 REST)
 
 **What to do**: Create `src/scraper/f1_live.rs` with F1LiveProvider using OpenF1 API.
 

@@ -44,6 +44,7 @@ impl<T: LiveProvider> LiveProviderBoxed for T {
 /// Returns None if no live timing provider is implemented yet for this series.
 pub fn get_live_provider(series_id: &str) -> Option<Box<dyn LiveProviderBoxed>> {
     match series_id {
+        "f1" => Some(Box::new(crate::scraper::f1_live::F1LiveProvider::new())),
         _ => None,
     }
 }
@@ -90,7 +91,8 @@ mod tests {
     }
 
     #[test]
-    fn test_get_live_provider_unknown() {
+    fn test_get_live_provider() {
+        assert!(get_live_provider("f1").is_some());
         assert!(get_live_provider("unknown_series").is_none());
     }
 }
