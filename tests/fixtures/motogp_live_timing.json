@@ -1,0 +1,53 @@
+{
+  "session": {
+    "name": "MotoGP Grand Prix of the Americas - Race",
+    "circuit": "Circuit of the Americas",
+    "status": "Green",
+    "laps": 18,
+    "total_laps": 20
+  },
+  "weather": {
+    "air_temp": 24.0,
+    "track_temp": 36.5,
+    "humidity": 52.0,
+    "wind_speed": 6.5,
+    "wet": false,
+    "condition": "Dry"
+  },
+  "riders": [
+    {
+      "pos": 1,
+      "number": "12",
+      "rider": "Maverick Vinales",
+      "team": "Aprilia Racing",
+      "bike": "Aprilia",
+      "gap": "LEADER",
+      "interval": "-",
+      "last_lap": "2:02.575",
+      "best_lap": "2:02.321",
+      "laps": 18,
+      "in_pit": false,
+      "tire_front": "Medium",
+      "s1": "30.120",
+      "s2": "37.450",
+      "s3": "34.120"
+    },
+    {
+      "pos": 2,
+      "number": "93",
+      "rider": "Marc Marquez",
+      "team": "Gresini Racing MotoGP",
+      "bike": "Ducati",
+      "gap": "+1.728",
+      "interval": "+1.728",
+      "last_lap": "2:02.890",
+      "best_lap": "2:02.450",
+      "laps": 18,
+      "in_pit": false,
+      "tire_front": "Soft",
+      "s1": "30.180",
+      "s2": "37.520",
+      "s3": "34.190"
+    }
+  ]
+}

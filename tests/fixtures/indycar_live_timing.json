@@ -1,0 +1,50 @@
+{
+  "session": {
+    "session_name": "Indianapolis 500 - Race",
+    "track_name": "Indianapolis Motor Speedway",
+    "flag_status": "Green",
+    "lap_number": 160,
+    "total_laps": 200,
+    "time_remaining": "00:35:00"
+  },
+  "drivers": [
+    {
+      "rank": 1,
+      "car_number": "10",
+      "driver_name": "Alex Palou",
+      "team_name": "Chip Ganassi Racing",
+      "gap": "LEADER",
+      "interval": "-",
+      "last_lap_time": "00:39.1234",
+      "best_lap_time": "00:38.8900",
+      "laps_completed": 160,
+      "pit_stops": 4,
+      "last_pit_lap": 130,
+      "in_pit": false,
+      "tire_compound": "Primary",
+      "tires_laps": 30,
+      "s1": "12.800",
+      "s2": "13.200",
+      "s3": "12.890"
+    },
+    {
+      "rank": 2,
+      "car_number": "5",
+      "driver_name": "Pato O'Ward",
+      "team_name": "Arrow McLaren",
+      "gap": "+0.185",
+      "interval": "+0.185",
+      "last_lap_time": "00:39.2100",
+      "best_lap_time": "00:38.9500",
+      "laps_completed": 160,
+      "pit_stops": 4,
+      "last_pit_lap": 128,
+      "in_pit": false,
+      "tire_compound": "Alternate",
+      "tires_laps": 32,
+      "s1": "12.850",
+      "s2": "13.250",
+      "s3": "12.910"
+    }
+  ]
+}

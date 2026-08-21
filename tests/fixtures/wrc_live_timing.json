@@ -1,0 +1,55 @@
+{
+  "rally": {
+    "name": "Rally Italia Sardegna",
+    "location": "Alghero",
+    "total_stages": 16,
+    "current_stage_number": 12
+  },
+  "stage": {
+    "name": "SS12 - Monte Lerno 2",
+    "distance_km": 25.33,
+    "status": "Live",
+    "surface": "Gravel"
+  },
+  "weather": {
+    "air_temp": 28.5,
+    "condition": "Sunny",
+    "rain": false
+  },
+  "entries": [
+    {
+      "pos": 1,
+      "number": "17",
+      "driver": "Sebastien Ogier",
+      "codriver": "Vincent Landais",
+      "team": "Toyota Gazoo Racing WRT",
+      "car": "Toyota GR Yaris Rally1",
+      "gap": "LEADER",
+      "interval": "-",
+      "stage_time": "14:52.3",
+      "total_time": "2:10:45.0",
+      "stages_completed": 12,
+      "tire": "Hard",
+      "split1": "4:12.1",
+      "split2": "8:45.0",
+      "split3": "12:15.8"
+    },
+    {
+      "pos": 2,
+      "number": "8",
+      "driver": "Ott Tanak",
+      "codriver": "Martin Jarveoja",
+      "team": "Hyundai Shell Mobis WRT",
+      "car": "Hyundai i20 N Rally1",
+      "gap": "+3.1",
+      "interval": "+3.1",
+      "stage_time": "14:55.4",
+      "total_time": "2:10:48.1",
+      "stages_completed": 12,
+      "tire": "Hard",
+      "split1": "4:13.0",
+      "split2": "8:46.2",
+      "split3": "12:17.5"
+    }
+  ]
+}

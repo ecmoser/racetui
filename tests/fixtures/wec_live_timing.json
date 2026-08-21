@@ -1,0 +1,60 @@
+{
+  "session": {
+    "name": "24 Hours of Le Mans - Race",
+    "track": "Circuit de la Sarthe",
+    "status": "Green",
+    "laps": 250,
+    "total_laps": 380,
+    "time_remaining": "08:12:30"
+  },
+  "weather": {
+    "air_temp": 19.5,
+    "track_temp": 26.0,
+    "humidity": 65.0,
+    "wind_speed": 5.5,
+    "wind_direction": 180,
+    "rainfall": false
+  },
+  "cars": [
+    {
+      "pos": 1,
+      "number": "50",
+      "driver": "Antonio Fuoco",
+      "team": "Ferrari AF Corse",
+      "class": "Hypercar",
+      "gap": "LEADER",
+      "interval": "-",
+      "last_lap": "3:28.123",
+      "best_lap": "3:26.890",
+      "laps": 250,
+      "pits": 18,
+      "last_pit": 238,
+      "in_pit": false,
+      "tire": "Hard",
+      "tire_laps": 12,
+      "s1": "31.200",
+      "s2": "1:15.400",
+      "s3": "1:40.290"
+    },
+    {
+      "pos": 2,
+      "number": "6",
+      "driver": "Kevin Estre",
+      "team": "Porsche Penske Motorsport",
+      "class": "Hypercar",
+      "gap": "+12.450",
+      "interval": "+12.450",
+      "last_lap": "3:28.350",
+      "best_lap": "3:27.100",
+      "laps": 250,
+      "pits": 18,
+      "last_pit": 236,
+      "in_pit": false,
+      "tire": "Medium",
+      "tire_laps": 14,
+      "s1": "31.300",
+      "s2": "1:15.600",
+      "s3": "1:40.450"
+    }
+  ]
+}

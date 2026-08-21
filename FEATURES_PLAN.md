@@ -1048,7 +1048,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 31: Add mock-based tests for Phase 2
+### [x] Step 31: Add mock-based tests for Phase 2
 
 **What to do**: Create fixtures and tests for live timing data parsing.
 

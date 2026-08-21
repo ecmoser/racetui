@@ -1,0 +1,43 @@
+{
+  "lap_number": 150,
+  "elapsed_time": 4500.5,
+  "flag_state": 1,
+  "race_id": 5400,
+  "series_id": 1,
+  "run_name": "Daytona 500",
+  "track_name": "Daytona International Speedway",
+  "vehicles": [
+    {
+      "running_position": 1,
+      "vehicle_number": "5",
+      "driver_name": "Kyle Larson",
+      "delta": 0.0,
+      "last_lap_time": 46.123,
+      "best_lap_time": 45.890,
+      "laps_completed": 150,
+      "pit_stops": [
+        { "pit_in_lap": 45, "pit_stop_duration": 12.1 },
+        { "pit_in_lap": 90, "pit_stop_duration": 11.9 },
+        { "pit_in_lap": 110, "pit_stop_duration": 12.4 }
+      ],
+      "status": 1,
+      "vehicle_manufacturer": "Chevrolet"
+    },
+    {
+      "running_position": 2,
+      "vehicle_number": "9",
+      "driver_name": "Chase Elliott",
+      "delta": 0.245,
+      "last_lap_time": 46.180,
+      "best_lap_time": 45.920,
+      "laps_completed": 150,
+      "pit_stops": [
+        { "pit_in_lap": 46, "pit_stop_duration": 12.0 },
+        { "pit_in_lap": 91, "pit_stop_duration": 12.2 },
+        { "pit_in_lap": 112, "pit_stop_duration": 12.1 }
+      ],
+      "status": 1,
+      "vehicle_manufacturer": "Chevrolet"
+    }
+  ]
+}
