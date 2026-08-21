@@ -13,8 +13,14 @@ A fast, terminal user interface (TUI) for viewing motorsport and racing series c
 - 📋 **Four Interactive Views**:
   - `1`: **List View** — Chronological session schedule with countdowns, live indicators, and favorite badges.
   - `2`: **Calendar Grid View** — Monthly overview grid with Sunday-start weeks, day event navigation, and session counts.
-  - `3`: **Live Timing View** — Real-time leaderboard and telemetry during live sessions.
+  - `3`: **Live Timing View** — Real-time leaderboard, telemetry, sector split times, tire compounds, and live weather.
   - `4`: **Championship Standings View** — Driver and Constructor championship standings with series search and quick cycling.
+- ⏱️ **Real-Time Live Timing & Telemetry**:
+  - **Live Leaderboard Table**: Real-time positions, driver numbers, team names, gaps to leader, intervals, last lap times, sector splits (S1/S2/S3), color-coded tire compounds (Soft, Medium, Hard, Inter, Wet, Alternate, Primary), pit stop counts, and `[FL]` fastest lap highlights.
+  - **Expanded Driver Detail Panel**: Press `Enter` on any driver row in Live view to view a 3-column telemetry card featuring Pace & Position, Sectors & Laps with fastest split badges, and Tires & Pit Strategy.
+  - **Real-Time Weather Bar**: Ambient air and track temperatures, relative humidity, wind speed & direction, and rainfall detection.
+  - **Multi-Session Live Picker**: When multiple sessions are live simultaneously, press `3` to choose which live session to monitor.
+  - **Auto-Detection & Prompts**: Background watcher alerts you in the status bar whenever a live session goes green across any series.
 - 🏁 **Session-Specific Race Results & Tabbed Details**:
   - Interactive tabs for **Race**, **Qualifying**, **Sprint**, and **Schedule**.
   - Driver classifications with positions gained/lost (`+/-`), gaps, points, and `[FL]` fastest lap highlights.
@@ -30,46 +36,47 @@ A fast, terminal user interface (TUI) for viewing motorsport and racing series c
 
 ---
 
-## Supported Series
+## Supported Series & Live Timing Providers
 
-| Series | Category | Region | Data Source |
-|---|---|---|---|
-| **Formula 1** | Open Wheel | International | Jolpica API (Ergast) |
-| **Formula 2** | Open Wheel | International | FOM Apigee / Official |
-| **Formula 3** | Open Wheel | International | FOM Apigee / Official |
-| **Formula E** | Open Wheel | International | Pulselive API / Official |
-| **IndyCar Series** | Open Wheel | USA | Official Schedule & SportsTimes |
-| **INDY NXT** | Open Wheel | USA | Official Schedule & SportsTimes |
-| **F1 Academy** | Open Wheel | International | FOM Apigee / Official |
-| **Super Formula** | Open Wheel | Japan | Official Schedule |
-| **NASCAR Cup Series** | Stock Car | USA | NASCAR CDN API |
-| **NASCAR Xfinity Series** | Stock Car | USA | NASCAR CDN API |
-| **NASCAR Craftsman Truck Series** | Stock Car | USA | NASCAR CDN API |
-| **ARCA Menards Series** | Stock Car | USA | NASCAR CDN API / Official |
-| **IMSA WeatherTech SportsCar Championship** | Sports Car | USA | Official Schedule |
-| **FIA World Endurance Championship (WEC)** | Sports Car | International | Official Schedule |
-| **European Le Mans Series (ELMS)** | Sports Car | Europe | Official Schedule |
-| **Asian Le Mans Series (AsLMS)** | Sports Car | Asia | Official Schedule |
-| **Nürburgring Langstrecken-Serie (NLS)** | Sports Car | Europe | Official Schedule |
-| **GT World Challenge Europe** | Sports Car | Europe | Official Schedule |
-| **GT World Challenge America** | Sports Car | USA | Official Schedule |
-| **Intercontinental GT Challenge (IGTC)** | Sports Car | International | Official Schedule |
-| **Super GT** | Sports Car | Japan | Official Schedule |
-| **Porsche Supercup** | Sports Car | Europe | Official Schedule |
-| **MotoGP** | Motorcycle | International | Pulselive API / Official |
-| **Moto2** | Motorcycle | International | Pulselive API / Official |
-| **Moto3** | Motorcycle | International | Pulselive API / Official |
-| **WorldSBK (Superbike World Championship)** | Motorcycle | International | Official Schedule |
-| **British Superbike Championship (BSB)** | Motorcycle | UK | Official Schedule |
-| **World Rally Championship (WRC)** | Rally | International | WRC API / Official |
-| **WRC2** | Rally | International | WRC API / Official |
-| **European Rally Championship (ERC)** | Rally | Europe | WRC Promoter API / Official |
-| **Dakar Rally** | Rally | International | Official Schedule |
-| **Extreme E / Extreme H** | Rally | International | Official Schedule |
-| **British Touring Car Championship (BTCC)** | Touring | UK | Official Schedule |
-| **DTM (Deutsche Tourenwagen Masters)** | Touring | Europe | Official Schedule |
-| **Repco Supercars Championship** | Touring | Australia | Official Schedule |
-| **TCR World Tour** | Touring | International | Official Schedule |
+| Series | Category | Region | Live Timing Provider | Schedule & Results Source |
+|---|---|---|---|---|
+| **Formula 1** | Open Wheel | International | OpenF1 Live API | Jolpica API (Ergast) |
+| **Formula 2** | Open Wheel | International | OpenF1 / Timing Feed | FOM Apigee / Official |
+| **Formula 3** | Open Wheel | International | OpenF1 / Timing Feed | FOM Apigee / Official |
+| **Formula E** | Open Wheel | International | Al Kamel Systems | Pulselive API / Official |
+| **IndyCar Series** | Open Wheel | USA | Race Control JSON | Official & SportsTimes |
+| **INDY NXT** | Open Wheel | USA | Race Control JSON | Official & SportsTimes |
+| **F1 Academy** | Open Wheel | International | OpenF1 / Timing Feed | FOM Apigee / Official |
+| **Super Formula** | Open Wheel | Japan | Timing Feed | Official Schedule |
+| **NASCAR Cup Series** | Stock Car | USA | NASCAR Live Feed | NASCAR CDN API |
+| **NASCAR Xfinity Series** | Stock Car | USA | NASCAR Live Feed | NASCAR CDN API |
+| **NASCAR Craftsman Truck Series** | Stock Car | USA | NASCAR Live Feed | NASCAR CDN API |
+| **ARCA Menards Series** | Stock Car | USA | NASCAR Live Feed | NASCAR CDN API / Official |
+| **IMSA WeatherTech SportsCar Championship** | Sports Car | USA | Al Kamel Systems | Official Schedule |
+| **FIA World Endurance Championship (WEC)** | Sports Car | International | Al Kamel Systems | Official Schedule |
+| **European Le Mans Series (ELMS)** | Sports Car | Europe | Al Kamel Systems | Official Schedule |
+| **Asian Le Mans Series (AsLMS)** | Sports Car | Asia | Al Kamel Systems | Official Schedule |
+| **24H Series** | Sports Car | International | Al Kamel Systems | Official Schedule |
+| **Nürburgring Langstrecken-Serie (NLS)** | Sports Car | Europe | Timing Feed | Official Schedule |
+| **GT World Challenge Europe** | Sports Car | Europe | Timing Feed | Official Schedule |
+| **GT World Challenge America** | Sports Car | USA | Timing Feed | Official Schedule |
+| **Intercontinental GT Challenge (IGTC)** | Sports Car | International | Timing Feed | Official Schedule |
+| **Super GT** | Sports Car | Japan | Timing Feed | Official Schedule |
+| **Porsche Supercup** | Sports Car | Europe | Timing Feed | Official Schedule |
+| **MotoGP** | Motorcycle | International | Pulselive Timing Feed | Pulselive API / Official |
+| **Moto2** | Motorcycle | International | Pulselive Timing Feed | Pulselive API / Official |
+| **Moto3** | Motorcycle | International | Pulselive Timing Feed | Pulselive API / Official |
+| **WorldSBK (Superbike World Championship)** | Motorcycle | International | Pulselive Timing Feed | Official Schedule |
+| **British Superbike Championship (BSB)** | Motorcycle | UK | Timing Feed | Official Schedule |
+| **World Rally Championship (WRC)** | Rally | International | WRC Timing Feed | WRC API / Official |
+| **WRC2** | Rally | International | WRC Timing Feed | WRC API / Official |
+| **European Rally Championship (ERC)** | Rally | Europe | WRC Timing Feed | WRC Promoter API / Official |
+| **Dakar Rally** | Rally | International | Timing Feed | Official Schedule |
+| **Extreme E / Extreme H** | Rally | International | Timing Feed | Official Schedule |
+| **British Touring Car Championship (BTCC)** | Touring | UK | Timing Feed | Official Schedule |
+| **DTM (Deutsche Tourenwagen Masters)** | Touring | Europe | Timing Feed | Official Schedule |
+| **Repco Supercars Championship** | Touring | Australia | Timing Feed | Official Schedule |
+| **TCR World Tour** | Touring | International | Timing Feed | Official Schedule |
 
 ---
 
@@ -112,19 +119,28 @@ racetui --clear-cache # Clear all cached series schedules, results, and standing
 |---|---|
 | `1` | List View (All scheduled sessions) |
 | `2` | Calendar View (Monthly race calendar) |
-| `3` | Live Timing View |
+| `3` | Live Timing View (or open Live Session Picker if multiple live) |
 | `4` | Championship Standings View |
 
 ### Navigation
 | Key | Action |
 |---|---|
-| `j` / `↓` | Move down / next session / scroll standings table |
-| `k` / `↑` | Move up / previous session / scroll standings table |
-| `h` / `←` | Previous day (Calendar) / Previous series (Standings) |
-| `l` / `→` | Next day (Calendar) / Next series (Standings) |
+| `j` / `↓` | Move down / next session / scroll standings table / select driver row (Live view) |
+| `k` / `↑` | Move up / previous session / scroll standings table / select driver row (Live view) |
+| `h` / `←` | Prev day (Calendar) / Prev series (Standings) / Switch sub-tab (Live view) |
+| `l` / `→` | Next day (Calendar) / Next series (Standings) / Switch sub-tab (Live view) |
 | `H` / `L` | Previous / Next month (Calendar) |
 | `t` | Jump to today (Calendar) |
-| `Enter` | Open Event Details popup (or day sessions list in Calendar) |
+| `Enter` | Open Event Details (List) / Open day sessions (Calendar) / Expand driver telemetry (Live) |
+
+### Live Timing View
+| Key | Action |
+|---|---|
+| `3` | Switch to Live view (or open session picker when multiple active) |
+| `h` / `l` (`←` / `→`) | Switch sub-tabs (Timing Leaderboard vs. Track Map) |
+| `j` / `k` (`↓` / `↑`) | Select driver in timing table |
+| `Enter` | Expand / collapse 3-column driver telemetry & pit strategy card |
+| `Esc` / `q` | Collapse driver telemetry card (before quitting) |
 
 ### Event Details Popup
 | Key | Action |
@@ -169,6 +185,9 @@ cache_ttl_hours = 24
 
 # Hours before session start to trigger "⚡ SOON" notification highlight (default: 2)
 notification_threshold_hours = 2
+
+# Live timing polling interval in seconds (default: 5)
+live_poll_interval_secs = 5
 
 # Command used to open stream links in your browser or application
 # Options: "xdg-open", "open", "firefox", "chromium", etc.

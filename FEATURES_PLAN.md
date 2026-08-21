@@ -1040,7 +1040,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 30: Update README.md for Phase 2
+### [x] Step 30: Update README.md for Phase 2
 
 **What to do**: Document live timing features, supported data sources, new config options.
 
