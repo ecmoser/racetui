@@ -282,7 +282,7 @@ mod tests {
 
     #[test]
     fn test_draw_help_popup() {
-        let backend = TestBackend::new(100, 35);
+        let backend = TestBackend::new(100, 50);
         let mut terminal = Terminal::new(backend).unwrap();
         let mut app = App::new(HashMap::new(), UserConfig::default());
         app.show_help = true;
@@ -298,6 +298,7 @@ mod tests {
         assert!(content.contains("Keybindings"));
         assert!(content.contains("Views"));
         assert!(content.contains("Navigation"));
+        assert!(content.contains("Live Timing"));
         assert!(content.contains("Actions"));
         assert!(content.contains("General"));
     }

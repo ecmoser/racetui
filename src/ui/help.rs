@@ -124,6 +124,54 @@ pub fn draw(frame: &mut Frame, _app: &App) {
 
     lines.push(Line::from(""));
 
+    // ── Live Timing View ──
+    lines.push(Line::from(vec![Span::styled(
+        " ── Live Timing View ──",
+        Style::default().bold().fg(Color::Cyan),
+    )]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   3                 ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Switch to Live view / Open session picker",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   h / l (← / →)     ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Switch sub-tab (Timing / Track Map)",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   j / k (↓ / ↑)     ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Navigate driver leaderboard rows",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(
+            "   Enter             ",
+            Style::default().bold().fg(Color::Yellow),
+        ),
+        Span::styled(
+            "Expand/collapse driver telemetry & strategy",
+            Style::default().fg(Color::White),
+        ),
+    ]));
+
+    lines.push(Line::from(""));
+
     // ── Detail & Standings ──
     lines.push(Line::from(vec![Span::styled(
         " ── Detail View & Popups ──",

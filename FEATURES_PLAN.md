@@ -1032,7 +1032,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 29: Update help popup for Phase 2
+### [x] Step 29: Update help popup for Phase 2
 
 **What to do**: Add Live view keybindings to help popup.
 
