@@ -64,6 +64,11 @@ pub fn get_live_provider(series_id: &str) -> Option<Box<dyn LiveProviderBoxed>> 
         ))),
         "indycar" => Some(Box::new(crate::scraper::indycar_live::IndyCarLiveProvider::new())),
         "indy_nxt" => Some(Box::new(crate::scraper::indycar_live::IndyCarLiveProvider::new_with_series("indy_nxt"))),
+        "imsa" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("imsa"))),
+        "wec" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("wec"))),
+        "formula_e" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("formula_e"))),
+        "elms" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("elms"))),
+        "24h_series" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("24h_series"))),
         _ => None,
     }
 }
@@ -118,6 +123,11 @@ mod tests {
         assert!(get_live_provider("arca").is_some());
         assert!(get_live_provider("indycar").is_some());
         assert!(get_live_provider("indy_nxt").is_some());
+        assert!(get_live_provider("imsa").is_some());
+        assert!(get_live_provider("wec").is_some());
+        assert!(get_live_provider("formula_e").is_some());
+        assert!(get_live_provider("elms").is_some());
+        assert!(get_live_provider("24h_series").is_some());
         assert!(get_live_provider("unknown_series").is_none());
     }
 }

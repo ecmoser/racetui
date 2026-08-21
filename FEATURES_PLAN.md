@@ -1016,7 +1016,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 27: Implement Al Kamel live timing provider (IMSA, WEC, Formula E)
+### [x] Step 27: Implement Al Kamel live timing provider (IMSA, WEC, Formula E)
 
 **What to do**: Create `src/scraper/alkamelsystems_live.rs` — shared provider parameterized by series slug.
 

@@ -1,3 +1,4 @@
+pub mod alkamelsystems_live;
 pub mod bsb;
 pub mod btcc;
 pub mod dakar;
