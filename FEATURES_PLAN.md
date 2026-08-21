@@ -998,11 +998,11 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 25: Wire up live timing event loop and auto-detection
+### [x] Step 25: Wire up live timing event loop and auto-detection
 
 **What to do**: Integrate `LiveSessionManager` into the main event loop with separate `LiveEvent` channel. Add periodic live session detection (every 60s). Show status bar prompt when live session detected.
 
-Add `live_poll_interval_secs` to `UserConfig`.
+**Add `live_poll_interval_secs` to `UserConfig`.**
 
 **Commit message**: `feat: wire up live timing event loop with auto-detection`
 

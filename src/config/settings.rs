@@ -32,6 +32,10 @@ pub struct UserConfig {
     /// Hidden series IDs (series the user has chosen to hide).
     #[serde(default)]
     pub hidden_series: HashSet<String>,
+
+    /// Live timing poll interval in seconds. Default: 5.
+    #[serde(default = "default_live_poll_interval_secs")]
+    pub live_poll_interval_secs: u64,
 }
 
 fn default_cache_ttl_hours() -> u64 {
@@ -40,6 +44,10 @@ fn default_cache_ttl_hours() -> u64 {
 
 fn default_notification_threshold_hours() -> u64 {
     2
+}
+
+fn default_live_poll_interval_secs() -> u64 {
+    5
 }
 
 fn default_open_command() -> String {
@@ -65,6 +73,7 @@ impl Default for UserConfig {
             open_command: default_open_command(),
             default_view: default_view_mode(),
             hidden_series: HashSet::new(),
+            live_poll_interval_secs: default_live_poll_interval_secs(),
         }
     }
 }
@@ -138,6 +147,7 @@ mod tests {
         assert_eq!(config.cache_ttl_hours, 24);
         assert_eq!(config.notification_threshold_hours, 2);
         assert_eq!(config.default_view, "list");
+        assert_eq!(config.live_poll_interval_secs, 5);
         assert!(config.favorites.is_empty());
         assert!(config.hidden_series.is_empty());
     }
@@ -166,11 +176,13 @@ mod tests {
         config.favorites.insert("f1".to_string());
         config.hidden_series.insert("dtm".to_string());
         config.cache_ttl_hours = 12;
+        config.live_poll_interval_secs = 10;
 
         let toml_str = toml::to_string_pretty(&config).unwrap();
         let parsed: UserConfig = toml::from_str(&toml_str).unwrap();
 
         assert_eq!(parsed.cache_ttl_hours, 12);
+        assert_eq!(parsed.live_poll_interval_secs, 10);
         assert!(parsed.favorites.contains("f1"));
         assert!(parsed.hidden_series.contains("dtm"));
         assert_eq!(parsed.default_view, "list");

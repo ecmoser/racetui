@@ -4,6 +4,7 @@ pub mod track_map;
 pub mod weather;
 
 use anyhow::Result;
+pub use event::LiveEvent;
 use crate::live::event::LiveTimingData;
 
 /// Trait that all series live timing providers must implement.

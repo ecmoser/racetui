@@ -5,7 +5,7 @@ use ratatui::widgets::{
 };
 
 use crate::app::App;
-use crate::live::event::{LiveTimingData, PitInfo, TireInfo};
+use crate::live::event::{LiveTimingData, TireInfo};
 
 /// Draw the live timing leaderboard table.
 pub fn draw(frame: &mut Frame, app: &mut App, area: Rect, data: &LiveTimingData) {
@@ -206,7 +206,7 @@ fn parse_hex_color(hex: Option<&str>) -> Option<Color> {
 mod tests {
     use super::*;
     use crate::config::UserConfig;
-    use crate::live::event::{LiveDriverEntry, SectorTimes};
+    use crate::live::event::{LiveDriverEntry, PitInfo, SectorTimes};
     use chrono::Utc;
     use ratatui::backend::TestBackend;
     use std::collections::HashMap;

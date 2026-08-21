@@ -441,6 +441,17 @@ fn setup_panic_hook() {
     }));
 }
 
+fn check_live_sessions_prompt(app: &mut App) {
+    let live_sessions = app.get_live_sessions();
+    if !live_sessions.is_empty() && app.view_mode != app::ViewMode::Live && app.status_message.is_none() {
+        let (_sid, short_name, session_name) = &live_sessions[0];
+        app.set_status_message(format!(
+            "🔴 LIVE: {} {} — press 3 to watch",
+            short_name, session_name
+        ));
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -485,8 +496,10 @@ async fn main() -> Result<()> {
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
 
-    // Create event channel
+    // Create event channels
     let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
+    let (live_tx, mut live_rx) = mpsc::unbounded_channel::<crate::live::LiveEvent>();
+    let mut live_session_manager = crate::live::manager::LiveSessionManager::new(live_tx);
 
     // Spawn crossterm event reader task
     let event_tx = tx.clone();
@@ -550,39 +563,88 @@ async fn main() -> Result<()> {
             spawn_standings_loaders(&mut app, tx.clone(), true);
         }
 
-        // Wait for next event, then drain any pending events to prevent momentum/lag
-        if let Some(mut event) = rx.recv().await {
-            loop {
-                match event {
-                    AppEvent::Key(key) => {
-                        handle_key_event(&mut app, key);
-                        fetch_results_on_demand(&mut app, tx.clone());
-                    }
-                    AppEvent::Resize(_, _) => {
-                        // Terminal auto-redraws on resize
-                    }
-                    AppEvent::Tick => {
-                        app.tick_count += 1;
-                        // Toggle live session blinking every 2 ticks
-                        if app.tick_count % 2 == 0 {
-                            app.live_blink_on = !app.live_blink_on;
+        // Manage live session manager state based on view_mode and live_active_series
+        let desired_series = if app.view_mode == app::ViewMode::Live {
+            app.live_active_series.clone()
+        } else {
+            None
+        };
+
+        if let Some(ref sid) = desired_series {
+            if !live_session_manager.is_active(sid) {
+                live_session_manager.stop_all();
+                let interval = app.config.live_poll_interval_secs;
+                live_session_manager.start_session(sid, interval);
+            }
+        } else if app.view_mode != app::ViewMode::Live && !live_session_manager.active_series().is_empty() {
+            live_session_manager.stop_all();
+        }
+
+        // Wait for next event (live timing event or app event)
+        tokio::select! {
+            Some(live_event) = live_rx.recv() => {
+                match live_event {
+                    crate::live::LiveEvent::TimingUpdate { series_id, data } => {
+                        if app.live_active_series.as_deref() == Some(&series_id) || app.live_active_series.is_none() {
+                            app.live_active_series = Some(series_id);
+                            app.live_timing_data = Some(*data);
                         }
-                        // Cycle notifications every 3 seconds
-                        if app.tick_count % 3 == 0 {
-                            let notification_count = app.get_notifications().len();
-                            if notification_count > 0 {
-                                app.notification_cycle_index =
-                                    (app.notification_cycle_index + 1) % notification_count;
+                    }
+                    crate::live::LiveEvent::TrackGeometryLoaded { series_id, points } => {
+                        if app.live_active_series.as_deref() == Some(&series_id) {
+                            app.track_map_geometry = Some(points);
+                        }
+                    }
+                    crate::live::LiveEvent::SessionStarted { series_id, session_name } => {
+                        let short_name = app.series_registry.get(&series_id).map(|s| s.short_name.as_str()).unwrap_or(&series_id);
+                        app.set_status_message(format!("🔴 Live session started: {} {} — press 3 to watch", short_name, session_name));
+                    }
+                    crate::live::LiveEvent::SessionEnded { series_id } => {
+                        if app.live_active_series.as_deref() == Some(&series_id) {
+                            app.set_status_message(format!("Live session ended for {}", series_id));
+                        }
+                    }
+                    crate::live::LiveEvent::LiveError { series_id, error } => {
+                        tracing::warn!("Live timing error for {}: {}", series_id, error);
+                    }
+                }
+            }
+            Some(mut event) = rx.recv() => {
+                loop {
+                    match event {
+                        AppEvent::Key(key) => {
+                            handle_key_event(&mut app, key);
+                            fetch_results_on_demand(&mut app, tx.clone());
+                        }
+                        AppEvent::Resize(_, _) => {
+                            // Terminal auto-redraws on resize
+                        }
+                        AppEvent::Tick => {
+                            app.tick_count += 1;
+                            // Toggle live session blinking every 2 ticks
+                            if app.tick_count % 2 == 0 {
+                                app.live_blink_on = !app.live_blink_on;
+                            }
+                            // Cycle notifications every 3 seconds
+                            if app.tick_count % 3 == 0 {
+                                let notification_count = app.get_notifications().len();
+                                if notification_count > 0 {
+                                    app.notification_cycle_index =
+                                        (app.notification_cycle_index + 1) % notification_count;
+                                }
+                            }
+                            // Auto-clear status message after 3 seconds
+                            if let Some(set_at) = app.status_message_set_at {
+                                if set_at.elapsed() >= std::time::Duration::from_secs(3) {
+                                    app.status_message = None;
+                                    app.status_message_set_at = None;
+                                }
+                            }
+                            // Periodic live session auto-detection (every 60s)
+                            if app.tick_count % 60 == 0 {
+                                check_live_sessions_prompt(&mut app);
                             }
                         }
-                        // Auto-clear status message after 3 seconds
-                        if let Some(set_at) = app.status_message_set_at {
-                            if set_at.elapsed() >= std::time::Duration::from_secs(3) {
-                                app.status_message = None;
-                                app.status_message_set_at = None;
-                            }
-                        }
-                    }
                     AppEvent::RefreshRequested => {
                         app.results_loading_started = false;
                         spawn_data_loaders(&mut app, tx.clone(), true);
@@ -711,6 +773,7 @@ async fn main() -> Result<()> {
             }
         }
     }
+}
 
     // Drop communication channel
     drop(rx);
@@ -2174,5 +2237,37 @@ mod tests {
         assert!(!app.show_live_session_picker);
         assert_eq!(app.view_mode, app::ViewMode::Live);
         assert_eq!(app.live_active_series.as_deref(), Some("nascar_cup"));
+    }
+
+    #[test]
+    fn test_check_live_sessions_prompt() {
+        let mut app = App::new(HashMap::new(), config::settings::UserConfig::default());
+        let now = chrono::Utc::now();
+
+        let event_f1 = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Bahrain GP".to_string(),
+            circuit_name: "Bahrain".to_string(),
+            location: "Sakhir".to_string(),
+            country: "Bahrain".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            round: Some(1),
+            sessions: vec![data::models::Session {
+                name: "Race".to_string(),
+                session_type: data::models::SessionType::Race,
+                start_time: Some(now - chrono::Duration::minutes(10)),
+                end_time: Some(now + chrono::Duration::minutes(50)),
+            }],
+            stream_links: vec![],
+            status: data::models::EventStatus::Live,
+        };
+
+        app.update_series_data("f1".to_string(), vec![event_f1]);
+
+        assert_eq!(app.status_message, None);
+        check_live_sessions_prompt(&mut app);
+        assert!(app.status_message.is_some());
+        assert!(app.status_message.as_ref().unwrap().contains("LIVE: f1 Race — press 3 to watch"));
     }
 }
