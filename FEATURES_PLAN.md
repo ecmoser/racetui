@@ -1008,7 +1008,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 26: Implement IndyCar live timing provider
+### [x] Step 26: Implement IndyCar live timing provider
 
 **What to do**: Create `src/scraper/indycar_live.rs` using `racecontrol.indycar.com` JSON feeds.
 

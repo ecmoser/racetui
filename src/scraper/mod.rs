@@ -14,6 +14,7 @@ pub mod ics;
 pub mod imsa;
 pub mod indy_nxt;
 pub mod indycar;
+pub mod indycar_live;
 pub mod json_ld;
 pub mod lmem;
 pub mod motogp;

@@ -62,6 +62,8 @@ pub fn get_live_provider(series_id: &str) -> Option<Box<dyn LiveProviderBoxed>> 
             4,
             "arca",
         ))),
+        "indycar" => Some(Box::new(crate::scraper::indycar_live::IndyCarLiveProvider::new())),
+        "indy_nxt" => Some(Box::new(crate::scraper::indycar_live::IndyCarLiveProvider::new_with_series("indy_nxt"))),
         _ => None,
     }
 }
@@ -114,6 +116,8 @@ mod tests {
         assert!(get_live_provider("nascar_xfinity").is_some());
         assert!(get_live_provider("nascar_trucks").is_some());
         assert!(get_live_provider("arca").is_some());
+        assert!(get_live_provider("indycar").is_some());
+        assert!(get_live_provider("indy_nxt").is_some());
         assert!(get_live_provider("unknown_series").is_none());
     }
 }
