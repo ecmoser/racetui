@@ -58,11 +58,34 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
             .iter()
             .map(|(_, short_name, session_name)| format!("{}: {}", short_name, session_name))
             .collect();
-        let desc = live_desc.join(", ");
-        if app.live_blink_on {
-            (format!("● LIVE: {} ", desc), Color::Red)
+        let full_desc = live_desc.join(" | ");
+        let prefix = if app.live_blink_on {
+            "● LIVE: "
         } else {
-            (format!("  LIVE: {} ", desc), Color::Yellow)
+            "  LIVE: "
+        };
+        let target_width = chunks[1].width as usize;
+        let prefix_len = prefix.chars().count();
+
+        let display_text = if target_width > prefix_len + 5 && prefix_len + full_desc.chars().count() + 1 > target_width {
+            let avail_width = target_width.saturating_sub(prefix_len + 1);
+            let loop_text = format!("{}   ***   ", full_desc);
+            let loop_chars: Vec<char> = loop_text.chars().collect();
+            let offset = (app.tick_count as usize) % loop_chars.len();
+            let mut scrolled = String::with_capacity(avail_width);
+            for i in 0..avail_width {
+                let ch = loop_chars[(offset + i) % loop_chars.len()];
+                scrolled.push(ch);
+            }
+            format!("{}{} ", prefix, scrolled)
+        } else {
+            format!("{}{} ", prefix, full_desc)
+        };
+
+        if app.live_blink_on {
+            (display_text, Color::Red)
+        } else {
+            (display_text, Color::Yellow)
         }
     } else if !notifications.is_empty() {
         let idx = app.notification_cycle_index % notifications.len();

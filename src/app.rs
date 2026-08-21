@@ -324,25 +324,18 @@ impl App {
     /// Get a list of currently live sessions across all series.
     /// Returns (series_id, series_short_name, session_name) tuples.
     pub fn get_live_sessions(&self) -> Vec<(String, String, String)> {
-        let now = chrono::Utc::now();
         let mut live = Vec::new();
         for (series_id, events) in &self.events {
             for event in events {
-                if event.status == crate::data::models::EventStatus::Live {
-                    let active_session = event.sessions.iter().find(|s| {
-                        let started = s.start_time.map_or(false, |t| t <= now);
-                        let ended = s.end_time.map_or(false, |t| t <= now);
-                        started && !ended
-                    });
-                    let session_name = active_session
-                        .map(|s| s.name.clone())
-                        .unwrap_or_else(|| "Session".to_string());
-                    let short_name = self
-                        .series_registry
-                        .get(series_id)
-                        .map(|s| s.short_name.clone())
-                        .unwrap_or_else(|| series_id.clone());
-                    live.push((series_id.clone(), short_name, session_name));
+                for s in &event.sessions {
+                    if s.is_live(series_id) {
+                        let short_name = self
+                            .series_registry
+                            .get(series_id)
+                            .map(|ser| ser.short_name.clone())
+                            .unwrap_or_else(|| series_id.clone());
+                        live.push((series_id.clone(), short_name, s.name.clone()));
+                    }
                 }
             }
         }
@@ -681,7 +674,6 @@ impl App {
     /// Get all scheduled session occurrences across all series.
     pub fn all_scheduled_sessions(&self) -> Vec<ScheduledSession<'_>> {
         let mut all = Vec::new();
-        let now = chrono::Utc::now();
         for events in self.events.values() {
             for event in events {
                 if event.sessions.is_empty() {
@@ -692,7 +684,7 @@ impl App {
                         session_type: SessionType::Race,
                         start_time: event.race_start_time(),
                         date,
-                        status: event.status.clone(),
+                        status: event.current_status(),
                     });
                 } else {
                     for session in &event.sessions {
@@ -701,20 +693,16 @@ impl App {
                         } else {
                             event.local_start_date()
                         };
-                        let status = if let Some(st) = session.start_time {
-                            let end = session.end_time.unwrap_or(st + chrono::Duration::hours(2));
-                            if event.status == EventStatus::Completed {
-                                EventStatus::Completed
-                            } else if event.status == EventStatus::Live || (st <= now && now <= end)
-                            {
+                        let status = if session.start_time.is_some() {
+                            if session.is_live(&event.series_id) {
                                 EventStatus::Live
-                            } else if now > end {
+                            } else if session.is_completed(&event.series_id) {
                                 EventStatus::Completed
                             } else {
                                 EventStatus::Upcoming
                             }
                         } else {
-                            event.status.clone()
+                            event.current_status()
                         };
                         all.push(ScheduledSession {
                             event,

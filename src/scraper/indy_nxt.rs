@@ -1,11 +1,11 @@
 use anyhow::Result;
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
-use super::sportstimes::fetch_sportstimes_calendar;
+use super::json_ld::fetch_json_ld_calendar;
 use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::{
-    EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
+    EventStatus, RaceEvent, Series, StreamAccess, StreamLink,
 };
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
@@ -37,9 +37,9 @@ impl ResultsFetcher for IndyNxtScraper {
 impl SeriesScraper for IndyNxtScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {
         let client = create_http_client()?;
-        let mut events = fetch_sportstimes_calendar(
+        let mut events = fetch_json_ld_calendar(
             &client,
-            "https://indycarcalendar.com",
+            "https://raceweek.io/indynxt",
             &series.id,
             &indy_nxt_stream_links(),
         )
@@ -113,32 +113,15 @@ pub fn get_official_indy_nxt_schedule(series_id: &str, year: i32) -> Vec<RaceEve
                 EventStatus::Upcoming
             };
 
-            let sessions = vec![
-                Session {
-                    name: "Practice".to_string(),
-                    session_type: SessionType::Practice,
-                    start_time: sat_date
-                        .and_hms_opt(13, 0, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Qualifying".to_string(),
-                    session_type: SessionType::Qualifying,
-                    start_time: sat_date
-                        .and_hms_opt(17, 30, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Race".to_string(),
-                    session_type: SessionType::Race,
-                    start_time: race_date
-                        .and_hms_opt(16, 0, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-            ];
+            let fri_date = sat_date.pred_opt().unwrap_or(sat_date);
+            let sessions = super::json_ld::build_series_sessions(
+                series_id,
+                &format!("INDY NXT at {}", loc),
+                fri_date,
+                race_date,
+                None,
+                None,
+            );
 
             RaceEvent {
                 series_id: series_id.to_string(),
@@ -146,7 +129,7 @@ pub fn get_official_indy_nxt_schedule(series_id: &str, year: i32) -> Vec<RaceEve
                 circuit_name: circuit.to_string(),
                 location: loc.to_string(),
                 country: country.to_string(),
-                start_date: sat_date,
+                start_date: fri_date,
                 end_date: race_date,
                 round: Some((i + 1) as u32),
                 sessions,

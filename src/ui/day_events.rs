@@ -2,6 +2,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Clear, List, ListItem};
 
 use crate::app::App;
+use crate::data::models::EventStatus;
 use crate::ui::calendar_view::month_name;
 
 /// Draw the day events selection popup (when multiple races occur on a selected calendar day).
@@ -42,19 +43,27 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             let time_str = session.format_local_time();
             let is_fav = app.config.favorites.contains(&event.series_id);
             let star = if is_fav { "★" } else { " " };
+            let is_live = session.status == EventStatus::Live;
+
+            let live_span = if is_live {
+                Span::styled(" ● LIVE ", Style::default().bold().fg(Color::Red))
+            } else {
+                Span::raw("")
+            };
 
             ListItem::new(Line::from(vec![
                 Span::styled(
                     format!(" {:<9} ", time_str),
-                    Style::default().fg(Color::Gray),
+                    if is_live { Style::default().bold().fg(Color::Red) } else { Style::default().fg(Color::Gray) },
                 ),
+                live_span,
                 Span::styled(
                     format!("{}{:<8} ", star, short_name),
                     Style::default().bold().fg(series_color),
                 ),
                 Span::styled(
                     session.display_title(),
-                    Style::default().bold().fg(Color::White),
+                    if is_live { Style::default().bold().fg(Color::Red) } else { Style::default().bold().fg(Color::White) },
                 ),
                 Span::styled(
                     format!(" · {}", event.circuit_name),

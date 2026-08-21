@@ -1,12 +1,10 @@
 use anyhow::Result;
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
 use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
-use crate::data::models::{
-    EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
-};
+use crate::data::models::{EventStatus, RaceEvent, Series, StreamLink};
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
 
@@ -69,18 +67,7 @@ impl SeriesScraper for LmemScraper {
 }
 
 fn lmem_stream_links() -> Vec<StreamLink> {
-    vec![
-        StreamLink {
-            platform: "YouTube (European Le Mans Series)".to_string(),
-            url: "https://www.youtube.com/@EuropeanLeMansSeriesOfficial".to_string(),
-            access: StreamAccess::Free,
-        },
-        StreamLink {
-            platform: "ELMS TV".to_string(),
-            url: "https://www.europeanlemansseries.com/live".to_string(),
-            access: StreamAccess::Free,
-        },
-    ]
+    super::raceday_watch::get_raceday_stream_links("elms", "")
 }
 
 pub fn get_official_lmem_schedule(series_id: &str, category: &str, year: i32) -> Vec<RaceEvent> {
@@ -193,24 +180,15 @@ pub fn get_official_lmem_schedule(series_id: &str, category: &str, year: i32) ->
                 EventStatus::Upcoming
             };
 
-            let sessions = vec![
-                Session {
-                    name: "Qualifying".to_string(),
-                    session_type: SessionType::Qualifying,
-                    start_time: sat_date
-                        .and_hms_opt(13, 30, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Race".to_string(),
-                    session_type: SessionType::Race,
-                    start_time: sun_date
-                        .and_hms_opt(11, 30, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-            ];
+            let fri_date = sat_date.pred_opt().unwrap_or(sat_date);
+            let sessions = super::json_ld::build_series_sessions(
+                series_id,
+                name,
+                fri_date,
+                sun_date,
+                None,
+                None,
+            );
 
             RaceEvent {
                 series_id: series_id.to_string(),
@@ -218,7 +196,7 @@ pub fn get_official_lmem_schedule(series_id: &str, category: &str, year: i32) ->
                 circuit_name: circuit.to_string(),
                 location: country.to_string(),
                 country: country.to_string(),
-                start_date: sat_date,
+                start_date: fri_date,
                 end_date: sun_date,
                 round: Some((i + 1) as u32),
                 sessions,

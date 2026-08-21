@@ -1,11 +1,11 @@
 use anyhow::Result;
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 
 use super::fetcher::create_http_client;
-use super::sportstimes::fetch_sportstimes_calendar;
+use super::json_ld::fetch_json_ld_calendar;
 use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
 use crate::data::models::{
-    EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
+    EventStatus, RaceEvent, Series, StreamAccess, StreamLink,
 };
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
@@ -37,9 +37,9 @@ impl ResultsFetcher for F1AcademyScraper {
 impl SeriesScraper for F1AcademyScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {
         let client = create_http_client()?;
-        let mut events = fetch_sportstimes_calendar(
+        let mut events = fetch_json_ld_calendar(
             &client,
-            "https://f1calendar.com",
+            "https://raceweek.io/f1academy",
             &series.id,
             &f1_academy_stream_links(),
         )
@@ -136,7 +136,6 @@ pub fn get_official_f1_academy_schedule(series_id: &str, year: i32) -> Vec<RaceE
         .map(|(i, (circuit, loc, country, start, end))| {
             let fri_date = NaiveDate::from_ymd_opt(year, start.0, start.1).unwrap();
             let sun_date = NaiveDate::from_ymd_opt(year, end.0, end.1).unwrap();
-            let sat_date = sun_date.pred_opt().unwrap_or(sun_date);
 
             let status = if sun_date < today {
                 EventStatus::Completed
@@ -146,40 +145,14 @@ pub fn get_official_f1_academy_schedule(series_id: &str, year: i32) -> Vec<RaceE
                 EventStatus::Upcoming
             };
 
-            let sessions = vec![
-                Session {
-                    name: "Practice".to_string(),
-                    session_type: SessionType::Practice,
-                    start_time: fri_date
-                        .and_hms_opt(10, 0, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Qualifying".to_string(),
-                    session_type: SessionType::Qualifying,
-                    start_time: fri_date
-                        .and_hms_opt(14, 0, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Race 1".to_string(),
-                    session_type: SessionType::Race,
-                    start_time: sat_date
-                        .and_hms_opt(12, 0, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-                Session {
-                    name: "Race 2".to_string(),
-                    session_type: SessionType::Race,
-                    start_time: sun_date
-                        .and_hms_opt(10, 0, 0)
-                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: None,
-                },
-            ];
+            let sessions = super::json_ld::build_series_sessions(
+                series_id,
+                &format!("F1 Academy at {}", loc),
+                fri_date,
+                sun_date,
+                None,
+                None,
+            );
 
             RaceEvent {
                 series_id: series_id.to_string(),

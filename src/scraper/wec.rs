@@ -4,9 +4,7 @@ use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
 use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
-use crate::data::models::{
-    EventStatus, RaceEvent, Series, Session, SessionType, StreamAccess, StreamLink,
-};
+use crate::data::models::{EventStatus, RaceEvent, Series, StreamLink};
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
 
@@ -61,18 +59,7 @@ impl SeriesScraper for WecScraper {
 }
 
 fn wec_stream_links() -> Vec<StreamLink> {
-    vec![
-        StreamLink {
-            platform: "FIAWEC.tv".to_string(),
-            url: "https://fiawec.tv/".to_string(),
-            access: StreamAccess::Paid,
-        },
-        StreamLink {
-            platform: "Max / MotorTrend".to_string(),
-            url: "https://www.max.com/sports".to_string(),
-            access: StreamAccess::Paid,
-        },
-    ]
+    super::raceday_watch::get_raceday_stream_links("wec", "")
 }
 
 pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
@@ -162,12 +149,19 @@ pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
                 EventStatus::Upcoming
             };
 
-            let sessions = vec![Session {
-                name: "Race".to_string(),
-                session_type: SessionType::Race,
+            let fri_date = race_date
+                .pred_opt()
+                .unwrap_or(race_date)
+                .pred_opt()
+                .unwrap_or(race_date);
+            let sessions = super::json_ld::build_series_sessions(
+                series_id,
+                name,
+                fri_date,
+                race_date,
                 start_time,
-                end_time: None,
-            }];
+                None,
+            );
 
             RaceEvent {
                 series_id: series_id.to_string(),
@@ -175,7 +169,7 @@ pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
                 circuit_name: circuit.to_string(),
                 location: loc.to_string(),
                 country: country.to_string(),
-                start_date: race_date,
+                start_date: fri_date,
                 end_date: race_date,
                 round: Some((i + 1) as u32),
                 sessions,
@@ -265,35 +259,18 @@ pub fn get_official_2027_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
                     .unwrap_or(race_date)
                     .pred_opt()
                     .unwrap_or(race_date);
-                let sat_date = race_date.pred_opt().unwrap_or(race_date);
                 let start_time = race_date
                     .and_hms_opt(hour, min, 0)
                     .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
-                let sessions = vec![
-                    Session {
-                        name: "Free Practice".to_string(),
-                        session_type: SessionType::Practice,
-                        start_time: fri_date
-                            .and_hms_opt(8, 0, 0)
-                            .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                        end_time: None,
-                    },
-                    Session {
-                        name: "Qualifying".to_string(),
-                        session_type: SessionType::Qualifying,
-                        start_time: sat_date
-                            .and_hms_opt(14, 0, 0)
-                            .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                        end_time: None,
-                    },
-                    Session {
-                        name: "Race".to_string(),
-                        session_type: SessionType::Race,
-                        start_time,
-                        end_time: None,
-                    },
-                ];
+                let sessions = super::json_ld::build_series_sessions(
+                    series_id,
+                    name,
+                    fri_date,
+                    race_date,
+                    start_time,
+                    None,
+                );
 
                 RaceEvent {
                     series_id: series_id.to_string(),

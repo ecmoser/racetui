@@ -117,6 +117,66 @@ impl std::fmt::Display for SessionType {
     }
 }
 
+/// Default duration of a session based on its name, session type, and series ID.
+pub fn session_default_duration(
+    session_name: &str,
+    session_type: &SessionType,
+    series_id: &str,
+) -> chrono::Duration {
+    let name_lower = session_name.to_lowercase();
+    match session_type {
+        SessionType::Practice | SessionType::Warmup => chrono::Duration::minutes(90),
+        SessionType::Qualifying | SessionType::SprintQualifying => chrono::Duration::minutes(60),
+        SessionType::Sprint => chrono::Duration::minutes(60),
+        SessionType::Race => {
+            if name_lower.contains("24h")
+                || name_lower.contains("24 hours")
+                || name_lower.contains("24 hour")
+                || name_lower.contains("24 heures")
+            {
+                chrono::Duration::hours(24)
+            } else if name_lower.contains("12h")
+                || name_lower.contains("12 hours")
+                || name_lower.contains("12 hour")
+            {
+                chrono::Duration::hours(12)
+            } else if name_lower.contains("10h")
+                || name_lower.contains("10 hours")
+                || name_lower.contains("petit le mans")
+            {
+                chrono::Duration::hours(10)
+            } else if name_lower.contains("8h")
+                || name_lower.contains("8 hours")
+                || name_lower.contains("8 hour")
+            {
+                chrono::Duration::hours(8)
+            } else if name_lower.contains("6h")
+                || name_lower.contains("6 hours")
+                || name_lower.contains("6 hour")
+            {
+                chrono::Duration::hours(6)
+            } else if name_lower.contains("4h")
+                || name_lower.contains("4 hours")
+                || name_lower.contains("4 hour")
+                || series_id == "elms"
+                || series_id == "aslms"
+                || series_id == "nls"
+            {
+                chrono::Duration::hours(4)
+            } else if name_lower.contains("1000km") || name_lower.contains("1812km") {
+                chrono::Duration::hours(6)
+            } else if series_id.starts_with("nascar") || series_id == "arca" {
+                chrono::Duration::hours(3) + chrono::Duration::minutes(30)
+            } else if series_id == "indycar" || series_id == "indy_nxt" {
+                chrono::Duration::hours(2) + chrono::Duration::minutes(30)
+            } else {
+                chrono::Duration::hours(2)
+            }
+        }
+        SessionType::Other(_) => chrono::Duration::hours(2),
+    }
+}
+
 /// A single session (e.g., "FP1", "Qualifying", "Race") within a race event.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Session {
@@ -128,6 +188,42 @@ pub struct Session {
     pub start_time: Option<DateTime<Utc>>,
     /// End time in UTC (if known)
     pub end_time: Option<DateTime<Utc>>,
+}
+
+impl Session {
+    /// Get the estimated or exact end time of this session.
+    pub fn estimated_end_time(&self, series_id: &str) -> Option<DateTime<Utc>> {
+        self.end_time.or_else(|| {
+            self.start_time
+                .map(|st| st + session_default_duration(&self.name, &self.session_type, series_id))
+        })
+    }
+
+    /// Check if this session is currently active/live.
+    pub fn is_live(&self, series_id: &str) -> bool {
+        let now = Utc::now();
+        if let Some(st) = self.start_time {
+            let end = self
+                .end_time
+                .unwrap_or_else(|| st + session_default_duration(&self.name, &self.session_type, series_id));
+            st <= now && now <= end
+        } else {
+            false
+        }
+    }
+
+    /// Check if this session has finished/completed.
+    pub fn is_completed(&self, series_id: &str) -> bool {
+        let now = Utc::now();
+        if let Some(st) = self.start_time {
+            let end = self
+                .end_time
+                .unwrap_or_else(|| st + session_default_duration(&self.name, &self.session_type, series_id));
+            now > end
+        } else {
+            false
+        }
+    }
 }
 
 /// Whether a livestream is free or paid.
@@ -215,6 +311,37 @@ pub struct RaceEvent {
 }
 
 impl RaceEvent {
+    /// Compute dynamic event status based on session times and current time.
+    pub fn current_status(&self) -> EventStatus {
+        if self.status == EventStatus::Cancelled {
+            return EventStatus::Cancelled;
+        }
+
+        let sessions_with_times: Vec<&Session> = self
+            .sessions
+            .iter()
+            .filter(|s| s.start_time.is_some())
+            .collect();
+
+        if !sessions_with_times.is_empty() {
+            let any_live = sessions_with_times
+                .iter()
+                .any(|s| s.is_live(&self.series_id));
+            if any_live {
+                return EventStatus::Live;
+            }
+            let all_completed = sessions_with_times
+                .iter()
+                .all(|s| s.is_completed(&self.series_id));
+            if all_completed {
+                return EventStatus::Completed;
+            }
+            return EventStatus::Upcoming;
+        }
+
+        self.status.clone()
+    }
+
     /// Get the next upcoming session start time.
     /// Returns None if there are no sessions with known start times,
     /// or all sessions are in the past.

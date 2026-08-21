@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use super::models::RaceEvent;
 
-const CURRENT_CACHE_VERSION: u32 = 2;
+const CURRENT_CACHE_VERSION: u32 = 4;
 
 /// Metadata stored alongside cached events for a series.
 #[derive(Debug, Serialize, Deserialize)]

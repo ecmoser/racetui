@@ -289,13 +289,9 @@ pub fn draw_schedule(frame: &mut Frame, event: &crate::data::models::RaceEvent, 
                     let d = local_dt.format("%a, %b %d").to_string();
                     let t = local_dt.format("%l:%M %p").to_string();
 
-                    let is_past = session
-                        .end_time
-                        .map_or(start + chrono::Duration::hours(2) < now_utc, |e| {
-                            e < now_utc
-                        });
-                    let is_live = start <= now_utc && !is_past;
-                    let is_next = Some(start) == next_session_time;
+                    let is_past = session.is_completed(&event.series_id);
+                    let is_live = session.is_live(&event.series_id);
+                    let is_next = Some(start) == next_session_time && !is_live && !is_past;
                     (d, t, is_past, is_live, is_next)
                 }
                 None => (
