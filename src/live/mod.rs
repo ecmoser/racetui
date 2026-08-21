@@ -69,6 +69,12 @@ pub fn get_live_provider(series_id: &str) -> Option<Box<dyn LiveProviderBoxed>> 
         "formula_e" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("formula_e"))),
         "elms" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("elms"))),
         "24h_series" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("24h_series"))),
+        "motogp" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new())),
+        "moto2" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("moto2"))),
+        "moto3" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("moto3"))),
+        "worldsbk" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("worldsbk"))),
+        "wrc" => Some(Box::new(crate::scraper::wrc_live::WrcLiveProvider::new())),
+        "erc" => Some(Box::new(crate::scraper::wrc_live::WrcLiveProvider::new_with_series("erc"))),
         _ => None,
     }
 }
@@ -128,6 +134,12 @@ mod tests {
         assert!(get_live_provider("formula_e").is_some());
         assert!(get_live_provider("elms").is_some());
         assert!(get_live_provider("24h_series").is_some());
+        assert!(get_live_provider("motogp").is_some());
+        assert!(get_live_provider("moto2").is_some());
+        assert!(get_live_provider("moto3").is_some());
+        assert!(get_live_provider("worldsbk").is_some());
+        assert!(get_live_provider("wrc").is_some());
+        assert!(get_live_provider("erc").is_some());
         assert!(get_live_provider("unknown_series").is_none());
     }
 }

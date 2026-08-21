@@ -19,6 +19,7 @@ pub mod indycar_live;
 pub mod json_ld;
 pub mod lmem;
 pub mod motogp;
+pub mod motogp_live;
 pub mod nascar;
 pub mod nascar_live;
 pub mod nls;
@@ -33,6 +34,7 @@ pub mod tcr;
 pub mod wec;
 pub mod worldsbk;
 pub mod wrc;
+pub mod wrc_live;
 
 use anyhow::Result;
 

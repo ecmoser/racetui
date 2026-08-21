@@ -1024,7 +1024,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 28: Implement MotoGP and WRC live timing providers
+### [x] Step 28: Implement MotoGP and WRC live timing providers
 
 **What to do**: Create `src/scraper/motogp_live.rs` and `src/scraper/wrc_live.rs`.
 
