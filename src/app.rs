@@ -467,6 +467,37 @@ impl App {
         self.live_selected_driver = Some(prev);
     }
 
+    /// Select next session in the live session picker popup.
+    pub fn live_session_picker_select_next(&mut self) {
+        let count = self.get_live_sessions().len();
+        if count == 0 {
+            self.live_session_picker_state.select(None);
+            return;
+        }
+        let current = self.live_session_picker_state.selected().unwrap_or(0);
+        let next = if current + 1 >= count { 0 } else { current + 1 };
+        self.live_session_picker_state.select(Some(next));
+    }
+
+    /// Select previous session in the live session picker popup.
+    pub fn live_session_picker_select_prev(&mut self) {
+        let count = self.get_live_sessions().len();
+        if count == 0 {
+            self.live_session_picker_state.select(None);
+            return;
+        }
+        let current = self.live_session_picker_state.selected().unwrap_or(0);
+        let prev = if current == 0 { count - 1 } else { current - 1 };
+        self.live_session_picker_state.select(Some(prev));
+    }
+
+    /// Get the currently selected live session tuple `(series_id, short_name, session_name)` from the picker.
+    pub fn selected_live_session(&self) -> Option<(String, String, String)> {
+        let sessions = self.get_live_sessions();
+        let idx = self.live_session_picker_state.selected()?;
+        sessions.get(idx).cloned()
+    }
+
     /// Get notification messages for upcoming favorited events.
     /// Returns a Vec of (series_short_name, session_name, time_until_string).
     pub fn get_notifications(&self) -> Vec<String> {

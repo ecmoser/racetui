@@ -5,6 +5,7 @@ pub mod detail_view;
 pub mod filter_panel;
 pub mod help;
 pub mod list_view;
+pub mod live_session_picker;
 pub mod live_timing_table;
 pub mod live_view;
 pub mod standings_view;
@@ -43,6 +44,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     // Draw day events selection popup if visible
     if app.show_day_events {
         day_events::draw(frame, app);
+    }
+
+    // Draw live session picker popup if visible
+    if app.show_live_session_picker {
+        live_session_picker::draw(frame, app);
     }
 
     // Draw detail popup overlay if visible

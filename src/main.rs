@@ -859,6 +859,30 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         return;
     }
 
+    // If live session picker popup is active, handle session selection keys
+    if app.show_live_session_picker {
+        match key.code {
+            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
+                app.show_live_session_picker = false;
+            }
+            KeyCode::Char('j') | KeyCode::Down => {
+                app.live_session_picker_select_next();
+            }
+            KeyCode::Char('k') | KeyCode::Up => {
+                app.live_session_picker_select_prev();
+            }
+            KeyCode::Enter => {
+                if let Some((series_id, _, _)) = app.selected_live_session() {
+                    app.live_active_series = Some(series_id);
+                    app.show_live_session_picker = false;
+                    app.view_mode = app::ViewMode::Live;
+                }
+            }
+            _ => {}
+        }
+        return;
+    }
+
     // If detail view is active, handle detail view keys
     if app.show_detail {
         match key.code {
@@ -978,7 +1002,17 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
             app.view_mode = app::ViewMode::Calendar;
         }
         KeyCode::Char('3') => {
-            app.view_mode = app::ViewMode::Live;
+            let live_sessions = app.get_live_sessions();
+            if live_sessions.len() > 1 {
+                app.show_live_session_picker = true;
+                app.live_session_picker_state.select(Some(0));
+            } else if live_sessions.len() == 1 {
+                let (sid, _, _) = &live_sessions[0];
+                app.live_active_series = Some(sid.clone());
+                app.view_mode = app::ViewMode::Live;
+            } else {
+                app.view_mode = app::ViewMode::Live;
+            }
         }
         KeyCode::Char('4') => {
             app.view_mode = app::ViewMode::Standings;
@@ -2070,5 +2104,67 @@ mod tests {
         assert!(app.live_driver_detail_open);
         handle_key_event(&mut app, key(KeyCode::Enter));
         assert!(!app.live_driver_detail_open);
+    }
+
+    #[test]
+    fn test_live_session_picker_flow() {
+        let mut app = App::new(HashMap::new(), config::settings::UserConfig::default());
+        let now = chrono::Utc::now();
+
+        let event_f1 = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Bahrain GP".to_string(),
+            circuit_name: "Bahrain".to_string(),
+            location: "Sakhir".to_string(),
+            country: "Bahrain".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 3, 1).unwrap(),
+            round: Some(1),
+            sessions: vec![data::models::Session {
+                name: "Race".to_string(),
+                session_type: data::models::SessionType::Race,
+                start_time: Some(now - chrono::Duration::minutes(10)),
+                end_time: Some(now + chrono::Duration::minutes(50)),
+            }],
+            stream_links: vec![],
+            status: data::models::EventStatus::Live,
+        };
+
+        let event_nascar = data::models::RaceEvent {
+            series_id: "nascar_cup".to_string(),
+            event_name: "Daytona 500".to_string(),
+            circuit_name: "Daytona".to_string(),
+            location: "Daytona Beach".to_string(),
+            country: "USA".to_string(),
+            start_date: chrono::NaiveDate::from_ymd_opt(2026, 2, 15).unwrap(),
+            end_date: chrono::NaiveDate::from_ymd_opt(2026, 2, 15).unwrap(),
+            round: Some(1),
+            sessions: vec![data::models::Session {
+                name: "Race".to_string(),
+                session_type: data::models::SessionType::Race,
+                start_time: Some(now - chrono::Duration::minutes(15)),
+                end_time: Some(now + chrono::Duration::minutes(45)),
+            }],
+            stream_links: vec![],
+            status: data::models::EventStatus::Live,
+        };
+
+        app.update_series_data("f1".to_string(), vec![event_f1]);
+        app.update_series_data("nascar_cup".to_string(), vec![event_nascar]);
+
+        // Press '3' with 2 live sessions -> triggers picker popup
+        handle_key_event(&mut app, key(KeyCode::Char('3')));
+        assert!(app.show_live_session_picker);
+        assert_eq!(app.live_session_picker_state.selected(), Some(0));
+
+        // Navigate with j/k
+        handle_key_event(&mut app, key(KeyCode::Char('j')));
+        assert_eq!(app.live_session_picker_state.selected(), Some(1));
+
+        // Select NASCAR with Enter
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(!app.show_live_session_picker);
+        assert_eq!(app.view_mode, app::ViewMode::Live);
+        assert_eq!(app.live_active_series.as_deref(), Some("nascar_cup"));
     }
 }

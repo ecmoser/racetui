@@ -982,7 +982,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 23: Implement live session picker popup
+### [x] Step 23: Implement live session picker popup
 
 **What to do**: Create `src/ui/live_session_picker.rs` — popup listing concurrent live sessions when multiple are active.
 
