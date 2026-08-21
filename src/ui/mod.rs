@@ -5,6 +5,8 @@ pub mod detail_view;
 pub mod filter_panel;
 pub mod help;
 pub mod list_view;
+pub mod live_timing_table;
+pub mod live_view;
 pub mod standings_view;
 pub mod status_bar;
 
@@ -26,8 +28,8 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
     match app.view_mode {
         ViewMode::List => list_view::draw(frame, app, chunks[0]),
         ViewMode::Calendar => calendar_view::draw(frame, app, chunks[0]),
+        ViewMode::Live => live_view::draw(frame, app, chunks[0]),
         ViewMode::Standings => standings_view::draw(frame, app, chunks[0]),
-        _ => {}
     }
 
     // Draw the status bar

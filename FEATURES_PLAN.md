@@ -968,7 +968,7 @@ Implement `LiveProvider`:
 
 ---
 
-### [ ] Step 22: Create Live view UI — timing table + weather bar
+### [x] Step 22: Create Live view UI — timing table + weather bar
 
 **What to do**: Create `src/ui/live_view.rs` and `src/ui/live_timing_table.rs`.
 

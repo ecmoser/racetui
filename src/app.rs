@@ -431,6 +431,42 @@ impl App {
         self.standings_table_state.select(Some(prev));
     }
 
+    /// Select next driver row in the live timing table.
+    pub fn live_select_next(&mut self) {
+        let count = self
+            .live_timing_data
+            .as_ref()
+            .map(|d| d.drivers.len())
+            .unwrap_or(0);
+        if count == 0 {
+            self.live_timing_table_state.select(None);
+            self.live_selected_driver = None;
+            return;
+        }
+        let current = self.live_timing_table_state.selected().unwrap_or(0);
+        let next = if current + 1 >= count { 0 } else { current + 1 };
+        self.live_timing_table_state.select(Some(next));
+        self.live_selected_driver = Some(next);
+    }
+
+    /// Select previous driver row in the live timing table.
+    pub fn live_select_previous(&mut self) {
+        let count = self
+            .live_timing_data
+            .as_ref()
+            .map(|d| d.drivers.len())
+            .unwrap_or(0);
+        if count == 0 {
+            self.live_timing_table_state.select(None);
+            self.live_selected_driver = None;
+            return;
+        }
+        let current = self.live_timing_table_state.selected().unwrap_or(0);
+        let prev = if current == 0 { count - 1 } else { current - 1 };
+        self.live_timing_table_state.select(Some(prev));
+        self.live_selected_driver = Some(prev);
+    }
+
     /// Get notification messages for upcoming favorited events.
     /// Returns a Vec of (series_short_name, session_name, time_until_string).
     pub fn get_notifications(&self) -> Vec<String> {

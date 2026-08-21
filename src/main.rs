@@ -929,24 +929,28 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             app.running = false;
         }
-        // Navigation (List / Calendar / Standings)
+        // Navigation (List / Calendar / Live / Standings)
         KeyCode::Char('h') | KeyCode::Left => match app.view_mode {
             app::ViewMode::Calendar => app.calendar_select_prev_day(),
+            app::ViewMode::Live => app.live_sub_tab = app::LiveSubTab::Timing,
             app::ViewMode::Standings => app.standings_cycle_series(-1),
             _ => {}
         },
         KeyCode::Char('l') | KeyCode::Right => match app.view_mode {
             app::ViewMode::Calendar => app.calendar_select_next_day(),
+            app::ViewMode::Live => app.live_sub_tab = app::LiveSubTab::TrackMap,
             app::ViewMode::Standings => app.standings_cycle_series(1),
             _ => {}
         },
         KeyCode::Char('j') | KeyCode::Down => match app.view_mode {
             app::ViewMode::Calendar => app.calendar_select_next_week(),
+            app::ViewMode::Live => app.live_select_next(),
             app::ViewMode::Standings => app.standings_select_next(),
             _ => app.select_next(),
         },
         KeyCode::Char('k') | KeyCode::Up => match app.view_mode {
             app::ViewMode::Calendar => app.calendar_select_prev_week(),
+            app::ViewMode::Live => app.live_select_previous(),
             app::ViewMode::Standings => app.standings_select_previous(),
             _ => app.select_previous(),
         },
@@ -993,9 +997,11 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         KeyCode::Char('?') => {
             app.show_help = !app.show_help;
         }
-        // Toggle detail view / View day races in calendar
+        // Toggle detail view / View day races in calendar / Toggle live driver detail
         KeyCode::Enter => {
-            if app.view_mode == app::ViewMode::Calendar {
+            if app.view_mode == app::ViewMode::Live {
+                app.live_driver_detail_open = !app.live_driver_detail_open;
+            } else if app.view_mode == app::ViewMode::Calendar {
                 let day_events = app.events_on_selected_calendar_day();
                 if day_events.is_empty() {
                     app.set_status_message(format!(
@@ -2038,5 +2044,31 @@ mod tests {
         handle_key_event(&mut app, key(KeyCode::Enter));
         assert!(app.show_detail);
         assert_eq!(app.detail_tab, app::DetailTab::Schedule);
+    }
+
+    #[test]
+    fn test_live_view_keybindings() {
+        let mut app = App::new(HashMap::new(), config::settings::UserConfig::default());
+        assert_eq!(app.view_mode, app::ViewMode::List);
+
+        // Switch to Live view
+        handle_key_event(&mut app, key(KeyCode::Char('3')));
+        assert_eq!(app.view_mode, app::ViewMode::Live);
+        assert_eq!(app.live_sub_tab, app::LiveSubTab::Timing);
+
+        // Switch sub-tab to Track Map
+        handle_key_event(&mut app, key(KeyCode::Right));
+        assert_eq!(app.live_sub_tab, app::LiveSubTab::TrackMap);
+
+        // Switch sub-tab back to Timing
+        handle_key_event(&mut app, key(KeyCode::Left));
+        assert_eq!(app.live_sub_tab, app::LiveSubTab::Timing);
+
+        // Toggle driver detail with Enter
+        assert!(!app.live_driver_detail_open);
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(app.live_driver_detail_open);
+        handle_key_event(&mut app, key(KeyCode::Enter));
+        assert!(!app.live_driver_detail_open);
     }
 }
