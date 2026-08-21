@@ -18,6 +18,7 @@ pub mod json_ld;
 pub mod lmem;
 pub mod motogp;
 pub mod nascar;
+pub mod nascar_live;
 pub mod nls;
 pub mod porsche;
 pub mod raceday_watch;

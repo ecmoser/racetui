@@ -45,6 +45,22 @@ impl<T: LiveProvider> LiveProviderBoxed for T {
 pub fn get_live_provider(series_id: &str) -> Option<Box<dyn LiveProviderBoxed>> {
     match series_id {
         "f1" => Some(Box::new(crate::scraper::f1_live::F1LiveProvider::new())),
+        "nascar_cup" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
+            1,
+            "nascar_cup",
+        ))),
+        "nascar_xfinity" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
+            2,
+            "nascar_xfinity",
+        ))),
+        "nascar_trucks" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
+            3,
+            "nascar_trucks",
+        ))),
+        "arca" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
+            4,
+            "arca",
+        ))),
         _ => None,
     }
 }
@@ -93,6 +109,10 @@ mod tests {
     #[test]
     fn test_get_live_provider() {
         assert!(get_live_provider("f1").is_some());
+        assert!(get_live_provider("nascar_cup").is_some());
+        assert!(get_live_provider("nascar_xfinity").is_some());
+        assert!(get_live_provider("nascar_trucks").is_some());
+        assert!(get_live_provider("arca").is_some());
         assert!(get_live_provider("unknown_series").is_none());
     }
 }

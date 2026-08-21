@@ -960,7 +960,7 @@ Implement `LiveProvider`:
 
 ---
 
-### [ ] Step 21: Implement NASCAR live timing provider
+### [x] Step 21: Implement NASCAR live timing provider
 
 **What to do**: Create `src/scraper/nascar_live.rs` using `cf.nascar.com/live/feeds/live-feed.json`.
 
