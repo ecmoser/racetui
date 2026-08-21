@@ -5,6 +5,7 @@ pub mod detail_view;
 pub mod filter_panel;
 pub mod help;
 pub mod list_view;
+pub mod live_driver_detail;
 pub mod live_session_picker;
 pub mod live_timing_table;
 pub mod live_view;

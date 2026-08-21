@@ -990,7 +990,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 24: Implement driver detail expansion in Live view
+### [x] Step 24: Implement driver detail expansion in Live view
 
 **What to do**: Create `src/ui/live_driver_detail.rs` — expanded panel showing tire history, sectors, pit info when a driver is selected.
 

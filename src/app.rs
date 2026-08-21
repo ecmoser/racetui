@@ -339,6 +339,7 @@ impl App {
                 }
             }
         }
+        live.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.2.cmp(&b.2)));
         live
     }
 

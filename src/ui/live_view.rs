@@ -2,7 +2,7 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::{App, LiveSubTab};
-use crate::ui::live_timing_table;
+use crate::ui::{live_driver_detail, live_timing_table};
 
 /// Draw the Live view UI (header + weather bar + sub-tabs + timing table / track map).
 pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -49,7 +49,24 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     // 4. Content Area based on active sub-tab
     match app.live_sub_tab {
         LiveSubTab::Timing => {
-            live_timing_table::draw(frame, app, chunks[3], &timing_data);
+            if app.live_driver_detail_open {
+                let timing_chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Percentage(60), // Leaderboard table
+                        Constraint::Percentage(40), // Driver detail panel
+                    ])
+                    .split(chunks[3]);
+
+                live_timing_table::draw(frame, app, timing_chunks[0], &timing_data);
+
+                let selected_idx = app.live_timing_table_state.selected().unwrap_or(0);
+                if let Some(driver) = timing_data.drivers.get(selected_idx) {
+                    live_driver_detail::draw(frame, app, timing_chunks[1], driver);
+                }
+            } else {
+                live_timing_table::draw(frame, app, chunks[3], &timing_data);
+            }
         }
         LiveSubTab::TrackMap => {
             draw_track_map_placeholder(frame, chunks[3]);
@@ -312,5 +329,64 @@ mod tests {
         assert!(content.contains("Air: 24.5°C"));
         assert!(content.contains("Timing Leaderboard"));
         assert!(content.contains("Max Verstappen"));
+    }
+
+    #[test]
+    fn test_draw_live_view_with_driver_detail_expanded() {
+        let backend = TestBackend::new(120, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+        app.view_mode = crate::app::ViewMode::Live;
+        app.live_driver_detail_open = true;
+
+        let driver = LiveDriverEntry {
+            position: 1,
+            driver_number: Some(1),
+            driver_name: "Max Verstappen".to_string(),
+            driver_code: Some("VER".to_string()),
+            team_name: "Red Bull Racing".to_string(),
+            team_color: Some("#3671C6".to_string()),
+            gap_to_leader: "LEADER".to_string(),
+            interval: "-".to_string(),
+            last_lap_time: Some("1:20.123".to_string()),
+            best_lap_time: Some("1:19.876".to_string()),
+            sectors: SectorTimes::default(),
+            tire: Some(TireInfo {
+                compound: "Soft".to_string(),
+                laps: 12,
+                is_new: true,
+            }),
+            pits: PitInfo::default(),
+            laps_completed: 25,
+            status: "On Track".to_string(),
+            current_position: None,
+            fastest_lap: true,
+        };
+
+        app.live_timing_data = Some(LiveTimingData {
+            series_id: "f1".to_string(),
+            session_name: "Race".to_string(),
+            event_name: "Bahrain Grand Prix".to_string(),
+            circuit_name: "Bahrain International Circuit".to_string(),
+            total_laps: Some(57),
+            current_lap: Some(25),
+            time_remaining: None,
+            session_status: "Green".to_string(),
+            drivers: vec![driver],
+            weather: None,
+            updated_at: Utc::now(),
+        });
+
+        terminal
+            .draw(|f| {
+                draw(f, &mut app, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Driver Detail:"));
+        assert!(content.contains("Max Verstappen"));
+        assert!(content.contains("Red Bull Racing"));
     }
 }

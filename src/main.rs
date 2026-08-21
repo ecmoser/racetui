@@ -949,9 +949,13 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
 
     // Normal mode keybindings
     match key.code {
-        // Quit
+        // Quit / Close
         KeyCode::Char('q') | KeyCode::Char('Q') => {
-            app.running = false;
+            if app.view_mode == app::ViewMode::Live && app.live_driver_detail_open {
+                app.live_driver_detail_open = false;
+            } else {
+                app.running = false;
+            }
         }
         // Navigation (List / Calendar / Live / Standings)
         KeyCode::Char('h') | KeyCode::Left => match app.view_mode {
@@ -1129,8 +1133,12 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 app.show_detail = false;
             } else if app.show_day_events {
                 app.show_day_events = false;
+            } else if app.show_live_session_picker {
+                app.show_live_session_picker = false;
             } else if app.show_filter_panel {
                 app.show_filter_panel = false;
+            } else if app.view_mode == app::ViewMode::Live && app.live_driver_detail_open {
+                app.live_driver_detail_open = false;
             } else if app.search_query.is_some() {
                 app.search_query = None;
             }
