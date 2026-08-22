@@ -1148,7 +1148,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 43: Update README.md for Phase 3 (final)
+### [x] Step 43: Update README.md for Phase 3 (final)
 
 **What to do**: Final README with track maps, notifications, daemon mode, full config docs, updated series support table.
 
