@@ -33,9 +33,99 @@ pub struct UserConfig {
     #[serde(default)]
     pub hidden_series: HashSet<String>,
 
-    /// Live timing poll interval in seconds. Default: 5.
+    /// Live timing poll interval in seconds. Default: 2.
     #[serde(default = "default_live_poll_interval_secs")]
     pub live_poll_interval_secs: u64,
+
+    /// Daemon and background notification configuration.
+    #[serde(default)]
+    pub daemon: DaemonConfig,
+}
+
+/// Configuration for racetui daemon mode and background notifications.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct DaemonConfig {
+    /// How many minutes before a session start to trigger a notification. Default: 30.
+    #[serde(default = "default_daemon_notify_minutes_before")]
+    pub notify_minutes_before: u64,
+
+    /// Session types to notify for (e.g. ["race", "qualifying"] or ["all"]). Default: ["all"].
+    #[serde(default = "default_daemon_notify_session_types")]
+    pub notify_session_types: Vec<String>,
+
+    /// Series filter mode: "favorites" (only favorited series), "all" (all non-hidden series), or specific series ID. Default: "favorites".
+    #[serde(default = "default_daemon_notify_series_filter")]
+    pub notify_series_filter: String,
+
+    /// Whether to play a notification sound / audio alert. Default: true.
+    #[serde(default = "default_daemon_notify_sound")]
+    pub notify_sound: bool,
+
+    /// Polling / check interval in seconds for the daemon loop. Default: 300 (5 minutes).
+    #[serde(default = "default_daemon_poll_interval_secs")]
+    pub poll_interval_secs: u64,
+}
+
+fn default_daemon_notify_minutes_before() -> u64 {
+    30
+}
+
+fn default_daemon_notify_session_types() -> Vec<String> {
+    vec!["all".to_string()]
+}
+
+fn default_daemon_notify_series_filter() -> String {
+    "favorites".to_string()
+}
+
+fn default_daemon_notify_sound() -> bool {
+    true
+}
+
+fn default_daemon_poll_interval_secs() -> u64 {
+    300
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        Self {
+            notify_minutes_before: default_daemon_notify_minutes_before(),
+            notify_session_types: default_daemon_notify_session_types(),
+            notify_series_filter: default_daemon_notify_series_filter(),
+            notify_sound: default_daemon_notify_sound(),
+            poll_interval_secs: default_daemon_poll_interval_secs(),
+        }
+    }
+}
+
+impl DaemonConfig {
+    /// Check whether a session of the given name should trigger a notification based on `notify_session_types`.
+    pub fn should_notify_session(&self, session_name: &str) -> bool {
+        if self.notify_session_types.iter().any(|t| t == "all") {
+            return true;
+        }
+        let lower = session_name.to_lowercase();
+        self.notify_session_types
+            .iter()
+            .any(|t| lower.contains(&t.to_lowercase()))
+    }
+
+    /// Check whether an event from the given series should trigger a notification based on `notify_series_filter`.
+    pub fn should_notify_series(
+        &self,
+        series_id: &str,
+        favorites: &HashSet<String>,
+        hidden: &HashSet<String>,
+    ) -> bool {
+        if hidden.contains(series_id) {
+            return false;
+        }
+        match self.notify_series_filter.as_str() {
+            "all" => true,
+            "favorites" => favorites.contains(series_id),
+            specific => specific.eq_ignore_ascii_case(series_id),
+        }
+    }
 }
 
 fn default_cache_ttl_hours() -> u64 {
@@ -74,6 +164,7 @@ impl Default for UserConfig {
             default_view: default_view_mode(),
             hidden_series: HashSet::new(),
             live_poll_interval_secs: default_live_poll_interval_secs(),
+            daemon: DaemonConfig::default(),
         }
     }
 }
@@ -186,5 +277,49 @@ mod tests {
         assert!(parsed.favorites.contains("f1"));
         assert!(parsed.hidden_series.contains("dtm"));
         assert_eq!(parsed.default_view, "list");
+        assert_eq!(parsed.daemon.notify_minutes_before, 30);
+        assert_eq!(parsed.daemon.poll_interval_secs, 300);
+    }
+
+    #[test]
+    fn test_daemon_config_toml_parsing() {
+        let toml_sample = r#"
+            favorites = ["f1", "indycar"]
+            [daemon]
+            notify_minutes_before = 15
+            notify_session_types = ["race", "qualifying"]
+            notify_series_filter = "favorites"
+            notify_sound = false
+            poll_interval_secs = 60
+        "#;
+
+        let config: UserConfig = toml::from_str(toml_sample).unwrap();
+        assert_eq!(config.daemon.notify_minutes_before, 15);
+        assert_eq!(
+            config.daemon.notify_session_types,
+            vec!["race".to_string(), "qualifying".to_string()]
+        );
+        assert_eq!(config.daemon.notify_series_filter, "favorites");
+        assert!(!config.daemon.notify_sound);
+        assert_eq!(config.daemon.poll_interval_secs, 60);
+
+        assert!(config.daemon.should_notify_session("Grand Prix - Race"));
+        assert!(config.daemon.should_notify_session("Qualifying 1"));
+        assert!(!config.daemon.should_notify_session("Practice 1"));
+
+        let mut favorites = HashSet::new();
+        favorites.insert("f1".to_string());
+        let mut hidden = HashSet::new();
+        hidden.insert("wec".to_string());
+
+        assert!(config
+            .daemon
+            .should_notify_series("f1", &favorites, &hidden));
+        assert!(!config
+            .daemon
+            .should_notify_series("motogp", &favorites, &hidden));
+        assert!(!config
+            .daemon
+            .should_notify_series("wec", &favorites, &hidden));
     }
 }

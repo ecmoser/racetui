@@ -1100,7 +1100,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 37: Add notification configuration to config.toml
+### [x] Step 37: Add notification configuration to config.toml
 
 **What to do**: Add `DaemonConfig` struct with `[daemon]` TOML section. Fields: `notify_minutes_before`, `notify_session_types`, `notify_series_filter`, `notify_sound`, `poll_interval_secs`.
 
