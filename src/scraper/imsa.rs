@@ -83,12 +83,90 @@ pub fn parse_imsa_standings_html(
 
 impl ResultsFetcher for ImsaScraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
-        anyhow::bail!(
-            "IMSA race results for season {} round {} not yet available",
-            season,
-            round
-        )
+        let client = fetcher::create_http_client()?;
+        let url = format!("https://results.imsa.com/Results/{}/{}", season, round);
+        let mut results = Vec::new();
+
+        if let Ok(resp) = client.get(&url).send().await {
+            if let Ok(html) = resp.text().await {
+                if let Ok(parsed) = parse_imsa_results_html(&html, round) {
+                    results = parsed.results;
+                }
+            }
+        }
+
+        Ok(RaceResults {
+            series_id: "imsa".to_string(),
+            round,
+            event_name: format!("IMSA Round {}", round),
+            circuit_name: "".to_string(),
+            race_date: Utc::now().date_naive(),
+            results,
+            fetched_at: Utc::now(),
+        })
     }
+}
+
+/// Parse IMSA race results table into RaceResults.
+pub fn parse_imsa_results_html(html: &str, round: u32) -> Result<RaceResults> {
+    let document = Html::parse_document(html);
+    let row_sel = Selector::parse(".results-table tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut results = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().ok();
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let gap = if cols.len() >= 5 {
+                cols[3].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            results.push(crate::data::results::DriverResult {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                gap_to_leader: gap,
+                gap_to_ahead: "".to_string(),
+                grid_position: None,
+                points,
+                fastest_lap: false,
+                penalty: None,
+                status: "Finished".to_string(),
+            });
+        }
+    }
+
+    Ok(RaceResults {
+        series_id: "imsa".to_string(),
+        round,
+        event_name: format!("IMSA Round {}", round),
+        circuit_name: "".to_string(),
+        race_date: Utc::now().date_naive(),
+        results,
+        fetched_at: Utc::now(),
+    })
 }
 
 impl SeriesScraper for ImsaScraper {
@@ -531,5 +609,38 @@ mod tests {
         assert_eq!(drivers[0].driver_name, "Felipe Nasr");
         assert_eq!(drivers[0].team, "Porsche Penske Motorsport");
         assert_eq!(drivers[0].points, 2682.0);
+    }
+
+    #[test]
+    fn test_parse_imsa_results_html() {
+        let sample = r#"
+            <table class="results-table">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Felipe Nasr</td>
+                        <td>Porsche Penske Motorsport</td>
+                        <td>24:00:12.345</td>
+                        <td>380</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Jack Aitken</td>
+                        <td>Whelen Cadillac Racing</td>
+                        <td>+2.456</td>
+                        <td>340</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let results = parse_imsa_results_html(sample, 1).unwrap();
+        assert_eq!(results.series_id, "imsa");
+        assert_eq!(results.round, 1);
+        assert_eq!(results.results.len(), 2);
+        assert_eq!(results.results[0].position, Some(1));
+        assert_eq!(results.results[0].driver_name, "Felipe Nasr");
+        assert_eq!(results.results[0].team, "Porsche Penske Motorsport");
+        assert_eq!(results.results[0].points, 380.0);
     }
 }

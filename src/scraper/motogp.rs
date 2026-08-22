@@ -173,13 +173,196 @@ struct MotoGpConstructorInfo {
 
 impl ResultsFetcher for MotoGpScraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
-        anyhow::bail!(
-            "{} race results for season {} round {} not yet available",
+        self.fetch_session_results(season, round, "RAC").await
+    }
+
+    async fn fetch_sprint(&self, season: u32, round: u32) -> Result<RaceResults> {
+        self.fetch_session_results(season, round, "SPR").await
+    }
+}
+
+impl MotoGpScraper {
+    async fn fetch_session_results(
+        &self,
+        season: u32,
+        round: u32,
+        session_type: &str,
+    ) -> Result<RaceResults> {
+        let client = fetcher::create_http_client()?;
+
+        // 1. Fetch seasons to get season UUID
+        let seasons_url = "https://api.motogp.pulselive.com/motogp/v1/results/seasons";
+        let seasons_text = client.get(seasons_url).send().await?.text().await?;
+        let seasons: Vec<MotoGpSeason> = serde_json::from_str(&seasons_text)?;
+        let target_season = seasons
+            .iter()
+            .find(|s| s.year == season as i32)
+            .or_else(|| seasons.iter().find(|s| s.current))
+            .or_else(|| seasons.first())
+            .ok_or_else(|| anyhow::anyhow!("No MotoGP season for {}", season))?;
+
+        // 2. Fetch events for season
+        let events_url = format!(
+            "https://api.motogp.pulselive.com/motogp/v1/results/events?seasonUuid={}",
+            target_season.id
+        );
+        let events_text = client.get(&events_url).send().await?.text().await?;
+        let events_raw: Vec<MotoGpEventSummary> = serde_json::from_str(&events_text)?;
+        let target_event = events_raw
+            .into_iter()
+            .find(|e| e.round == Some(round))
+            .ok_or_else(|| {
+                anyhow::anyhow!("Event round {} not found in season {}", round, season)
+            })?;
+
+        // 3. Fetch categories
+        let cat_url = format!(
+            "https://api.motogp.pulselive.com/motogp/v1/results/categories?seasonUuid={}",
+            target_season.id
+        );
+        let cat_text = client.get(&cat_url).send().await?.text().await?;
+        let categories: Vec<MotoGpCategory> = serde_json::from_str(&cat_text)?;
+        let cat_target_name = match self.category {
+            "moto2" => "Moto2",
+            "moto3" => "Moto3",
+            _ => "MotoGP",
+        };
+        let target_category = categories
+            .iter()
+            .find(|c| {
+                c.name
+                    .to_lowercase()
+                    .contains(&cat_target_name.to_lowercase())
+            })
+            .or_else(|| categories.first())
+            .ok_or_else(|| anyhow::anyhow!("Category {} not found", self.category))?;
+
+        // 4. Fetch sessions
+        let sessions_url = format!(
+            "https://api.motogp.pulselive.com/motogp/v1/results/sessions?eventUuid={}&categoryUuid={}",
+            target_event.id, target_category.id
+        );
+        let sessions_text = client.get(&sessions_url).send().await?.text().await?;
+        let sessions_raw: Vec<MotoGpSessionSummary> = serde_json::from_str(&sessions_text)?;
+        let target_session = sessions_raw
+            .iter()
+            .find(|s| s.session_type.eq_ignore_ascii_case(session_type))
+            .or_else(|| sessions_raw.last())
+            .ok_or_else(|| anyhow::anyhow!("No session found for {}", session_type))?;
+
+        // 5. Fetch classification
+        let class_url = format!(
+            "https://api.motogp.pulselive.com/motogp/v1/results/session/{}/classification",
+            target_session.id
+        );
+        let class_text = client.get(&class_url).send().await?.text().await?;
+        parse_motogp_race_results(
+            &class_text,
             self.category,
-            season,
-            round
+            round,
+            &target_event.name,
+            &target_event.circuit.map(|c| c.name).unwrap_or_default(),
         )
     }
+}
+
+/// Parse MotoGP session classification JSON into RaceResults.
+pub fn parse_motogp_race_results(
+    json: &str,
+    series_id: &str,
+    round: u32,
+    event_name: &str,
+    circuit_name: &str,
+) -> Result<RaceResults> {
+    let resp: MotoGpSessionResultsResponse = serde_json::from_str(json)?;
+    let mut results = Vec::new();
+
+    for entry in resp.classification {
+        let rider_name = entry
+            .rider
+            .as_ref()
+            .map(|r| r.full_name.clone())
+            .unwrap_or_else(|| "Unknown".to_string());
+        let rider_num = entry.rider.as_ref().and_then(|r| r.number);
+        let team_name = entry
+            .team
+            .as_ref()
+            .map(|t| t.name.clone())
+            .unwrap_or_default();
+
+        let gap_leader = entry
+            .gap
+            .as_ref()
+            .and_then(|g| g.first.clone())
+            .unwrap_or_default();
+        let gap_ahead = entry
+            .gap
+            .as_ref()
+            .and_then(|g| g.lap.clone())
+            .unwrap_or_default();
+
+        results.push(crate::data::results::DriverResult {
+            position: Some(entry.position),
+            driver_name: rider_name,
+            driver_code: None,
+            driver_number: rider_num,
+            team: team_name,
+            gap_to_leader: gap_leader,
+            gap_to_ahead: gap_ahead,
+            grid_position: None,
+            points: entry.points.unwrap_or(0.0),
+            fastest_lap: false,
+            penalty: None,
+            status: entry.status.unwrap_or_else(|| "Finished".to_string()),
+        });
+    }
+
+    Ok(RaceResults {
+        series_id: series_id.to_string(),
+        round,
+        event_name: event_name.to_string(),
+        circuit_name: circuit_name.to_string(),
+        race_date: Utc::now().date_naive(),
+        results,
+        fetched_at: Utc::now(),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpEventSummary {
+    id: String,
+    name: String,
+    round: Option<u32>,
+    circuit: Option<MotoGpCircuit>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpSessionSummary {
+    id: String,
+    #[serde(rename = "type")]
+    session_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpSessionResultsResponse {
+    #[serde(default)]
+    classification: Vec<MotoGpSessionResultEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpSessionResultEntry {
+    position: u32,
+    rider: Option<MotoGpRiderInfo>,
+    team: Option<MotoGpTeamInfo>,
+    points: Option<f64>,
+    gap: Option<MotoGpGapInfo>,
+    status: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpGapInfo {
+    first: Option<String>,
+    lap: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -960,5 +1143,64 @@ mod tests {
         assert_eq!(standings.drivers[0].wins, 11);
         assert_eq!(standings.constructors.len(), 2);
         assert_eq!(standings.constructors[0].name, "Ducati");
+    }
+
+    #[test]
+    fn test_parse_motogp_race_results() {
+        let sample = r#"{
+            "classification": [
+                {
+                    "position": 1,
+                    "rider": {
+                        "full_name": "Marc Marquez",
+                        "number": 93
+                    },
+                    "team": {
+                        "name": "Ducati Lenovo Team"
+                    },
+                    "points": 25.0,
+                    "gap": {
+                        "first": "",
+                        "lap": ""
+                    },
+                    "status": "Finished"
+                },
+                {
+                    "position": 2,
+                    "rider": {
+                        "full_name": "Jorge Martin",
+                        "number": 89
+                    },
+                    "team": {
+                        "name": "Aprilia Racing"
+                    },
+                    "points": 20.0,
+                    "gap": {
+                        "first": "+1.234",
+                        "lap": "+1.234"
+                    },
+                    "status": "Finished"
+                }
+            ]
+        }"#;
+
+        let results = parse_motogp_race_results(
+            sample,
+            "motogp",
+            1,
+            "Thai Grand Prix",
+            "Chang International Circuit",
+        )
+        .unwrap();
+        assert_eq!(results.series_id, "motogp");
+        assert_eq!(results.round, 1);
+        assert_eq!(results.event_name, "Thai Grand Prix");
+        assert_eq!(results.results.len(), 2);
+        assert_eq!(results.results[0].position, Some(1));
+        assert_eq!(results.results[0].driver_name, "Marc Marquez");
+        assert_eq!(results.results[0].points, 25.0);
+        assert_eq!(results.results[1].position, Some(2));
+        assert_eq!(results.results[1].driver_name, "Jorge Martin");
+        assert_eq!(results.results[1].gap_to_leader, "+1.234");
     }
 }

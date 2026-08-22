@@ -1132,7 +1132,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 41: Implement remaining results fetchers
+### [x] Step 41: Implement remaining results fetchers
 
 **What to do**: Fill in all remaining series results fetchers from Step 11 stubs.
 

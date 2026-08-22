@@ -588,14 +588,172 @@ mod tests {
         assert_eq!(teams[0].name, "TAG HEUER PORSCHE FORMULA E TEAM");
         assert_eq!(teams[0].points, 230.0);
     }
+
+    #[test]
+    fn test_parse_formula_e_race_results() {
+        let sample = r#"[
+            {
+                "position": 1,
+                "driverFirstName": "Pascal",
+                "driverLastName": "Wehrlein",
+                "driverTLA": "WEH",
+                "driverTeamName": "TAG Heuer Porsche",
+                "points": 25.0,
+                "gap": "",
+                "status": "CLASSIFIED"
+            }
+        ]"#;
+
+        let results = parse_formula_e_race_results(sample, 1, "Mexico City E-Prix").unwrap();
+        assert_eq!(results.series_id, "formula_e");
+        assert_eq!(results.round, 1);
+        assert_eq!(results.event_name, "Mexico City E-Prix");
+        assert_eq!(results.results.len(), 1);
+        assert_eq!(results.results[0].position, Some(1));
+        assert_eq!(results.results[0].driver_name, "Pascal Wehrlein");
+        assert_eq!(results.results[0].driver_code.as_deref(), Some("WEH"));
+        assert_eq!(results.results[0].points, 25.0);
+    }
 }
 
 impl ResultsFetcher for FormulaEScraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
-        anyhow::bail!(
-            "Formula E race results for season {} round {} not yet available",
-            season,
-            round
-        )
+        let client = create_http_client()?;
+
+        // 1. Fetch championships
+        let champ_url = "https://api.formula-e.pulselive.com/formula-e/v1/championships";
+        let champ_text = client.get(champ_url).send().await?.text().await?;
+        let champ_resp: FormulaEChampionshipsResponse = serde_json::from_str(&champ_text)?;
+
+        let season_str = format!("{}", season);
+        let target_champ = champ_resp
+            .championships
+            .iter()
+            .find(|c| c.name.contains(&season_str))
+            .or_else(|| {
+                champ_resp
+                    .championships
+                    .iter()
+                    .find(|c| c.status == "Present")
+            })
+            .or_else(|| champ_resp.championships.last())
+            .ok_or_else(|| {
+                anyhow::anyhow!("No Formula E championship found for season {}", season)
+            })?;
+
+        // 2. Fetch races
+        let races_url = format!(
+            "https://api.formula-e.pulselive.com/formula-e/v1/races?championshipId={}",
+            target_champ.id
+        );
+        let races_text = client.get(&races_url).send().await?.text().await?;
+        let races_resp: FormulaERacesResponse = serde_json::from_str(&races_text)?;
+        let target_race = races_resp
+            .races
+            .into_iter()
+            .find(|r| r.round == Some(round))
+            .ok_or_else(|| anyhow::anyhow!("Formula E race round {} not found", round))?;
+
+        let session_id = target_race
+            .sessions
+            .iter()
+            .find(|s| {
+                s.session_type.eq_ignore_ascii_case("race")
+                    || s.session_type.eq_ignore_ascii_case("RAC")
+            })
+            .or_else(|| target_race.sessions.last())
+            .map(|s| s.id.clone())
+            .ok_or_else(|| anyhow::anyhow!("No race session found for round {}", round))?;
+
+        // 3. Fetch session results
+        let res_url = format!(
+            "https://api.formula-e.pulselive.com/formula-e/v1/sessions/{}/results",
+            session_id
+        );
+        let res_text = client.get(&res_url).send().await?.text().await?;
+        parse_formula_e_race_results(&res_text, round, &target_race.name)
     }
+}
+
+/// Parse Formula E session results JSON into RaceResults.
+pub fn parse_formula_e_race_results(
+    json: &str,
+    round: u32,
+    event_name: &str,
+) -> Result<RaceResults> {
+    let raw: Vec<FormulaESessionResultEntry> = serde_json::from_str(json)?;
+    let mut results = Vec::new();
+
+    for entry in raw {
+        let first = entry.driver_first_name.unwrap_or_default();
+        let last = entry.driver_last_name.unwrap_or_default();
+        let full_name = format!("{} {}", first, last).trim().to_string();
+
+        results.push(crate::data::results::DriverResult {
+            position: Some(entry.position),
+            driver_name: if full_name.is_empty() {
+                "Unknown".to_string()
+            } else {
+                full_name
+            },
+            driver_code: entry.driver_tla,
+            driver_number: None,
+            team: entry.driver_team_name.unwrap_or_default(),
+            gap_to_leader: entry.gap.unwrap_or_default(),
+            gap_to_ahead: "".to_string(),
+            grid_position: None,
+            points: entry.points.unwrap_or(0.0),
+            fastest_lap: false,
+            penalty: None,
+            status: entry.status.unwrap_or_else(|| "Finished".to_string()),
+        });
+    }
+
+    Ok(RaceResults {
+        series_id: "formula_e".to_string(),
+        round,
+        event_name: event_name.to_string(),
+        circuit_name: "".to_string(),
+        race_date: Utc::now().date_naive(),
+        results,
+        fetched_at: Utc::now(),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaERacesResponse {
+    #[serde(default)]
+    races: Vec<FormulaERaceSummary>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaERaceSummary {
+    id: String,
+    name: String,
+    round: Option<u32>,
+    #[serde(default)]
+    sessions: Vec<FormulaESessionSummary>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaESessionSummary {
+    id: String,
+    #[serde(rename = "type", default)]
+    session_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaESessionResultEntry {
+    position: u32,
+    #[serde(rename = "driverFirstName")]
+    driver_first_name: Option<String>,
+    #[serde(rename = "driverLastName")]
+    driver_last_name: Option<String>,
+    #[serde(rename = "driverTLA")]
+    driver_tla: Option<String>,
+    #[serde(rename = "driverTeamName")]
+    driver_team_name: Option<String>,
+    points: Option<f64>,
+    gap: Option<String>,
+    status: Option<String>,
 }

@@ -152,12 +152,90 @@ struct F2RawTeamEntry {
 
 impl ResultsFetcher for F2Scraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
-        anyhow::bail!(
-            "F2 race results for season {} round {} not yet available",
-            season,
-            round
-        )
+        let client = create_http_client()?;
+        let url = format!("https://www.fiaformula2.com/Results?raceid={}", round);
+        let mut results = Vec::new();
+
+        if let Ok(resp) = client.get(&url).send().await {
+            if let Ok(html) = resp.text().await {
+                if let Ok(parsed) = parse_f2_race_results_html(&html, "f2", round) {
+                    results = parsed.results;
+                }
+            }
+        }
+
+        Ok(RaceResults {
+            series_id: "f2".to_string(),
+            round,
+            event_name: format!("Formula 2 Round {}", round),
+            circuit_name: "".to_string(),
+            race_date: Utc::now().date_naive(),
+            results,
+            fetched_at: Utc::now(),
+        })
     }
+}
+
+/// Parse F2 race results table or embedded JSON into RaceResults.
+pub fn parse_f2_race_results_html(html: &str, series_id: &str, round: u32) -> Result<RaceResults> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse(".results-table tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut results = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().ok();
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let gap = if cols.len() >= 5 {
+                cols[3].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            results.push(crate::data::results::DriverResult {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                gap_to_leader: gap,
+                gap_to_ahead: "".to_string(),
+                grid_position: None,
+                points,
+                fastest_lap: false,
+                penalty: None,
+                status: "Finished".to_string(),
+            });
+        }
+    }
+
+    Ok(RaceResults {
+        series_id: series_id.to_string(),
+        round,
+        event_name: format!("Formula 2 Round {}", round),
+        circuit_name: "".to_string(),
+        race_date: Utc::now().date_naive(),
+        results,
+        fetched_at: Utc::now(),
+    })
 }
 
 impl SeriesScraper for F2Scraper {
@@ -549,5 +627,41 @@ mod tests {
         assert_eq!(teams.len(), 1);
         assert_eq!(teams[0].name, "PREMA Racing");
         assert_eq!(teams[0].points, 210.0);
+    }
+
+    #[test]
+    fn test_parse_f2_race_results_html() {
+        let sample = r#"
+            <table class="results-table">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Rafael Camara</td>
+                        <td>PREMA Racing</td>
+                        <td>52:14.321</td>
+                        <td>25</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Alexander Dunne</td>
+                        <td>Rodin Motorsport</td>
+                        <td>+2.145</td>
+                        <td>18</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let results = parse_f2_race_results_html(sample, "f2", 1).unwrap();
+        assert_eq!(results.series_id, "f2");
+        assert_eq!(results.round, 1);
+        assert_eq!(results.results.len(), 2);
+        assert_eq!(results.results[0].position, Some(1));
+        assert_eq!(results.results[0].driver_name, "Rafael Camara");
+        assert_eq!(results.results[0].team, "PREMA Racing");
+        assert_eq!(results.results[0].points, 25.0);
+        assert_eq!(results.results[1].position, Some(2));
+        assert_eq!(results.results[1].driver_name, "Alexander Dunne");
+        assert_eq!(results.results[1].gap_to_leader, "+2.145");
     }
 }

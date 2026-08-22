@@ -85,12 +85,93 @@ pub fn parse_super_gt_standings_html(
 
 impl ResultsFetcher for SuperGtScraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
-        anyhow::bail!(
-            "Super GT race results for season {} round {} not yet available",
-            season,
-            round
-        )
+        let client = create_http_client()?;
+        let url = format!(
+            "https://supergt.net/results/race/{}/gt500/{}",
+            season, round
+        );
+        let mut results = Vec::new();
+
+        if let Ok(resp) = client.get(&url).send().await {
+            if let Ok(html) = resp.text().await {
+                if let Ok(parsed) = parse_super_gt_results_html(&html, round) {
+                    results = parsed.results;
+                }
+            }
+        }
+
+        Ok(RaceResults {
+            series_id: "super_gt".to_string(),
+            round,
+            event_name: format!("Super GT Round {}", round),
+            circuit_name: "".to_string(),
+            race_date: Utc::now().date_naive(),
+            results,
+            fetched_at: Utc::now(),
+        })
     }
+}
+
+/// Parse Super GT race results table into RaceResults.
+pub fn parse_super_gt_results_html(html: &str, round: u32) -> Result<RaceResults> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse(".table-results tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut results = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().ok();
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let gap = if cols.len() >= 5 {
+                cols[3].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            results.push(crate::data::results::DriverResult {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                gap_to_leader: gap,
+                gap_to_ahead: "".to_string(),
+                grid_position: None,
+                points,
+                fastest_lap: false,
+                penalty: None,
+                status: "Finished".to_string(),
+            });
+        }
+    }
+
+    Ok(RaceResults {
+        series_id: "super_gt".to_string(),
+        round,
+        event_name: format!("Super GT Round {}", round),
+        circuit_name: "".to_string(),
+        race_date: Utc::now().date_naive(),
+        results,
+        fetched_at: Utc::now(),
+    })
 }
 
 impl SeriesScraper for SuperGtScraper {
@@ -386,5 +467,41 @@ mod tests {
         assert_eq!(drivers[0].driver_name, "Sho Tsuboi / Kenta Yamashita");
         assert_eq!(drivers[0].team, "au TOM'S GR Supra");
         assert_eq!(drivers[0].points, 88.0);
+    }
+
+    #[test]
+    fn test_parse_super_gt_results_html() {
+        let sample = r#"
+            <table class="table-results">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Sho Tsuboi / Kenta Yamashita</td>
+                        <td>au TOM'S GR Supra</td>
+                        <td>1:58:12.345</td>
+                        <td>20</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Tomoki Nojiri / Nobuharu Matsushita</td>
+                        <td>ARTA MUGEN CIVIC TYPE R-GT</td>
+                        <td>+3.456</td>
+                        <td>15</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let results = parse_super_gt_results_html(sample, 1).unwrap();
+        assert_eq!(results.series_id, "super_gt");
+        assert_eq!(results.round, 1);
+        assert_eq!(results.results.len(), 2);
+        assert_eq!(results.results[0].position, Some(1));
+        assert_eq!(
+            results.results[0].driver_name,
+            "Sho Tsuboi / Kenta Yamashita"
+        );
+        assert_eq!(results.results[0].team, "au TOM'S GR Supra");
+        assert_eq!(results.results[0].points, 20.0);
     }
 }

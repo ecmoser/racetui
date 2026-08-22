@@ -121,12 +121,90 @@ pub fn parse_wec_constructors_html(
 
 impl ResultsFetcher for WecScraper {
     async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
-        anyhow::bail!(
-            "WEC race results for season {} round {} not yet available",
-            season,
-            round
-        )
+        let client = create_http_client()?;
+        let url = format!("https://www.fiawec.com/en/race/result/{}", round);
+        let mut results = Vec::new();
+
+        if let Ok(resp) = client.get(&url).send().await {
+            if let Ok(html) = resp.text().await {
+                if let Ok(parsed) = parse_wec_results_html(&html, round) {
+                    results = parsed.results;
+                }
+            }
+        }
+
+        Ok(RaceResults {
+            series_id: "wec".to_string(),
+            round,
+            event_name: format!("FIA WEC Round {}", round),
+            circuit_name: "".to_string(),
+            race_date: Utc::now().date_naive(),
+            results,
+            fetched_at: Utc::now(),
+        })
     }
+}
+
+/// Parse WEC race results table into RaceResults.
+pub fn parse_wec_results_html(html: &str, round: u32) -> Result<RaceResults> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse(
+        ".results-table tbody tr, table.table-standing tbody tr, table tbody tr",
+    )
+    .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut results = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().ok();
+            let team = cols[1].clone();
+            let car_num = cols.get(2).cloned().unwrap_or_default();
+            let drivers = cols.get(3).cloned().unwrap_or_default();
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            let driver_name = if !drivers.is_empty() {
+                drivers
+            } else {
+                team.clone()
+            };
+
+            results.push(crate::data::results::DriverResult {
+                position: pos,
+                driver_name,
+                driver_code: None,
+                driver_number: car_num.trim_start_matches('#').parse::<u32>().ok(),
+                team,
+                gap_to_leader: "".to_string(),
+                gap_to_ahead: "".to_string(),
+                grid_position: None,
+                points,
+                fastest_lap: false,
+                penalty: None,
+                status: "Finished".to_string(),
+            });
+        }
+    }
+
+    Ok(RaceResults {
+        series_id: "wec".to_string(),
+        round,
+        event_name: format!("FIA WEC Round {}", round),
+        circuit_name: "".to_string(),
+        race_date: Utc::now().date_naive(),
+        results,
+        fetched_at: Utc::now(),
+    })
 }
 
 impl SeriesScraper for WecScraper {
@@ -426,5 +504,41 @@ mod tests {
         assert_eq!(mfg[0].position, 1);
         assert_eq!(mfg[0].name, "Porsche Penske Motorsport");
         assert_eq!(mfg[0].points, 152.0);
+    }
+
+    #[test]
+    fn test_parse_wec_results_html() {
+        let sample = r#"
+            <table class="results-table">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Porsche Penske Motorsport</td>
+                        <td>#6</td>
+                        <td>Estre / Lotterer / Vanthoor</td>
+                        <td>25</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Toyota Gazoo Racing</td>
+                        <td>#7</td>
+                        <td>Conway / Kobayashi / de Vries</td>
+                        <td>18</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let results = parse_wec_results_html(sample, 1).unwrap();
+        assert_eq!(results.series_id, "wec");
+        assert_eq!(results.round, 1);
+        assert_eq!(results.results.len(), 2);
+        assert_eq!(results.results[0].position, Some(1));
+        assert_eq!(
+            results.results[0].driver_name,
+            "Estre / Lotterer / Vanthoor"
+        );
+        assert_eq!(results.results[0].driver_number, Some(6));
+        assert_eq!(results.results[0].points, 25.0);
     }
 }
