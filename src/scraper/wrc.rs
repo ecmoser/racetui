@@ -14,14 +14,80 @@ pub struct WrcScraper;
 
 impl StandingsFetcher for WrcScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = create_http_client()?;
+        let standings_url = "https://www.wrc.com/championship/standings";
+        let mut drivers = Vec::new();
+
+        if let Ok(resp) = client.get(standings_url).send().await {
+            if let Ok(html) = resp.text().await {
+                if let Ok(parsed) = parse_wrc_standings_html(&html, "wrc", season) {
+                    drivers = parsed.drivers;
+                }
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "wrc".to_string(),
             season,
-            drivers: vec![],
+            drivers,
             constructors: vec![],
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse WRC driver standings table HTML.
+pub fn parse_wrc_standings_html(
+    html: &str,
+    series_id: &str,
+    season: u32,
+) -> Result<SeasonStandings> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse(".standings-table tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().unwrap_or((drivers.len() + 1) as u32);
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            drivers.push(crate::data::standings::DriverStanding {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(SeasonStandings {
+        series_id: series_id.to_string(),
+        season,
+        drivers,
+        constructors: vec![],
+        fetched_at: Utc::now(),
+    })
 }
 
 impl ResultsFetcher for WrcScraper {
@@ -411,5 +477,33 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[13].event_name, "Rally Saudi Arabia");
         assert_eq!(events[13].round, Some(14));
+    }
+
+    #[test]
+    fn test_parse_wrc_standings_html() {
+        let sample = r#"
+            <table class="standings-table">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Thierry Neuville</td>
+                        <td>Hyundai Shell Mobis WRT</td>
+                        <td>225</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Ott Tänak</td>
+                        <td>Hyundai Shell Mobis WRT</td>
+                        <td>200</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let standings = parse_wrc_standings_html(sample, "wrc", 2026).unwrap();
+        assert_eq!(standings.drivers.len(), 2);
+        assert_eq!(standings.drivers[0].driver_name, "Thierry Neuville");
+        assert_eq!(standings.drivers[0].position, 1);
+        assert_eq!(standings.drivers[0].points, 225.0);
     }
 }

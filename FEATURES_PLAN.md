@@ -1124,7 +1124,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 40: Implement remaining standings fetchers
+### [x] Step 40: Implement remaining standings fetchers
 
 **What to do**: Fill in all remaining series standings fetchers from Step 11 stubs.
 

@@ -2151,8 +2151,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_all_scrapers_execution() {
-        let registry =
-            data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
+        let registry = data::series_registry::load_series_registry_auto().unwrap();
         assert_eq!(registry.len(), 36);
         for (id, series) in &registry {
             let scraper = scraper::get_scraper(id);
@@ -2166,8 +2165,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_standings_loaders() {
-        let registry =
-            data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
+        let registry = data::series_registry::load_series_registry_auto().unwrap();
         let mut app = App::new(registry, config::UserConfig::default());
         let (tx, mut rx) = mpsc::unbounded_channel::<AppEvent>();
 
@@ -2198,8 +2196,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_spawn_results_loaders() {
-        let registry =
-            data::series_registry::load_series_registry(Path::new("data/series.toml")).unwrap();
+        let registry = data::series_registry::load_series_registry_auto().unwrap();
         let mut app = App::new(registry, config::UserConfig::default());
 
         let completed_event = data::models::RaceEvent {

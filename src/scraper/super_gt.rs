@@ -14,14 +14,73 @@ pub struct SuperGtScraper;
 
 impl StandingsFetcher for SuperGtScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = create_http_client()?;
+        let url = format!(
+            "https://supergt.net/results/driver_ranking/{}/gt500",
+            season
+        );
+        let mut drivers = Vec::new();
+
+        if let Ok(resp) = client.get(&url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_super_gt_standings_html(&html).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "super_gt".to_string(),
             season,
-            drivers: vec![],
+            drivers,
             constructors: vec![],
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse Super GT standings HTML table.
+pub fn parse_super_gt_standings_html(
+    html: &str,
+) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse(".table-ranking tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().unwrap_or((drivers.len() + 1) as u32);
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            drivers.push(crate::data::standings::DriverStanding {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(drivers)
 }
 
 impl ResultsFetcher for SuperGtScraper {
@@ -298,5 +357,34 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[7].event_name, "Super GT at Motegi");
         assert_eq!(events[7].round, Some(8));
+    }
+
+    #[test]
+    fn test_parse_super_gt_standings_html() {
+        let sample = r#"
+            <table class="table-ranking">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Sho Tsuboi / Kenta Yamashita</td>
+                        <td>au TOM'S GR Supra</td>
+                        <td>88</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Tomoki Nojiri / Nobuharu Matsushita</td>
+                        <td>ARTA MUGEN CIVIC TYPE R-GT</td>
+                        <td>74</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let drivers = parse_super_gt_standings_html(sample).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].driver_name, "Sho Tsuboi / Kenta Yamashita");
+        assert_eq!(drivers[0].team, "au TOM'S GR Supra");
+        assert_eq!(drivers[0].points, 88.0);
     }
 }

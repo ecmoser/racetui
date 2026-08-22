@@ -17,14 +17,158 @@ pub struct MotoGpScraper {
 
 impl StandingsFetcher for MotoGpScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
-        Ok(SeasonStandings {
-            series_id: self.category.to_string(),
-            season,
-            drivers: vec![],
-            constructors: vec![],
-            fetched_at: Utc::now(),
-        })
+        let client = fetcher::create_http_client()?;
+
+        // 1. Fetch seasons list to resolve UUID
+        let seasons_url = "https://api.motogp.pulselive.com/motogp/v1/results/seasons";
+        let seasons_text = client.get(seasons_url).send().await?.text().await?;
+        let seasons: Vec<MotoGpSeason> = serde_json::from_str(&seasons_text)?;
+
+        let target_season = seasons
+            .iter()
+            .find(|s| s.year == season as i32)
+            .or_else(|| seasons.iter().find(|s| s.current))
+            .or_else(|| seasons.first())
+            .ok_or_else(|| anyhow::anyhow!("No season found for year {}", season))?;
+
+        // 2. Fetch categories for this season
+        let cat_url = format!(
+            "https://api.motogp.pulselive.com/motogp/v1/results/categories?seasonUuid={}",
+            target_season.id
+        );
+        let cat_text = client.get(&cat_url).send().await?.text().await?;
+        let categories: Vec<MotoGpCategory> = serde_json::from_str(&cat_text)?;
+
+        let cat_target_name = match self.category {
+            "moto2" => "Moto2",
+            "moto3" => "Moto3",
+            _ => "MotoGP",
+        };
+
+        let target_category = categories
+            .iter()
+            .find(|c| {
+                c.name
+                    .to_lowercase()
+                    .contains(&cat_target_name.to_lowercase())
+            })
+            .or_else(|| categories.first())
+            .ok_or_else(|| anyhow::anyhow!("No category found for {}", self.category))?;
+
+        // 3. Fetch standings
+        let standings_url = format!(
+            "https://api.motogp.pulselive.com/motogp/v1/results/standings?seasonUuid={}&categoryUuid={}",
+            target_season.id, target_category.id
+        );
+        let standings_text = client.get(&standings_url).send().await?.text().await?;
+        parse_motogp_standings(&standings_text, self.category, season)
     }
+}
+
+/// Parse MotoGP standings JSON response into SeasonStandings.
+pub fn parse_motogp_standings(json: &str, series_id: &str, season: u32) -> Result<SeasonStandings> {
+    let resp: MotoGpStandingsResponse = serde_json::from_str(json)?;
+    let mut drivers = Vec::new();
+    let mut constructor_map: std::collections::BTreeMap<String, (f64, u32)> =
+        std::collections::BTreeMap::new();
+
+    for entry in resp.classification {
+        let rider_name = entry
+            .rider
+            .as_ref()
+            .map(|r| r.full_name.clone())
+            .unwrap_or_else(|| "Unknown".to_string());
+        let rider_num = entry.rider.as_ref().and_then(|r| r.number);
+        let team_name = entry
+            .team
+            .as_ref()
+            .map(|t| t.name.clone())
+            .unwrap_or_default();
+        let wins = entry.race_wins.unwrap_or(0);
+
+        if let Some(constructor) = entry.constructor {
+            let stats = constructor_map.entry(constructor.name).or_insert((0.0, 0));
+            stats.0 += entry.points;
+            stats.1 += wins;
+        }
+
+        drivers.push(crate::data::standings::DriverStanding {
+            position: entry.position,
+            driver_name: rider_name,
+            driver_code: None,
+            driver_number: rider_num,
+            team: team_name,
+            points: entry.points,
+            wins,
+        });
+    }
+
+    let mut constructor_vec: Vec<(String, f64, u32)> = constructor_map
+        .into_iter()
+        .map(|(k, (pts, w))| (k, pts, w))
+        .collect();
+    constructor_vec.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+
+    let constructors: Vec<crate::data::standings::ConstructorStanding> = constructor_vec
+        .into_iter()
+        .enumerate()
+        .map(
+            |(idx, (name, points, wins))| crate::data::standings::ConstructorStanding {
+                position: (idx + 1) as u32,
+                name,
+                points,
+                wins,
+            },
+        )
+        .collect();
+
+    Ok(SeasonStandings {
+        series_id: series_id.to_string(),
+        season,
+        drivers,
+        constructors,
+        fetched_at: Utc::now(),
+    })
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpCategory {
+    id: String,
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpStandingsResponse {
+    #[serde(default)]
+    classification: Vec<MotoGpStandingEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpStandingEntry {
+    position: u32,
+    rider: Option<MotoGpRiderInfo>,
+    team: Option<MotoGpTeamInfo>,
+    constructor: Option<MotoGpConstructorInfo>,
+    #[serde(default)]
+    points: f64,
+    #[serde(default)]
+    race_wins: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpRiderInfo {
+    full_name: String,
+    number: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpTeamInfo {
+    name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct MotoGpConstructorInfo {
+    name: String,
 }
 
 impl ResultsFetcher for MotoGpScraper {
@@ -767,5 +911,54 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[20].event_name, "Valencia Grand Prix");
         assert_eq!(events[20].round, Some(21));
+    }
+
+    #[test]
+    fn test_parse_motogp_standings() {
+        let sample = r#"{
+            "classification": [
+                {
+                    "position": 1,
+                    "rider": {
+                        "full_name": "Marc Marquez",
+                        "number": 93
+                    },
+                    "team": {
+                        "name": "Ducati Lenovo Team"
+                    },
+                    "constructor": {
+                        "name": "Ducati"
+                    },
+                    "points": 545.0,
+                    "race_wins": 11
+                },
+                {
+                    "position": 2,
+                    "rider": {
+                        "full_name": "Jorge Martin",
+                        "number": 89
+                    },
+                    "team": {
+                        "name": "Aprilia Racing"
+                    },
+                    "constructor": {
+                        "name": "Aprilia"
+                    },
+                    "points": 508.0,
+                    "race_wins": 3
+                }
+            ]
+        }"#;
+
+        let standings = parse_motogp_standings(sample, "motogp", 2026).unwrap();
+        assert_eq!(standings.series_id, "motogp");
+        assert_eq!(standings.season, 2026);
+        assert_eq!(standings.drivers.len(), 2);
+        assert_eq!(standings.drivers[0].driver_name, "Marc Marquez");
+        assert_eq!(standings.drivers[0].driver_number, Some(93));
+        assert_eq!(standings.drivers[0].points, 545.0);
+        assert_eq!(standings.drivers[0].wins, 11);
+        assert_eq!(standings.constructors.len(), 2);
+        assert_eq!(standings.constructors[0].name, "Ducati");
     }
 }

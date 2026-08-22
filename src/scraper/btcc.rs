@@ -15,14 +15,70 @@ pub struct BtccScraper;
 
 impl StandingsFetcher for BtccScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = fetcher::create_http_client()?;
+        let url = "https://www.btcc.net/standings/";
+        let mut drivers = Vec::new();
+
+        if let Ok(resp) = client.get(url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_btcc_standings_html(&html).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "btcc".to_string(),
             season,
-            drivers: vec![],
+            drivers,
             constructors: vec![],
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse BTCC standings HTML table.
+pub fn parse_btcc_standings_html(
+    html: &str,
+) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let document = Html::parse_document(html);
+    let row_sel = Selector::parse(".standings-table tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().unwrap_or((drivers.len() + 1) as u32);
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            drivers.push(crate::data::standings::DriverStanding {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(drivers)
 }
 
 impl ResultsFetcher for BtccScraper {
@@ -433,5 +489,34 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[9].event_name, "BTCC at Brands Hatch (GP)");
         assert_eq!(events[9].round, Some(10));
+    }
+
+    #[test]
+    fn test_parse_btcc_standings_html() {
+        let sample = r#"
+            <table class="standings-table">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Jake Hill</td>
+                        <td>Laser Tools Racing with MB Motorsport</td>
+                        <td>421</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Tom Ingram</td>
+                        <td>Team BRISTOL STREET MOTORS</td>
+                        <td>413</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let drivers = parse_btcc_standings_html(sample).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].driver_name, "Jake Hill");
+        assert_eq!(drivers[0].team, "Laser Tools Racing with MB Motorsport");
+        assert_eq!(drivers[0].points, 421.0);
     }
 }

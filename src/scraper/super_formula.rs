@@ -14,14 +14,70 @@ pub struct SuperFormulaScraper;
 
 impl StandingsFetcher for SuperFormulaScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = create_http_client()?;
+        let url = format!("https://superformula.net/sf3/en/results/driver/{}/", season);
+        let mut drivers = Vec::new();
+
+        if let Ok(resp) = client.get(&url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_super_formula_standings_html(&html).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "super_formula".to_string(),
             season,
-            drivers: vec![],
+            drivers,
             constructors: vec![],
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse Super Formula standings HTML table.
+pub fn parse_super_formula_standings_html(
+    html: &str,
+) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse(".table-driver tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().unwrap_or((drivers.len() + 1) as u32);
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            drivers.push(crate::data::standings::DriverStanding {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(drivers)
 }
 
 impl ResultsFetcher for SuperFormulaScraper {
@@ -232,5 +288,34 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[6].event_name, "Super Formula at Suzuka");
         assert_eq!(events[6].round, Some(7));
+    }
+
+    #[test]
+    fn test_parse_super_formula_standings_html() {
+        let sample = r#"
+            <table class="table-driver">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Sho Tsuboi</td>
+                        <td>VANTELIN TEAM TOM'S</td>
+                        <td>117.5</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Tadasuke Makino</td>
+                        <td>DOCOMO TEAM DANDELION RACING</td>
+                        <td>86.0</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let drivers = parse_super_formula_standings_html(sample).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].driver_name, "Sho Tsuboi");
+        assert_eq!(drivers[0].team, "VANTELIN TEAM TOM'S");
+        assert_eq!(drivers[0].points, 117.5);
     }
 }

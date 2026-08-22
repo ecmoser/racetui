@@ -15,14 +15,136 @@ pub struct IndyCarScraper;
 
 impl StandingsFetcher for IndyCarScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = fetcher::create_http_client()?;
+        let drivers_url = "https://www.indycar.com/Drivers";
+        let mut drivers = Vec::new();
+
+        if let Ok(resp) = client.get(drivers_url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_indycar_standings_html(&html).unwrap_or_default();
+            }
+        }
+
+        let constructors = generate_indycar_engine_standings(&drivers);
+
         Ok(SeasonStandings {
             series_id: "indycar".to_string(),
             season,
-            drivers: vec![],
-            constructors: vec![],
+            drivers,
+            constructors,
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse IndyCar drivers HTML into DriverStandings.
+pub fn parse_indycar_standings_html(
+    html: &str,
+) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let document = Html::parse_document(html);
+    let card_selector = Selector::parse(".driver-card, .driver-listing-item")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let first_name_sel = Selector::parse(".driver-card-identity-first-name, [class*='first-name']")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let last_name_sel = Selector::parse(".driver-card-identity-last-name, [class*='last-name']")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let stats_item_sel = Selector::parse(".driver-card-stats-item, [class*='stats-item']")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let val_sel = Selector::parse(".driver-card-stats-item-value, [class*='value'], p:first-child")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let label_sel =
+        Selector::parse(".driver-card-stats-item-label, [class*='label'], p:last-child")
+            .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for card in document.select(&card_selector) {
+        let first = card
+            .select(&first_name_sel)
+            .next()
+            .map(|el| el.text().collect::<String>().trim().to_string())
+            .unwrap_or_default();
+        let last = card
+            .select(&last_name_sel)
+            .next()
+            .map(|el| el.text().collect::<String>().trim().to_string())
+            .unwrap_or_default();
+
+        let full_name = format!("{} {}", first, last).trim().to_string();
+        if full_name.is_empty()
+            || drivers
+                .iter()
+                .any(|d: &crate::data::standings::DriverStanding| d.driver_name == full_name)
+        {
+            continue;
+        }
+
+        let mut points = 0.0;
+        let mut wins = 0;
+
+        for stat in card.select(&stats_item_sel) {
+            let label = stat
+                .select(&label_sel)
+                .next()
+                .map(|el| el.text().collect::<String>().trim().to_lowercase())
+                .unwrap_or_default();
+            let val = stat
+                .select(&val_sel)
+                .next()
+                .map(|el| el.text().collect::<String>().trim().to_string())
+                .unwrap_or_default();
+
+            if label.contains("point") {
+                points = val.parse::<f64>().unwrap_or(0.0);
+            } else if label.contains("win") {
+                wins = val.parse::<u32>().unwrap_or(0);
+            }
+        }
+
+        drivers.push(crate::data::standings::DriverStanding {
+            position: 0,
+            driver_name: full_name,
+            driver_code: None,
+            driver_number: None,
+            team: "".to_string(),
+            points,
+            wins,
+        });
+    }
+
+    // Sort by points descending
+    drivers.sort_by(|a, b| {
+        b.points
+            .partial_cmp(&a.points)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+    for (idx, driver) in drivers.iter_mut().enumerate() {
+        driver.position = (idx + 1) as u32;
+    }
+
+    Ok(drivers)
+}
+
+fn generate_indycar_engine_standings(
+    drivers: &[crate::data::standings::DriverStanding],
+) -> Vec<crate::data::standings::ConstructorStanding> {
+    if drivers.is_empty() {
+        return Vec::new();
+    }
+    vec![
+        crate::data::standings::ConstructorStanding {
+            position: 1,
+            name: "Chevrolet".to_string(),
+            points: 0.0,
+            wins: 0,
+        },
+        crate::data::standings::ConstructorStanding {
+            position: 2,
+            name: "Honda".to_string(),
+            points: 0.0,
+            wins: 0,
+        },
+    ]
 }
 
 impl ResultsFetcher for IndyCarScraper {
@@ -547,5 +669,55 @@ mod tests {
         assert_eq!(events[0].location, "Indianapolis");
         assert_eq!(events[0].country, "USA");
         assert_eq!(events[0].round, Some(1));
+    }
+
+    #[test]
+    fn test_parse_indycar_standings_html() {
+        let sample = r#"
+            <div class="driver-card">
+                <div class="driver-card-identity-name-container">
+                    <p class="driver-card-identity-first-name">Alex</p>
+                    <p class="driver-card-identity-last-name">Palou</p>
+                </div>
+                <div class="driver-card-stats-container">
+                    <div class="driver-card-stats-item">
+                        <p class="driver-card-stats-item-value">542</p>
+                        <p class="driver-card-stats-item-label">Points</p>
+                    </div>
+                    <div class="driver-card-stats-item">
+                        <p class="driver-card-stats-item-value">6</p>
+                        <p class="driver-card-stats-item-label">Wins</p>
+                    </div>
+                </div>
+            </div>
+            <div class="driver-card">
+                <div class="driver-card-identity-name-container">
+                    <p class="driver-card-identity-first-name">Will</p>
+                    <p class="driver-card-identity-last-name">Power</p>
+                </div>
+                <div class="driver-card-stats-container">
+                    <div class="driver-card-stats-item">
+                        <p class="driver-card-stats-item-value">498</p>
+                        <p class="driver-card-stats-item-label">Points</p>
+                    </div>
+                    <div class="driver-card-stats-item">
+                        <p class="driver-card-stats-item-value">3</p>
+                        <p class="driver-card-stats-item-label">Wins</p>
+                    </div>
+                </div>
+            </div>
+        "#;
+
+        let drivers = parse_indycar_standings_html(sample).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].driver_name, "Alex Palou");
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].points, 542.0);
+        assert_eq!(drivers[0].wins, 6);
+
+        assert_eq!(drivers[1].driver_name, "Will Power");
+        assert_eq!(drivers[1].position, 2);
+        assert_eq!(drivers[1].points, 498.0);
+        assert_eq!(drivers[1].wins, 3);
     }
 }

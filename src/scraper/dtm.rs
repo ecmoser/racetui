@@ -14,14 +14,68 @@ pub struct DtmScraper;
 
 impl StandingsFetcher for DtmScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = create_http_client()?;
+        let url = "https://www.dtm.com/en/standings";
+        let mut drivers = Vec::new();
+
+        if let Ok(resp) = client.get(url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_dtm_standings_html(&html).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "dtm".to_string(),
             season,
-            drivers: vec![],
+            drivers,
             constructors: vec![],
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse DTM standings HTML table.
+pub fn parse_dtm_standings_html(html: &str) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse(".table tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().unwrap_or((drivers.len() + 1) as u32);
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            drivers.push(crate::data::standings::DriverStanding {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(drivers)
 }
 
 impl ResultsFetcher for DtmScraper {
@@ -297,5 +351,34 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[7].event_name, "DTM at Hockenheim");
         assert_eq!(events[7].round, Some(8));
+    }
+
+    #[test]
+    fn test_parse_dtm_standings_html() {
+        let sample = r#"
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Mirko Bortolotti</td>
+                        <td>SSR Performance</td>
+                        <td>238</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Kelvin van der Linde</td>
+                        <td>Abt Sportsline</td>
+                        <td>221</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let drivers = parse_dtm_standings_html(sample).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].driver_name, "Mirko Bortolotti");
+        assert_eq!(drivers[0].team, "SSR Performance");
+        assert_eq!(drivers[0].points, 238.0);
     }
 }

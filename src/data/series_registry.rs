@@ -63,13 +63,17 @@ pub fn parse_series_registry(content: &str) -> Result<HashMap<String, Series>> {
     Ok(map)
 }
 
+/// Get the user series config path: ~/.config/racetui/series.toml
+pub fn user_series_path() -> Option<std::path::PathBuf> {
+    dirs::config_dir().map(|d| d.join("racetui").join("series.toml"))
+}
+
 /// Load series definitions automatically.
-/// Checks user override at `~/.config/racetui/series.toml`,
+/// Checks user config at `~/.config/racetui/series.toml` first,
 /// then local `./data/series.toml`, and falls back to embedded `series.toml`.
 pub fn load_series_registry_auto() -> Result<HashMap<String, Series>> {
     // 1. User config override: ~/.config/racetui/series.toml
-    if let Some(config_dir) = dirs::config_dir() {
-        let user_override = config_dir.join("racetui").join("series.toml");
+    if let Some(user_override) = user_series_path() {
         if user_override.exists() {
             return load_series_registry(&user_override);
         }
@@ -86,14 +90,29 @@ pub fn load_series_registry_auto() -> Result<HashMap<String, Series>> {
 }
 
 /// Load all series definitions from a `series.toml` file.
+/// If the specified file does not exist, checks ~/.config/racetui/series.toml and embedded fallback.
 /// Returns a HashMap keyed by series ID for fast lookup.
 pub fn load_series_registry(path: &Path) -> Result<HashMap<String, Series>> {
-    if !path.exists() {
-        return parse_series_registry(DEFAULT_SERIES_TOML);
+    if path.exists() {
+        let content = std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read series registry at {}", path.display()))?;
+        return parse_series_registry(&content);
     }
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read series registry at {}", path.display()))?;
-    parse_series_registry(&content)
+
+    // If path not found, fallback to auto resolution
+    if let Some(user_override) = user_series_path() {
+        if user_override.exists() {
+            let content = std::fs::read_to_string(&user_override).with_context(|| {
+                format!(
+                    "Failed to read user series registry at {}",
+                    user_override.display()
+                )
+            })?;
+            return parse_series_registry(&content);
+        }
+    }
+
+    parse_series_registry(DEFAULT_SERIES_TOML)
 }
 
 #[cfg(test)]
@@ -116,5 +135,23 @@ mod tests {
         let dtm = registry.get("dtm").expect("DTM should exist");
         assert_eq!(dtm.car_style, CarStyle::Touring);
         assert!(dtm.requires_js);
+    }
+
+    #[test]
+    fn test_load_series_registry_auto_fallback() {
+        let registry = load_series_registry_auto().expect("Auto loading should succeed");
+        assert_eq!(registry.len(), 36);
+        assert!(registry.contains_key("f1"));
+        assert!(registry.contains_key("motogp"));
+        assert!(registry.contains_key("nascar_cup"));
+    }
+
+    #[test]
+    fn test_load_series_registry_nonexistent_path_fallback() {
+        let non_existent = Path::new("/path/that/definitely/does/not/exist/series.toml");
+        let registry = load_series_registry(non_existent)
+            .expect("Should fallback to embedded when path does not exist");
+        assert_eq!(registry.len(), 36);
+        assert!(registry.contains_key("f1"));
     }
 }

@@ -12,14 +12,111 @@ pub struct WecScraper;
 
 impl StandingsFetcher for WecScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = create_http_client()?;
+        let driver_url = "https://www.fiawec.com/en/page/drivers-classification";
+        let mut drivers = Vec::new();
+        let mut constructors = Vec::new();
+
+        if let Ok(resp) = client.get(driver_url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_wec_standings_html(&html).unwrap_or_default();
+            }
+        }
+
+        let mfg_url = "https://www.fiawec.com/en/page/manufacturers-classification";
+        if let Ok(resp) = client.get(mfg_url).send().await {
+            if let Ok(html) = resp.text().await {
+                constructors = parse_wec_constructors_html(&html).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "wec".to_string(),
             season,
-            drivers: vec![],
-            constructors: vec![],
+            drivers,
+            constructors,
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse WEC driver standings table HTML.
+pub fn parse_wec_standings_html(html: &str) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse("table.table-standing tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().unwrap_or((drivers.len() + 1) as u32);
+            let name = cols[1].clone();
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            drivers.push(crate::data::standings::DriverStanding {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team: "".to_string(),
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(drivers)
+}
+
+/// Parse WEC manufacturer standings table HTML.
+pub fn parse_wec_constructors_html(
+    html: &str,
+) -> Result<Vec<crate::data::standings::ConstructorStanding>> {
+    let document = scraper::Html::parse_document(html);
+    let row_sel = scraper::Selector::parse("table.table-standing tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = scraper::Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut constructors = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0]
+                .parse::<u32>()
+                .unwrap_or((constructors.len() + 1) as u32);
+            let name = cols[1].clone();
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            constructors.push(crate::data::standings::ConstructorStanding {
+                position: pos,
+                name,
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(constructors)
 }
 
 impl ResultsFetcher for WecScraper {
@@ -293,5 +390,41 @@ mod tests {
         assert_eq!(events[3].event_name, "24 Hours of Le Mans");
         assert_eq!(events[7].event_name, "Bapco Energies 8 Hours of Bahrain");
         assert_eq!(events[7].round, Some(8));
+    }
+
+    #[test]
+    fn test_parse_wec_standings_html() {
+        let html_sample = r#"
+            <table class="table-standing">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Porsche Penske Motorsport</td>
+                        <td>#6</td>
+                        <td>Estre / Lotterer / Vanthoor</td>
+                        <td>152</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Toyota Gazoo Racing</td>
+                        <td>#7</td>
+                        <td>Conway / Kobayashi / de Vries</td>
+                        <td>128</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let drivers = parse_wec_standings_html(html_sample).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].driver_name, "Porsche Penske Motorsport");
+        assert_eq!(drivers[0].points, 152.0);
+
+        let mfg = parse_wec_constructors_html(html_sample).unwrap();
+        assert_eq!(mfg.len(), 2);
+        assert_eq!(mfg[0].position, 1);
+        assert_eq!(mfg[0].name, "Porsche Penske Motorsport");
+        assert_eq!(mfg[0].points, 152.0);
     }
 }

@@ -10,18 +10,144 @@ use crate::data::models::{
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
 
+use serde::Deserialize;
+
 pub struct F2Scraper;
 
 impl StandingsFetcher for F2Scraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = create_http_client()?;
+        let driver_url = "https://www.fiaformula2.com/Standings/Driver";
+        let mut drivers = Vec::new();
+        let mut constructors = Vec::new();
+
+        if let Ok(resp) = client.get(driver_url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_f2_standings_html(&html).unwrap_or_default();
+            }
+        }
+
+        let team_url = "https://www.fiaformula2.com/Standings/Team";
+        if let Ok(resp) = client.get(team_url).send().await {
+            if let Ok(html) = resp.text().await {
+                constructors = parse_f2_team_standings_html(&html).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "f2".to_string(),
             season,
-            drivers: vec![],
-            constructors: vec![],
+            drivers,
+            constructors,
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse F2 driver standings from page content / embedded JSON.
+pub fn parse_f2_standings_html(html: &str) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let unescaped = html.replace("\\\"", "\"").replace("\\\\", "\\");
+    if let Some(start_idx) = unescaped.find("\"driverFirstName\"") {
+        if let Some(arr_start) = unescaped[..start_idx].rfind('[') {
+            if let Some(arr_end) = unescaped[arr_start..].find(']') {
+                let json_slice = &unescaped[arr_start..=arr_start + arr_end];
+                if let Ok(entries) = serde_json::from_str::<Vec<F2RawDriverEntry>>(json_slice) {
+                    let drivers = entries
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, d)| {
+                            let first = d.driver_first_name.unwrap_or_default();
+                            let last = d.driver_last_name.unwrap_or_default();
+                            let full_name = format!("{} {}", first, last).trim().to_string();
+                            let pos = d
+                                .display_position
+                                .as_deref()
+                                .and_then(|p| p.parse::<u32>().ok())
+                                .unwrap_or((i + 1) as u32);
+                            crate::data::standings::DriverStanding {
+                                position: pos,
+                                driver_name: if full_name.is_empty() {
+                                    d.driver_short_name.unwrap_or_else(|| "Unknown".to_string())
+                                } else {
+                                    full_name
+                                },
+                                driver_code: d.driver_tla,
+                                driver_number: None,
+                                team: "".to_string(),
+                                points: d.championship_points.unwrap_or(0.0),
+                                wins: 0,
+                            }
+                        })
+                        .collect();
+                    return Ok(drivers);
+                }
+            }
+        }
+    }
+
+    Ok(Vec::new())
+}
+
+/// Parse F2 team standings from page content / embedded JSON.
+pub fn parse_f2_team_standings_html(
+    html: &str,
+) -> Result<Vec<crate::data::standings::ConstructorStanding>> {
+    let unescaped = html.replace("\\\"", "\"").replace("\\\\", "\\");
+    if let Some(start_idx) = unescaped.find("\"teamName\"") {
+        if let Some(arr_start) = unescaped[..start_idx].rfind('[') {
+            if let Some(arr_end) = unescaped[arr_start..].find(']') {
+                let json_slice = &unescaped[arr_start..=arr_start + arr_end];
+                if let Ok(entries) = serde_json::from_str::<Vec<F2RawTeamEntry>>(json_slice) {
+                    let teams = entries
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, t)| {
+                            let pos = t
+                                .display_position
+                                .as_deref()
+                                .and_then(|p| p.parse::<u32>().ok())
+                                .unwrap_or((i + 1) as u32);
+                            crate::data::standings::ConstructorStanding {
+                                position: pos,
+                                name: t.team_name.unwrap_or_else(|| "Unknown".to_string()),
+                                points: t.championship_points.unwrap_or(0.0),
+                                wins: 0,
+                            }
+                        })
+                        .collect();
+                    return Ok(teams);
+                }
+            }
+        }
+    }
+
+    Ok(Vec::new())
+}
+
+#[derive(Debug, Deserialize)]
+struct F2RawDriverEntry {
+    #[serde(rename = "displayPosition")]
+    display_position: Option<String>,
+    #[serde(rename = "championshipPoints")]
+    championship_points: Option<f64>,
+    #[serde(rename = "driverTLA")]
+    driver_tla: Option<String>,
+    #[serde(rename = "driverFirstName")]
+    driver_first_name: Option<String>,
+    #[serde(rename = "driverLastName")]
+    driver_last_name: Option<String>,
+    #[serde(rename = "driverShortName")]
+    driver_short_name: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct F2RawTeamEntry {
+    #[serde(rename = "displayPosition")]
+    display_position: Option<String>,
+    #[serde(rename = "championshipPoints")]
+    championship_points: Option<f64>,
+    #[serde(rename = "teamName")]
+    team_name: Option<String>,
 }
 
 impl ResultsFetcher for F2Scraper {
@@ -403,5 +529,25 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[13].event_name, "Formula 2 at Abu Dhabi");
         assert_eq!(events[13].round, Some(14));
+    }
+
+    #[test]
+    fn test_parse_f2_standings_html() {
+        let sample = r#"
+            self.__next_f.push([1,"[{\"position\":\"1st\",\"displayPosition\":\"1\",\"championshipPoints\":140,\"driverFirstName\":\"Rafael\",\"driverLastName\":\"Camara\",\"driverTLA\":\"CAM\"}],\"category\":\"Driver\""]);
+        "#;
+        let drivers = parse_f2_standings_html(sample).unwrap();
+        assert_eq!(drivers.len(), 1);
+        assert_eq!(drivers[0].driver_name, "Rafael Camara");
+        assert_eq!(drivers[0].driver_code.as_deref(), Some("CAM"));
+        assert_eq!(drivers[0].points, 140.0);
+
+        let team_sample = r#"
+            self.__next_f.push([1,"[{\"position\":\"1st\",\"displayPosition\":\"1\",\"championshipPoints\":210,\"teamName\":\"PREMA Racing\"}],\"category\":\"Team\""]);
+        "#;
+        let teams = parse_f2_team_standings_html(team_sample).unwrap();
+        assert_eq!(teams.len(), 1);
+        assert_eq!(teams[0].name, "PREMA Racing");
+        assert_eq!(teams[0].points, 210.0);
     }
 }

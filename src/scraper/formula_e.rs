@@ -10,28 +10,156 @@ use crate::data::models::{
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
 
+use serde::Deserialize;
+
 pub struct FormulaEScraper;
 
 impl StandingsFetcher for FormulaEScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = create_http_client()?;
+
+        // 1. Fetch championships
+        let champ_url = "https://api.formula-e.pulselive.com/formula-e/v1/championships";
+        let champ_text = client.get(champ_url).send().await?.text().await?;
+        let champ_resp: FormulaEChampionshipsResponse = serde_json::from_str(&champ_text)?;
+
+        let season_str = format!("{}", season);
+        let target_champ = champ_resp
+            .championships
+            .iter()
+            .find(|c| c.name.contains(&season_str))
+            .or_else(|| {
+                champ_resp
+                    .championships
+                    .iter()
+                    .find(|c| c.status == "Present")
+            })
+            .or_else(|| champ_resp.championships.last())
+            .ok_or_else(|| {
+                anyhow::anyhow!("No Formula E championship found for season {}", season)
+            })?;
+
+        // 2. Fetch driver standings
+        let driver_url = format!(
+            "https://api.formula-e.pulselive.com/formula-e/v1/standings/drivers?championshipId={}",
+            target_champ.id
+        );
+        let driver_text = client.get(&driver_url).send().await?.text().await?;
+        let drivers = parse_formula_e_driver_standings(&driver_text)?;
+
+        // 3. Fetch team standings
+        let team_url = format!(
+            "https://api.formula-e.pulselive.com/formula-e/v1/standings/teams?championshipId={}",
+            target_champ.id
+        );
+        let mut constructors = Vec::new();
+        if let Ok(team_resp) = client.get(&team_url).send().await {
+            if let Ok(team_text) = team_resp.text().await {
+                constructors = parse_formula_e_team_standings(&team_text).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "formula_e".to_string(),
             season,
-            drivers: vec![],
-            constructors: vec![],
+            drivers,
+            constructors,
             fetched_at: Utc::now(),
         })
     }
 }
 
-impl ResultsFetcher for FormulaEScraper {
-    async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
-        anyhow::bail!(
-            "Formula E race results for season {} round {} not yet available",
-            season,
-            round
-        )
-    }
+/// Parse Formula E driver standings JSON.
+pub fn parse_formula_e_driver_standings(
+    json: &str,
+) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let raw: Vec<FormulaEDriverStandingEntry> = serde_json::from_str(json)?;
+    let list = raw
+        .into_iter()
+        .map(|d| {
+            let full_name = format!("{} {}", d.driver_first_name, d.driver_last_name)
+                .trim()
+                .to_string();
+            let wins = d
+                .driver_race_standings
+                .as_ref()
+                .map(|rs| rs.iter().filter(|r| r.race_position == Some(1)).count() as u32)
+                .unwrap_or(0);
+            crate::data::standings::DriverStanding {
+                position: d.driver_position,
+                driver_name: full_name,
+                driver_code: d.driver_tla,
+                driver_number: None,
+                team: d.driver_team_name.unwrap_or_default(),
+                points: d.driver_points as f64,
+                wins,
+            }
+        })
+        .collect();
+    Ok(list)
+}
+
+/// Parse Formula E team standings JSON.
+pub fn parse_formula_e_team_standings(
+    json: &str,
+) -> Result<Vec<crate::data::standings::ConstructorStanding>> {
+    let raw: Vec<FormulaETeamStandingEntry> = serde_json::from_str(json)?;
+    let list = raw
+        .into_iter()
+        .map(|t| crate::data::standings::ConstructorStanding {
+            position: t.team_position,
+            name: t.team_name,
+            points: t.team_points as f64,
+            wins: 0,
+        })
+        .collect();
+    Ok(list)
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaEChampionshipsResponse {
+    championships: Vec<FormulaEChampionship>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaEChampionship {
+    id: String,
+    name: String,
+    status: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaEDriverStandingEntry {
+    #[serde(rename = "driverPosition")]
+    driver_position: u32,
+    #[serde(rename = "driverFirstName", default)]
+    driver_first_name: String,
+    #[serde(rename = "driverLastName", default)]
+    driver_last_name: String,
+    #[serde(rename = "driverTLA")]
+    driver_tla: Option<String>,
+    #[serde(rename = "driverTeamName")]
+    driver_team_name: Option<String>,
+    #[serde(rename = "driverPoints", default)]
+    driver_points: f64,
+    #[serde(rename = "driverRaceStandings")]
+    driver_race_standings: Option<Vec<FormulaERaceStandingEntry>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaERaceStandingEntry {
+    #[serde(rename = "racePosition")]
+    race_position: Option<u32>,
+}
+
+#[derive(Debug, Deserialize)]
+struct FormulaETeamStandingEntry {
+    #[serde(rename = "teamPosition")]
+    team_position: u32,
+    #[serde(rename = "teamName")]
+    team_name: String,
+    #[serde(rename = "teamPoints", default)]
+    team_points: f64,
 }
 
 impl SeriesScraper for FormulaEScraper {
@@ -421,5 +549,53 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[15].event_name, "London E-Prix (Race 2)");
         assert_eq!(events[15].round, Some(16));
+    }
+
+    #[test]
+    fn test_parse_formula_e_standings() {
+        let driver_json = r#"[
+            {
+                "driverPosition": 1,
+                "driverFirstName": "Oliver",
+                "driverLastName": "Rowland",
+                "driverTLA": "ROW",
+                "driverTeamName": "NISSAN FORMULA E TEAM",
+                "driverPoints": 184.0,
+                "driverRaceStandings": [
+                    { "racePosition": 1 },
+                    { "racePosition": 3 }
+                ]
+            }
+        ]"#;
+
+        let team_json = r#"[
+            {
+                "teamPosition": 1,
+                "teamName": "TAG HEUER PORSCHE FORMULA E TEAM",
+                "teamPoints": 230.0
+            }
+        ]"#;
+
+        let drivers = parse_formula_e_driver_standings(driver_json).unwrap();
+        assert_eq!(drivers.len(), 1);
+        assert_eq!(drivers[0].driver_name, "Oliver Rowland");
+        assert_eq!(drivers[0].driver_code.as_deref(), Some("ROW"));
+        assert_eq!(drivers[0].points, 184.0);
+        assert_eq!(drivers[0].wins, 1);
+
+        let teams = parse_formula_e_team_standings(team_json).unwrap();
+        assert_eq!(teams.len(), 1);
+        assert_eq!(teams[0].name, "TAG HEUER PORSCHE FORMULA E TEAM");
+        assert_eq!(teams[0].points, 230.0);
+    }
+}
+
+impl ResultsFetcher for FormulaEScraper {
+    async fn fetch_results(&self, season: u32, round: u32) -> Result<RaceResults> {
+        anyhow::bail!(
+            "Formula E race results for season {} round {} not yet available",
+            season,
+            round
+        )
     }
 }

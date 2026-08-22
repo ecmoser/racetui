@@ -15,14 +15,70 @@ pub struct ImsaScraper;
 
 impl StandingsFetcher for ImsaScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
+        let client = fetcher::create_http_client()?;
+        let standings_url = "https://www.imsa.com/standings/";
+        let mut drivers = Vec::new();
+
+        if let Ok(resp) = client.get(standings_url).send().await {
+            if let Ok(html) = resp.text().await {
+                drivers = parse_imsa_standings_html(&html).unwrap_or_default();
+            }
+        }
+
         Ok(SeasonStandings {
             series_id: "imsa".to_string(),
             season,
-            drivers: vec![],
+            drivers,
             constructors: vec![],
             fetched_at: Utc::now(),
         })
     }
+}
+
+/// Parse IMSA driver standings table HTML.
+pub fn parse_imsa_standings_html(
+    html: &str,
+) -> Result<Vec<crate::data::standings::DriverStanding>> {
+    let document = Html::parse_document(html);
+    let row_sel = Selector::parse(".standings-table tbody tr, table tbody tr")
+        .map_err(|e| anyhow::anyhow!("{:?}", e))?;
+    let td_sel = Selector::parse("td, th").map_err(|e| anyhow::anyhow!("{:?}", e))?;
+
+    let mut drivers = Vec::new();
+
+    for row in document.select(&row_sel) {
+        let cols: Vec<String> = row
+            .select(&td_sel)
+            .map(|td| td.text().collect::<String>().trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if cols.len() >= 3 {
+            let pos = cols[0].parse::<u32>().unwrap_or((drivers.len() + 1) as u32);
+            let name = cols[1].clone();
+            let team = if cols.len() >= 4 {
+                cols[2].clone()
+            } else {
+                "".to_string()
+            };
+            let points = cols
+                .last()
+                .and_then(|p| p.parse::<f64>().ok())
+                .unwrap_or(0.0);
+
+            drivers.push(crate::data::standings::DriverStanding {
+                position: pos,
+                driver_name: name,
+                driver_code: None,
+                driver_number: None,
+                team,
+                points,
+                wins: 0,
+            });
+        }
+    }
+
+    Ok(drivers)
 }
 
 impl ResultsFetcher for ImsaScraper {
@@ -446,5 +502,34 @@ mod tests {
         assert_eq!(events[0].round, Some(1));
         assert_eq!(events[10].event_name, "Motul Petit Le Mans");
         assert_eq!(events[10].round, Some(11));
+    }
+
+    #[test]
+    fn test_parse_imsa_standings_html() {
+        let sample = r#"
+            <table class="standings-table">
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>Felipe Nasr</td>
+                        <td>Porsche Penske Motorsport</td>
+                        <td>2682</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>Jack Aitken</td>
+                        <td>Whelen Cadillac Racing</td>
+                        <td>2530</td>
+                    </tr>
+                </tbody>
+            </table>
+        "#;
+
+        let drivers = parse_imsa_standings_html(sample).unwrap();
+        assert_eq!(drivers.len(), 2);
+        assert_eq!(drivers[0].position, 1);
+        assert_eq!(drivers[0].driver_name, "Felipe Nasr");
+        assert_eq!(drivers[0].team, "Porsche Penske Motorsport");
+        assert_eq!(drivers[0].points, 2682.0);
     }
 }
