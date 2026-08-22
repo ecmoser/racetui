@@ -1,3 +1,3 @@
 pub mod settings;
 
-pub use settings::UserConfig;
+pub use settings::{DaemonConfig, UserConfig};

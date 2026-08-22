@@ -1156,7 +1156,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 44: Add tests for Phase 3
+### [x] Step 44: Add tests for Phase 3
 
 **What to do**: Tests for track map, notifications, daemon config, scheduler logic.
 
