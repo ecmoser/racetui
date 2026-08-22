@@ -8,7 +8,8 @@ use crate::live::event::{
 use crate::live::LiveProvider;
 use crate::scraper::fetcher::create_http_client;
 
-const MOTOGP_LIVE_TIMING_URL: &str = "https://api.motogp.pulselive.com/motogp/v1/live-timing/session";
+const MOTOGP_LIVE_TIMING_URL: &str =
+    "https://api.motogp.pulselive.com/motogp/v1/live-timing/session";
 
 /// MotoGP live timing feed root structure.
 #[derive(Debug, Clone, Deserialize, Default)]
@@ -17,7 +18,13 @@ pub struct MotoGPLiveFeed {
     pub session: Option<MotoGPSessionInfo>,
     #[serde(alias = "weather", alias = "track_conditions", default)]
     pub weather: Option<MotoGPWeatherInfo>,
-    #[serde(alias = "riders", alias = "drivers", alias = "classification", alias = "records", default)]
+    #[serde(
+        alias = "riders",
+        alias = "drivers",
+        alias = "classification",
+        alias = "records",
+        default
+    )]
     pub riders: Vec<MotoGPRiderEntry>,
     #[serde(alias = "status", alias = "flag", alias = "session_status", default)]
     pub status: Option<String>,
@@ -66,9 +73,21 @@ pub struct MotoGPWeatherInfo {
 pub struct MotoGPRiderEntry {
     #[serde(alias = "pos", alias = "position", alias = "rank", default)]
     pub pos: Option<u32>,
-    #[serde(alias = "number", alias = "rider_number", alias = "num", alias = "bib", default)]
+    #[serde(
+        alias = "number",
+        alias = "rider_number",
+        alias = "num",
+        alias = "bib",
+        default
+    )]
     pub number: Option<String>,
-    #[serde(alias = "rider", alias = "rider_name", alias = "name", alias = "full_name", default)]
+    #[serde(
+        alias = "rider",
+        alias = "rider_name",
+        alias = "name",
+        alias = "full_name",
+        default
+    )]
     pub rider: Option<String>,
     #[serde(alias = "first_name", default)]
     pub first_name: Option<String>,
@@ -84,7 +103,12 @@ pub struct MotoGPRiderEntry {
     pub interval: Option<serde_json::Value>,
     #[serde(alias = "last_lap", alias = "last_lap_time", default)]
     pub last_lap: Option<serde_json::Value>,
-    #[serde(alias = "best_lap", alias = "best_lap_time", alias = "fastest_lap", default)]
+    #[serde(
+        alias = "best_lap",
+        alias = "best_lap_time",
+        alias = "fastest_lap",
+        default
+    )]
     pub best_lap: Option<serde_json::Value>,
     #[serde(alias = "laps", alias = "laps_completed", default)]
     pub laps: Option<u32>,
@@ -92,7 +116,13 @@ pub struct MotoGPRiderEntry {
     pub in_pit: Option<bool>,
     #[serde(alias = "state", alias = "status", default)]
     pub state: Option<String>,
-    #[serde(alias = "tire_front", alias = "front_tire", alias = "tire", alias = "compound", default)]
+    #[serde(
+        alias = "tire_front",
+        alias = "front_tire",
+        alias = "tire",
+        alias = "compound",
+        default
+    )]
     pub tire: Option<String>,
     #[serde(alias = "s1", alias = "sector1", default)]
     pub s1: Option<String>,
@@ -228,10 +258,7 @@ pub fn parse_motogp_live_feed(feed: &MotoGPLiveFeed, series_id: &str) -> LiveTim
             None
         };
 
-        let driver_number = r
-            .number
-            .as_ref()
-            .and_then(|n| n.parse::<u32>().ok());
+        let driver_number = r.number.as_ref().and_then(|n| n.parse::<u32>().ok());
 
         let team = if let Some(ref t) = r.team {
             if let Some(ref b) = r.bike {
@@ -244,7 +271,8 @@ pub fn parse_motogp_live_feed(feed: &MotoGPLiveFeed, series_id: &str) -> LiveTim
         };
 
         let gap = format_json_val_or_default(r.gap.as_ref(), if pos == 1 { "LEADER" } else { "-" });
-        let interval = format_json_val_or_default(r.interval.as_ref(), if pos == 1 { "-" } else { "-" });
+        let interval =
+            format_json_val_or_default(r.interval.as_ref(), if pos == 1 { "-" } else { "-" });
 
         let last_lap_str = format_json_val_opt(r.last_lap.as_ref());
         let best_lap_str = format_json_val_opt(r.best_lap.as_ref());
@@ -264,7 +292,10 @@ pub fn parse_motogp_live_feed(feed: &MotoGPLiveFeed, series_id: &str) -> LiveTim
             }
         });
 
-        let in_pit = r.in_pit == Some(true) || r.state.as_deref().map_or(false, |s| s.eq_ignore_ascii_case("pit"));
+        let in_pit = r.in_pit == Some(true)
+            || r.state
+                .as_deref()
+                .map_or(false, |s| s.eq_ignore_ascii_case("pit"));
 
         let pit_info = PitInfo {
             stops_count: 0,
@@ -357,20 +388,11 @@ pub fn parse_motogp_live_feed(feed: &MotoGPLiveFeed, series_id: &str) -> LiveTim
         .or_else(|| feed.status.clone())
         .unwrap_or_else(|| "Green".to_string());
 
-    let current_lap = feed
-        .session
-        .as_ref()
-        .and_then(|s| s.laps);
+    let current_lap = feed.session.as_ref().and_then(|s| s.laps);
 
-    let total_laps = feed
-        .session
-        .as_ref()
-        .and_then(|s| s.total_laps);
+    let total_laps = feed.session.as_ref().and_then(|s| s.total_laps);
 
-    let time_remaining = feed
-        .session
-        .as_ref()
-        .and_then(|s| s.time_remaining.clone());
+    let time_remaining = feed.session.as_ref().and_then(|s| s.time_remaining.clone());
 
     let weather = feed.weather.as_ref().map(|w| WeatherInfo {
         air_temp_c: w.air_temp,

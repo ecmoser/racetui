@@ -182,12 +182,7 @@ pub fn get_official_lmem_schedule(series_id: &str, category: &str, year: i32) ->
 
             let fri_date = sat_date.pred_opt().unwrap_or(sat_date);
             let sessions = super::json_ld::build_series_sessions(
-                series_id,
-                name,
-                fri_date,
-                sun_date,
-                None,
-                None,
+                series_id, name, fri_date, sun_date, None, None,
             );
 
             RaceEvent {

@@ -198,7 +198,9 @@ fn spawn_results_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
                 .max_by_key(|e| e.end_date)
                 .or_else(|| {
                     evs.iter()
-                        .filter(|e| e.status == data::models::EventStatus::Completed && e.round.is_some())
+                        .filter(|e| {
+                            e.status == data::models::EventStatus::Completed && e.round.is_some()
+                        })
                         .max_by_key(|e| e.end_date)
                 })
         });
@@ -492,7 +494,10 @@ fn setup_panic_hook() {
 
 fn check_live_sessions_prompt(app: &mut App) {
     let live_sessions = app.get_live_sessions();
-    if !live_sessions.is_empty() && app.view_mode != app::ViewMode::Live && app.status_message.is_none() {
+    if !live_sessions.is_empty()
+        && app.view_mode != app::ViewMode::Live
+        && app.status_message.is_none()
+    {
         let (_sid, short_name, session_name) = &live_sessions[0];
         app.set_status_message(format!(
             "🔴 LIVE: {} {} — press 3 to watch",
@@ -625,235 +630,237 @@ async fn main() -> Result<()> {
                 let interval = app.config.live_poll_interval_secs;
                 live_session_manager.start_session(sid, interval);
             }
-        } else if app.view_mode != app::ViewMode::Live && !live_session_manager.active_series().is_empty() {
+        } else if app.view_mode != app::ViewMode::Live
+            && !live_session_manager.active_series().is_empty()
+        {
             live_session_manager.stop_all();
         }
 
         // Wait for next event (live timing event or app event)
         tokio::select! {
-            Some(live_event) = live_rx.recv() => {
-                match live_event {
-                    crate::live::LiveEvent::TimingUpdate { series_id, data } => {
-                        if app.live_active_series.as_deref() == Some(&series_id) || app.live_active_series.is_none() {
-                            app.live_active_series = Some(series_id);
-                            app.live_timing_data = Some(*data);
+                Some(live_event) = live_rx.recv() => {
+                    match live_event {
+                        crate::live::LiveEvent::TimingUpdate { series_id, data } => {
+                            if app.live_active_series.as_deref() == Some(&series_id) || app.live_active_series.is_none() {
+                                app.live_active_series = Some(series_id);
+                                app.live_timing_data = Some(*data);
+                            }
                         }
-                    }
-                    crate::live::LiveEvent::TrackGeometryLoaded { series_id, points } => {
-                        if app.live_active_series.as_deref() == Some(&series_id) {
-                            app.track_map_geometry = Some(points);
+                        crate::live::LiveEvent::TrackGeometryLoaded { series_id, points } => {
+                            if app.live_active_series.as_deref() == Some(&series_id) {
+                                app.track_map_geometry = Some(points);
+                            }
                         }
-                    }
-                    crate::live::LiveEvent::SessionStarted { series_id, session_name } => {
-                        let short_name = app.series_registry.get(&series_id).map(|s| s.short_name.as_str()).unwrap_or(&series_id);
-                        app.set_status_message(format!("🔴 Live session started: {} {} — press 3 to watch", short_name, session_name));
-                    }
-                    crate::live::LiveEvent::SessionEnded { series_id } => {
-                        if app.live_active_series.as_deref() == Some(&series_id) {
-                            app.set_status_message(format!("Live session ended for {}", series_id));
+                        crate::live::LiveEvent::SessionStarted { series_id, session_name } => {
+                            let short_name = app.series_registry.get(&series_id).map(|s| s.short_name.as_str()).unwrap_or(&series_id);
+                            app.set_status_message(format!("🔴 Live session started: {} {} — press 3 to watch", short_name, session_name));
                         }
-                    }
-                    crate::live::LiveEvent::LiveError { series_id, error } => {
-                        tracing::warn!("Live timing error for {}: {}", series_id, error);
+                        crate::live::LiveEvent::SessionEnded { series_id } => {
+                            if app.live_active_series.as_deref() == Some(&series_id) {
+                                app.set_status_message(format!("Live session ended for {}", series_id));
+                            }
+                        }
+                        crate::live::LiveEvent::LiveError { series_id, error } => {
+                            tracing::warn!("Live timing error for {}: {}", series_id, error);
+                        }
                     }
                 }
-            }
-            Some(mut event) = rx.recv() => {
-                loop {
-                    match event {
-                        AppEvent::Key(key) => {
-                            handle_key_event(&mut app, key);
-                            fetch_results_on_demand(&mut app, tx.clone());
-                        }
-                        AppEvent::Resize(_, _) => {
-                            // Terminal auto-redraws on resize
-                        }
-                        AppEvent::Tick => {
-                            app.tick_count += 1;
-                            // Toggle live session blinking every 2 ticks
-                            if app.tick_count % 2 == 0 {
-                                app.live_blink_on = !app.live_blink_on;
+                Some(mut event) = rx.recv() => {
+                    loop {
+                        match event {
+                            AppEvent::Key(key) => {
+                                handle_key_event(&mut app, key);
+                                fetch_results_on_demand(&mut app, tx.clone());
                             }
-                            // Cycle notifications every 3 seconds
-                            if app.tick_count % 3 == 0 {
-                                let notification_count = app.get_notifications().len();
-                                if notification_count > 0 {
-                                    app.notification_cycle_index =
-                                        (app.notification_cycle_index + 1) % notification_count;
+                            AppEvent::Resize(_, _) => {
+                                // Terminal auto-redraws on resize
+                            }
+                            AppEvent::Tick => {
+                                app.tick_count += 1;
+                                // Toggle live session blinking every 2 ticks
+                                if app.tick_count % 2 == 0 {
+                                    app.live_blink_on = !app.live_blink_on;
+                                }
+                                // Cycle notifications every 3 seconds
+                                if app.tick_count % 3 == 0 {
+                                    let notification_count = app.get_notifications().len();
+                                    if notification_count > 0 {
+                                        app.notification_cycle_index =
+                                            (app.notification_cycle_index + 1) % notification_count;
+                                    }
+                                }
+                                // Auto-clear status message after 3 seconds
+                                if let Some(set_at) = app.status_message_set_at {
+                                    if set_at.elapsed() >= std::time::Duration::from_secs(3) {
+                                        app.status_message = None;
+                                        app.status_message_set_at = None;
+                                    }
+                                }
+                                // Periodic live session auto-detection (every 60s)
+                                if app.tick_count % 60 == 0 {
+                                    check_live_sessions_prompt(&mut app);
                                 }
                             }
-                            // Auto-clear status message after 3 seconds
-                            if let Some(set_at) = app.status_message_set_at {
-                                if set_at.elapsed() >= std::time::Duration::from_secs(3) {
-                                    app.status_message = None;
-                                    app.status_message_set_at = None;
-                                }
-                            }
-                            // Periodic live session auto-detection (every 60s)
-                            if app.tick_count % 60 == 0 {
-                                check_live_sessions_prompt(&mut app);
+                        AppEvent::RefreshRequested => {
+                            app.results_loading_started = false;
+                            app.results_failed.clear();
+                            spawn_data_loaders(&mut app, tx.clone(), true);
+                            spawn_standings_loaders(&mut app, tx.clone(), true);
+                        }
+                        AppEvent::SeriesDataFetched { series_id, events } => {
+                            app.update_series_data(series_id, events);
+                            if !app.results_loading_started {
+                                app.results_loading_started = true;
+                                spawn_results_loaders(&mut app, tx.clone());
                             }
                         }
-                    AppEvent::RefreshRequested => {
-                        app.results_loading_started = false;
-                        app.results_failed.clear();
-                        spawn_data_loaders(&mut app, tx.clone(), true);
-                        spawn_standings_loaders(&mut app, tx.clone(), true);
-                    }
-                    AppEvent::SeriesDataFetched { series_id, events } => {
-                        app.update_series_data(series_id, events);
-                        if !app.results_loading_started {
-                            app.results_loading_started = true;
-                            spawn_results_loaders(&mut app, tx.clone());
+                        AppEvent::FetchError { series_id, error } => {
+                            tracing::warn!("Failed to fetch series {}: {}", series_id, error);
+                            app.mark_fetch_error(&series_id, error);
+                        }
+                        AppEvent::FetchStarted { series_id } => {
+                            app.mark_fetching(&series_id);
+                        }
+                        AppEvent::StandingsFetched {
+                            series_id,
+                            standings,
+                        } => {
+                            app.standings.insert(series_id, standings);
+                        }
+                        AppEvent::StandingsFetchError { series_id, error } => {
+                            tracing::warn!("Failed to fetch standings for {}: {}", series_id, error);
+                        }
+                        AppEvent::ResultsFetched {
+                            series_id,
+                            round,
+                            results,
+                        } => {
+                            app.results_fetching.remove(&(
+                                series_id.clone(),
+                                round,
+                                "race".to_string(),
+                            ));
+                            app.results_failed.remove(&(
+                                series_id.clone(),
+                                round,
+                                "race".to_string(),
+                            ));
+                            app.results.insert((series_id, round), results);
+                        }
+                        AppEvent::ResultsFetchError {
+                            series_id,
+                            round,
+                            error,
+                        } => {
+                            app.results_fetching.remove(&(
+                                series_id.clone(),
+                                round,
+                                "race".to_string(),
+                            ));
+                            app.results_failed.insert((
+                                series_id.clone(),
+                                round,
+                                "race".to_string(),
+                            ));
+                            tracing::warn!(
+                                "Failed to fetch results for {} round {}: {}",
+                                series_id,
+                                round,
+                                error
+                            );
+                        }
+                        AppEvent::QualifyingFetched {
+                            series_id,
+                            round,
+                            results,
+                        } => {
+                            app.results_fetching.remove(&(
+                                series_id.clone(),
+                                round,
+                                "qualifying".to_string(),
+                            ));
+                            app.results_failed.remove(&(
+                                series_id.clone(),
+                                round,
+                                "qualifying".to_string(),
+                            ));
+                            app.qualifying_results.insert((series_id, round), results);
+                        }
+                        AppEvent::QualifyingFetchError {
+                            series_id,
+                            round,
+                            error,
+                        } => {
+                            app.results_fetching.remove(&(
+                                series_id.clone(),
+                                round,
+                                "qualifying".to_string(),
+                            ));
+                            app.results_failed.insert((
+                                series_id.clone(),
+                                round,
+                                "qualifying".to_string(),
+                            ));
+                            tracing::warn!(
+                                "Failed to fetch qualifying results for {} round {}: {}",
+                                series_id,
+                                round,
+                                error
+                            );
+                        }
+                        AppEvent::SprintFetched {
+                            series_id,
+                            round,
+                            results,
+                        } => {
+                            app.results_fetching.remove(&(
+                                series_id.clone(),
+                                round,
+                                "sprint".to_string(),
+                            ));
+                            app.results_failed.remove(&(
+                                series_id.clone(),
+                                round,
+                                "sprint".to_string(),
+                            ));
+                            app.sprint_results.insert((series_id, round), results);
+                        }
+                        AppEvent::SprintFetchError {
+                            series_id,
+                            round,
+                            error,
+                        } => {
+                            app.results_fetching.remove(&(
+                                series_id.clone(),
+                                round,
+                                "sprint".to_string(),
+                            ));
+                            app.results_failed.insert((
+                                series_id.clone(),
+                                round,
+                                "sprint".to_string(),
+                            ));
+                            tracing::warn!(
+                                "Failed to fetch sprint results for {} round {}: {}",
+                                series_id,
+                                round,
+                                error
+                            );
                         }
                     }
-                    AppEvent::FetchError { series_id, error } => {
-                        tracing::warn!("Failed to fetch series {}: {}", series_id, error);
-                        app.mark_fetch_error(&series_id, error);
-                    }
-                    AppEvent::FetchStarted { series_id } => {
-                        app.mark_fetching(&series_id);
-                    }
-                    AppEvent::StandingsFetched {
-                        series_id,
-                        standings,
-                    } => {
-                        app.standings.insert(series_id, standings);
-                    }
-                    AppEvent::StandingsFetchError { series_id, error } => {
-                        tracing::warn!("Failed to fetch standings for {}: {}", series_id, error);
-                    }
-                    AppEvent::ResultsFetched {
-                        series_id,
-                        round,
-                        results,
-                    } => {
-                        app.results_fetching.remove(&(
-                            series_id.clone(),
-                            round,
-                            "race".to_string(),
-                        ));
-                        app.results_failed.remove(&(
-                            series_id.clone(),
-                            round,
-                            "race".to_string(),
-                        ));
-                        app.results.insert((series_id, round), results);
-                    }
-                    AppEvent::ResultsFetchError {
-                        series_id,
-                        round,
-                        error,
-                    } => {
-                        app.results_fetching.remove(&(
-                            series_id.clone(),
-                            round,
-                            "race".to_string(),
-                        ));
-                        app.results_failed.insert((
-                            series_id.clone(),
-                            round,
-                            "race".to_string(),
-                        ));
-                        tracing::warn!(
-                            "Failed to fetch results for {} round {}: {}",
-                            series_id,
-                            round,
-                            error
-                        );
-                    }
-                    AppEvent::QualifyingFetched {
-                        series_id,
-                        round,
-                        results,
-                    } => {
-                        app.results_fetching.remove(&(
-                            series_id.clone(),
-                            round,
-                            "qualifying".to_string(),
-                        ));
-                        app.results_failed.remove(&(
-                            series_id.clone(),
-                            round,
-                            "qualifying".to_string(),
-                        ));
-                        app.qualifying_results.insert((series_id, round), results);
-                    }
-                    AppEvent::QualifyingFetchError {
-                        series_id,
-                        round,
-                        error,
-                    } => {
-                        app.results_fetching.remove(&(
-                            series_id.clone(),
-                            round,
-                            "qualifying".to_string(),
-                        ));
-                        app.results_failed.insert((
-                            series_id.clone(),
-                            round,
-                            "qualifying".to_string(),
-                        ));
-                        tracing::warn!(
-                            "Failed to fetch qualifying results for {} round {}: {}",
-                            series_id,
-                            round,
-                            error
-                        );
-                    }
-                    AppEvent::SprintFetched {
-                        series_id,
-                        round,
-                        results,
-                    } => {
-                        app.results_fetching.remove(&(
-                            series_id.clone(),
-                            round,
-                            "sprint".to_string(),
-                        ));
-                        app.results_failed.remove(&(
-                            series_id.clone(),
-                            round,
-                            "sprint".to_string(),
-                        ));
-                        app.sprint_results.insert((series_id, round), results);
-                    }
-                    AppEvent::SprintFetchError {
-                        series_id,
-                        round,
-                        error,
-                    } => {
-                        app.results_fetching.remove(&(
-                            series_id.clone(),
-                            round,
-                            "sprint".to_string(),
-                        ));
-                        app.results_failed.insert((
-                            series_id.clone(),
-                            round,
-                            "sprint".to_string(),
-                        ));
-                        tracing::warn!(
-                            "Failed to fetch sprint results for {} round {}: {}",
-                            series_id,
-                            round,
-                            error
-                        );
-                    }
-                }
 
-                if !app.running {
-                    break;
-                }
+                    if !app.running {
+                        break;
+                    }
 
-                match rx.try_recv() {
-                    Ok(next_ev) => event = next_ev,
-                    Err(_) => break,
+                    match rx.try_recv() {
+                        Ok(next_ev) => event = next_ev,
+                        Err(_) => break,
+                    }
                 }
             }
         }
     }
-}
 
     // Drop communication channel
     drop(rx);
@@ -2348,7 +2355,11 @@ mod tests {
         assert_eq!(app.status_message, None);
         check_live_sessions_prompt(&mut app);
         assert!(app.status_message.is_some());
-        assert!(app.status_message.as_ref().unwrap().contains("LIVE: f1 Race — press 3 to watch"));
+        assert!(app
+            .status_message
+            .as_ref()
+            .unwrap()
+            .contains("LIVE: f1 Race — press 3 to watch"));
     }
 
     #[tokio::test]

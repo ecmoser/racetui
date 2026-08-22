@@ -189,7 +189,9 @@ mod tests {
     fn test_elms_raceday_streams() {
         let links = get_raceday_stream_links("elms", "4 Hours of Barcelona");
         assert!(!links.is_empty());
-        assert!(links.iter().any(|l| l.platform.contains("YouTube") && l.access == StreamAccess::Free));
+        assert!(links
+            .iter()
+            .any(|l| l.platform.contains("YouTube") && l.access == StreamAccess::Free));
     }
 
     #[test]

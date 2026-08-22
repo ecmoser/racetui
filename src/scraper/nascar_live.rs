@@ -2,9 +2,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use serde::Deserialize;
 
-use crate::live::event::{
-    LiveDriverEntry, LiveTimingData, PitInfo, SectorTimes,
-};
+use crate::live::event::{LiveDriverEntry, LiveTimingData, PitInfo, SectorTimes};
 use crate::live::LiveProvider;
 use crate::scraper::fetcher::create_http_client;
 
@@ -42,7 +40,12 @@ pub struct NascarLiveFeed {
 pub struct NascarLiveVehicle {
     #[serde(alias = "running_position", alias = "position", alias = "pos", default)]
     pub running_position: Option<u32>,
-    #[serde(alias = "vehicle_number", alias = "car_number", alias = "number", default)]
+    #[serde(
+        alias = "vehicle_number",
+        alias = "car_number",
+        alias = "number",
+        default
+    )]
     pub vehicle_number: Option<String>,
     #[serde(default)]
     pub driver: Option<NascarLiveDriverInfo>,
@@ -193,14 +196,14 @@ pub fn parse_nascar_live_feed(feed: &NascarLiveFeed, racetui_series_id: &str) ->
 
         // Driver name
         let name = if let Some(ref d) = v.driver {
-            d.full_name.clone().unwrap_or_else(|| {
-                match (&d.first_name, &d.last_name) {
+            d.full_name
+                .clone()
+                .unwrap_or_else(|| match (&d.first_name, &d.last_name) {
                     (Some(f), Some(l)) => format!("{} {}", f, l),
                     (Some(f), None) => f.clone(),
                     (None, Some(l)) => l.clone(),
                     (None, None) => "Unknown Driver".to_string(),
-                }
-            })
+                })
         } else if let Some(ref n) = v.driver_name {
             n.clone()
         } else {
@@ -208,12 +211,9 @@ pub fn parse_nascar_live_feed(feed: &NascarLiveFeed, racetui_series_id: &str) ->
         };
 
         let driver_code = if let Some(ref d) = v.driver {
-            d.last_name.as_ref().map(|l| {
-                l.chars()
-                    .take(3)
-                    .collect::<String>()
-                    .to_uppercase()
-            })
+            d.last_name
+                .as_ref()
+                .map(|l| l.chars().take(3).collect::<String>().to_uppercase())
         } else {
             None
         };
@@ -231,7 +231,11 @@ pub fn parse_nascar_live_feed(feed: &NascarLiveFeed, racetui_series_id: &str) ->
             .unwrap_or_else(|| "NASCAR Team".to_string());
 
         let gap = format_nascar_gap(v.delta.as_ref(), pos == 1);
-        let interval = if pos == 1 { "-".to_string() } else { gap.clone() };
+        let interval = if pos == 1 {
+            "-".to_string()
+        } else {
+            gap.clone()
+        };
 
         let is_fastest = match (v.best_lap_time, best_lap_overall) {
             (Some(b), Some(overall)) => (b - overall).abs() < 0.0001,
@@ -287,8 +291,14 @@ pub fn parse_nascar_live_feed(feed: &NascarLiveFeed, racetui_series_id: &str) ->
     };
 
     let session_name = feed.run_name.clone().unwrap_or_else(|| "Race".to_string());
-    let event_name = feed.race_name.clone().unwrap_or_else(|| "NASCAR Race".to_string());
-    let circuit_name = feed.track_name.clone().unwrap_or_else(|| "Track".to_string());
+    let event_name = feed
+        .race_name
+        .clone()
+        .unwrap_or_else(|| "NASCAR Race".to_string());
+    let circuit_name = feed
+        .track_name
+        .clone()
+        .unwrap_or_else(|| "Track".to_string());
 
     LiveTimingData {
         series_id: racetui_series_id.to_string(),
@@ -409,7 +419,8 @@ mod tests {
             ]
         }"#;
 
-        let feed: NascarLiveFeed = serde_json::from_str(sample_json).expect("parse sample nascar feed");
+        let feed: NascarLiveFeed =
+            serde_json::from_str(sample_json).expect("parse sample nascar feed");
         let timing = parse_nascar_live_feed(&feed, "nascar_cup");
 
         assert_eq!(timing.series_id, "nascar_cup");

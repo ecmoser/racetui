@@ -3,9 +3,9 @@ pub mod manager;
 pub mod track_map;
 pub mod weather;
 
+use crate::live::event::LiveTimingData;
 use anyhow::Result;
 pub use event::LiveEvent;
-use crate::live::event::LiveTimingData;
 
 /// Trait that all series live timing providers must implement.
 pub trait LiveProvider: Send + Sync {
@@ -36,7 +36,8 @@ impl<T: LiveProvider> LiveProviderBoxed for T {
 
     fn fetch_timing_boxed<'a>(
         &'a self,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<LiveTimingData>> + Send + 'a>> {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<LiveTimingData>> + Send + 'a>>
+    {
         Box::pin(self.fetch_timing())
     }
 }
@@ -46,35 +47,55 @@ impl<T: LiveProvider> LiveProviderBoxed for T {
 pub fn get_live_provider(series_id: &str) -> Option<Box<dyn LiveProviderBoxed>> {
     match series_id {
         "f1" => Some(Box::new(crate::scraper::f1_live::F1LiveProvider::new())),
-        "nascar_cup" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
-            1,
-            "nascar_cup",
-        ))),
-        "nascar_xfinity" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
-            2,
-            "nascar_xfinity",
-        ))),
-        "nascar_trucks" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
-            3,
-            "nascar_trucks",
-        ))),
-        "arca" => Some(Box::new(crate::scraper::nascar_live::NascarLiveProvider::new(
-            4,
-            "arca",
-        ))),
-        "indycar" => Some(Box::new(crate::scraper::indycar_live::IndyCarLiveProvider::new())),
-        "indy_nxt" => Some(Box::new(crate::scraper::indycar_live::IndyCarLiveProvider::new_with_series("indy_nxt"))),
-        "imsa" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("imsa"))),
-        "wec" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("wec"))),
-        "formula_e" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("formula_e"))),
-        "elms" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("elms"))),
-        "24h_series" => Some(Box::new(crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("24h_series"))),
-        "motogp" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new())),
-        "moto2" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("moto2"))),
-        "moto3" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("moto3"))),
-        "worldsbk" => Some(Box::new(crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("worldsbk"))),
+        "nascar_cup" => Some(Box::new(
+            crate::scraper::nascar_live::NascarLiveProvider::new(1, "nascar_cup"),
+        )),
+        "nascar_xfinity" => Some(Box::new(
+            crate::scraper::nascar_live::NascarLiveProvider::new(2, "nascar_xfinity"),
+        )),
+        "nascar_trucks" => Some(Box::new(
+            crate::scraper::nascar_live::NascarLiveProvider::new(3, "nascar_trucks"),
+        )),
+        "arca" => Some(Box::new(
+            crate::scraper::nascar_live::NascarLiveProvider::new(4, "arca"),
+        )),
+        "indycar" => Some(Box::new(
+            crate::scraper::indycar_live::IndyCarLiveProvider::new(),
+        )),
+        "indy_nxt" => Some(Box::new(
+            crate::scraper::indycar_live::IndyCarLiveProvider::new_with_series("indy_nxt"),
+        )),
+        "imsa" => Some(Box::new(
+            crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("imsa"),
+        )),
+        "wec" => Some(Box::new(
+            crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("wec"),
+        )),
+        "formula_e" => Some(Box::new(
+            crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("formula_e"),
+        )),
+        "elms" => Some(Box::new(
+            crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("elms"),
+        )),
+        "24h_series" => Some(Box::new(
+            crate::scraper::alkamelsystems_live::AlKamelLiveProvider::new("24h_series"),
+        )),
+        "motogp" => Some(Box::new(
+            crate::scraper::motogp_live::MotoGPLiveProvider::new(),
+        )),
+        "moto2" => Some(Box::new(
+            crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("moto2"),
+        )),
+        "moto3" => Some(Box::new(
+            crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("moto3"),
+        )),
+        "worldsbk" => Some(Box::new(
+            crate::scraper::motogp_live::MotoGPLiveProvider::new_with_series("worldsbk"),
+        )),
         "wrc" => Some(Box::new(crate::scraper::wrc_live::WrcLiveProvider::new())),
-        "erc" => Some(Box::new(crate::scraper::wrc_live::WrcLiveProvider::new_with_series("erc"))),
+        "erc" => Some(Box::new(
+            crate::scraper::wrc_live::WrcLiveProvider::new_with_series("erc"),
+        )),
         _ => None,
     }
 }

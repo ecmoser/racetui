@@ -188,14 +188,38 @@ impl LiveProvider for F1LiveProvider {
         let session_key = session.session_key;
 
         // 2. Fetch all session data in parallel
-        let drivers_fut = fetch_endpoint_opt::<OpenF1Driver>(self.client.clone(), format!("{}/drivers?session_key={}", self.base_url, session_key));
-        let positions_fut = fetch_endpoint_opt::<OpenF1Position>(self.client.clone(), format!("{}/position?session_key={}", self.base_url, session_key));
-        let intervals_fut = fetch_endpoint_opt::<OpenF1Interval>(self.client.clone(), format!("{}/intervals?session_key={}", self.base_url, session_key));
-        let laps_fut = fetch_endpoint_opt::<OpenF1Lap>(self.client.clone(), format!("{}/laps?session_key={}", self.base_url, session_key));
-        let stints_fut = fetch_endpoint_opt::<OpenF1Stint>(self.client.clone(), format!("{}/stints?session_key={}", self.base_url, session_key));
-        let pits_fut = fetch_endpoint_opt::<OpenF1Pit>(self.client.clone(), format!("{}/pit?session_key={}", self.base_url, session_key));
-        let weather_fut = fetch_endpoint_opt::<OpenF1Weather>(self.client.clone(), format!("{}/weather?session_key={}", self.base_url, session_key));
-        let locations_fut = fetch_endpoint_opt::<OpenF1Location>(self.client.clone(), format!("{}/location?session_key={}", self.base_url, session_key));
+        let drivers_fut = fetch_endpoint_opt::<OpenF1Driver>(
+            self.client.clone(),
+            format!("{}/drivers?session_key={}", self.base_url, session_key),
+        );
+        let positions_fut = fetch_endpoint_opt::<OpenF1Position>(
+            self.client.clone(),
+            format!("{}/position?session_key={}", self.base_url, session_key),
+        );
+        let intervals_fut = fetch_endpoint_opt::<OpenF1Interval>(
+            self.client.clone(),
+            format!("{}/intervals?session_key={}", self.base_url, session_key),
+        );
+        let laps_fut = fetch_endpoint_opt::<OpenF1Lap>(
+            self.client.clone(),
+            format!("{}/laps?session_key={}", self.base_url, session_key),
+        );
+        let stints_fut = fetch_endpoint_opt::<OpenF1Stint>(
+            self.client.clone(),
+            format!("{}/stints?session_key={}", self.base_url, session_key),
+        );
+        let pits_fut = fetch_endpoint_opt::<OpenF1Pit>(
+            self.client.clone(),
+            format!("{}/pit?session_key={}", self.base_url, session_key),
+        );
+        let weather_fut = fetch_endpoint_opt::<OpenF1Weather>(
+            self.client.clone(),
+            format!("{}/weather?session_key={}", self.base_url, session_key),
+        );
+        let locations_fut = fetch_endpoint_opt::<OpenF1Location>(
+            self.client.clone(),
+            format!("{}/location?session_key={}", self.base_url, session_key),
+        );
 
         let (drivers, positions, intervals, laps, stints, pits, weather, locations) = tokio::join!(
             drivers_fut,
@@ -209,15 +233,7 @@ impl LiveProvider for F1LiveProvider {
         );
 
         Ok(parse_openf1_data(
-            &session,
-            drivers,
-            positions,
-            intervals,
-            laps,
-            stints,
-            pits,
-            weather,
-            locations,
+            &session, drivers, positions, intervals, laps, stints, pits, weather, locations,
         ))
     }
 }
@@ -294,7 +310,9 @@ pub fn parse_openf1_data(
     // 4. Group stints per driver
     let mut latest_stint: HashMap<u32, OpenF1Stint> = HashMap::new();
     for stint in stints {
-        let entry = latest_stint.entry(stint.driver_number).or_insert_with(|| stint.clone());
+        let entry = latest_stint
+            .entry(stint.driver_number)
+            .or_insert_with(|| stint.clone());
         if stint.stint_number.unwrap_or(0) >= entry.stint_number.unwrap_or(0) {
             *entry = stint;
         }
@@ -366,12 +384,20 @@ pub fn parse_openf1_data(
 
         // Gaps / Intervals
         let interval_item = latest_interval.get(&num);
-        let gap_str = format_openf1_gap(interval_item.and_then(|i| i.gap_to_leader.as_ref()), pos == 1);
-        let int_str = format_openf1_interval(interval_item.and_then(|i| i.interval.as_ref()), pos == 1);
+        let gap_str = format_openf1_gap(
+            interval_item.and_then(|i| i.gap_to_leader.as_ref()),
+            pos == 1,
+        );
+        let int_str =
+            format_openf1_interval(interval_item.and_then(|i| i.interval.as_ref()), pos == 1);
 
         // Stint / Tire info
         let tire = latest_stint.get(&num).map(|s| {
-            let compound = s.compound.as_deref().map(normalize_compound).unwrap_or_else(|| "Unknown".to_string());
+            let compound = s
+                .compound
+                .as_deref()
+                .map(normalize_compound)
+                .unwrap_or_else(|| "Unknown".to_string());
             let stint_start_lap = s.lap_start.unwrap_or(1);
             let age_at_start = s.tyre_age_at_start.unwrap_or(0);
             let tire_laps = completed_laps.saturating_sub(stint_start_lap) + age_at_start + 1;
@@ -420,7 +446,10 @@ pub fn parse_openf1_data(
         driver_entries.push(LiveDriverEntry {
             position: pos,
             driver_number: Some(num),
-            driver_name: driver.full_name.or(driver.broadcast_name).unwrap_or_else(|| format!("Driver {}", num)),
+            driver_name: driver
+                .full_name
+                .or(driver.broadcast_name)
+                .unwrap_or_else(|| format!("Driver {}", num)),
             driver_code: driver.name_acronym,
             team_name: driver.team_name.unwrap_or_else(|| "Unknown".to_string()),
             team_color,
@@ -476,11 +505,18 @@ pub fn parse_openf1_data(
 
     LiveTimingData {
         series_id: "f1".to_string(),
-        session_name: session.session_name.clone().unwrap_or_else(|| "Session".to_string()),
+        session_name: session
+            .session_name
+            .clone()
+            .unwrap_or_else(|| "Session".to_string()),
         event_name,
         circuit_name: circuit,
         total_laps: None,
-        current_lap: if leader_laps > 0 { Some(leader_laps) } else { None },
+        current_lap: if leader_laps > 0 {
+            Some(leader_laps)
+        } else {
+            None
+        },
         time_remaining: None,
         session_status: "Green".to_string(),
         drivers: driver_entries,

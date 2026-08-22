@@ -60,7 +60,10 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect, data: &LiveTimingData)
             };
 
             let pos_str = format!("{:>2}", d.position);
-            let num_str = d.driver_number.map(|n| n.to_string()).unwrap_or_else(|| "-".to_string());
+            let num_str = d
+                .driver_number
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "-".to_string());
 
             let driver_span = if let Some(ref code) = d.driver_code {
                 format!("{} ({})", d.driver_name, code)
@@ -72,7 +75,10 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect, data: &LiveTimingData)
 
             let last_lap_span = if let Some(ref ll) = d.last_lap_time {
                 if d.fastest_lap {
-                    Span::styled(format!("{} [FL]", ll), Style::default().fg(Color::Magenta).bold())
+                    Span::styled(
+                        format!("{} [FL]", ll),
+                        Style::default().fg(Color::Magenta).bold(),
+                    )
                 } else {
                     Span::raw(ll.clone())
                 }
@@ -185,7 +191,10 @@ fn format_tire_cell(tire: Option<&TireInfo>) -> Cell<'static> {
         };
 
         let label = format!("{} ({}L)", t.compound, t.laps);
-        Cell::from(Span::styled(label, Style::default().fg(compound_color).bold()))
+        Cell::from(Span::styled(
+            label,
+            Style::default().fg(compound_color).bold(),
+        ))
     } else {
         Cell::from(Span::styled("-", Style::default().fg(Color::DarkGray)))
     }

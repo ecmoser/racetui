@@ -203,9 +203,9 @@ impl Session {
     pub fn is_live(&self, series_id: &str) -> bool {
         let now = Utc::now();
         if let Some(st) = self.start_time {
-            let end = self
-                .end_time
-                .unwrap_or_else(|| st + session_default_duration(&self.name, &self.session_type, series_id));
+            let end = self.end_time.unwrap_or_else(|| {
+                st + session_default_duration(&self.name, &self.session_type, series_id)
+            });
             st <= now && now <= end
         } else {
             false
@@ -216,9 +216,9 @@ impl Session {
     pub fn is_completed(&self, series_id: &str) -> bool {
         let now = Utc::now();
         if let Some(st) = self.start_time {
-            let end = self
-                .end_time
-                .unwrap_or_else(|| st + session_default_duration(&self.name, &self.session_type, series_id));
+            let end = self.end_time.unwrap_or_else(|| {
+                st + session_default_duration(&self.name, &self.session_type, series_id)
+            });
             now > end
         } else {
             false

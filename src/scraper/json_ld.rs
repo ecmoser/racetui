@@ -202,10 +202,14 @@ pub fn build_series_sessions(
                 if st.date_naive() == fri_date {
                     Some(st)
                 } else {
-                    fri_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
+                    fri_date
+                        .and_hms_opt(9, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
                 }
             } else {
-                fri_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
+                fri_date
+                    .and_hms_opt(9, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
             };
 
             sessions.push(Session {
@@ -217,18 +221,28 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Free Practice 2".to_string(),
                 session_type: SessionType::Practice,
-                start_time: sat_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(9, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(8, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(9, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(14, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(14, 15, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
 
             // 4 Hours Race on Sunday (typically 11:00 UTC to 15:00 UTC)
-            let race_start = sun_date.and_hms_opt(11, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_start = sun_date
+                .and_hms_opt(11, 0, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
             let race_end = end_time.or_else(|| race_start.map(|t| t + chrono::Duration::hours(4)));
             sessions.push(Session {
                 name: "Race (4 Hours)".to_string(),
@@ -246,10 +260,14 @@ pub fn build_series_sessions(
                 if st.date_naive() == fri_date {
                     Some(st)
                 } else {
-                    fri_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
+                    fri_date
+                        .and_hms_opt(6, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
                 }
             } else {
-                fri_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
+                fri_date
+                    .and_hms_opt(6, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
             };
 
             sessions.push(Session {
@@ -261,20 +279,32 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(2, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(3, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(2, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(3, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1 (4 Hours)".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(6, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(10, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2 (4 Hours)".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(6, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(10, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "gtwc_eu" => {
@@ -287,54 +317,90 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Free Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: thu_date.and_hms_opt(9, 20, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: thu_date.and_hms_opt(10, 50, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: thu_date
+                        .and_hms_opt(9, 20, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: thu_date
+                        .and_hms_opt(10, 50, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Pre-Qualifying".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: thu_date.and_hms_opt(14, 10, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: thu_date.and_hms_opt(15, 10, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: thu_date
+                        .and_hms_opt(14, 10, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: thu_date
+                        .and_hms_opt(15, 10, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: thu_date.and_hms_opt(18, 40, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: thu_date.and_hms_opt(20, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: thu_date
+                        .and_hms_opt(18, 40, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: thu_date
+                        .and_hms_opt(20, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Superpole".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: fri_date.and_hms_opt(13, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(13, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sat_date.and_hms_opt(14, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sat_date
+                    .and_hms_opt(14, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "24 Hours of Spa".to_string(),
                     session_type: SessionType::Race,
                     start_time: race_start,
                     end_time: race_start.map(|t| t + chrono::Duration::hours(24)),
                 });
-            } else if name_lower.contains("endurance") || name_lower.contains("1000") || name_lower.contains("6h") || name_lower.contains("3h") {
+            } else if name_lower.contains("endurance")
+                || name_lower.contains("1000")
+                || name_lower.contains("6h")
+                || name_lower.contains("3h")
+            {
                 sessions.push(Session {
                     name: "Free Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(14, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(14, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Pre-Qualifying".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(14, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(14, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sun_date.and_hms_opt(7, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sun_date.and_hms_opt(8, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(7, 45, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sun_date
+                        .and_hms_opt(8, 45, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sun_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sun_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Endurance Race".to_string(),
                     session_type: SessionType::Race,
@@ -346,32 +412,52 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Free Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(8, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(7, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(8, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying 1".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(7, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(8, 20, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(7, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(8, 20, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Race 1".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sat_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(12, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying 2".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sun_date.and_hms_opt(7, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sun_date.and_hms_opt(8, 20, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(7, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sun_date
+                        .and_hms_opt(8, 20, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Race 2".to_string(),
                     session_type: SessionType::Race,
-                    start_time: sun_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sun_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sun_date
+                        .and_hms_opt(12, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sun_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
             }
         }
@@ -383,32 +469,52 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Practice 1".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(15, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(16, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(15, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(16, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Practice 2".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(20, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(21, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(20, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(21, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(14, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(14, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(19, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(20, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(19, 15, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(20, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(18, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(19, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(18, 15, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(19, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "igtc" => {
@@ -420,30 +526,49 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Free Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(3, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(4, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(3, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(4, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying & Shootout".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(3, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(3, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(6, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sat_date.and_hms_opt(18, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sat_date
+                    .and_hms_opt(18, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Bathurst 12 Hour".to_string(),
                     session_type: SessionType::Race,
                     start_time: race_start,
                     end_time: race_start.map(|t| t + chrono::Duration::hours(12)),
                 });
-            } else if name_lower.contains("nürburgring") || name_lower.contains("nurburgring") || name_lower.contains("24h") {
+            } else if name_lower.contains("nürburgring")
+                || name_lower.contains("nurburgring")
+                || name_lower.contains("24h")
+            {
                 sessions.push(Session {
                     name: "Top Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: fri_date.and_hms_opt(15, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(17, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(15, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(17, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sat_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "24 Hours of Nürburgring".to_string(),
                     session_type: SessionType::Race,
@@ -454,16 +579,26 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Free Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(11, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(10, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(11, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(11, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(10, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(11, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sun_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sun_date
+                    .and_hms_opt(10, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Race (Endurance)".to_string(),
                     session_type: SessionType::Race,
@@ -480,38 +615,62 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Free Practice 1".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(8, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(9, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(8, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(9, 15, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Free Practice 2".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(13, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(13, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Superpole".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(9, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(9, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(9, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(12, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Superpole Race".to_string(),
                 session_type: SessionType::Sprint,
-                start_time: sun_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(9, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(9, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(9, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(12, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "bsb" => {
@@ -522,38 +681,62 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Free Practice 1".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(10, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(10, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(10, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Free Practice 2".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(14, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(14, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(12, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(12, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(12, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(12, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Sprint Race".to_string(),
                 session_type: SessionType::Sprint,
-                start_time: sat_date.and_hms_opt(15, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(15, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(15, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(15, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(12, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(13, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(12, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(13, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 3".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(15, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(16, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(15, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(16, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "supercars" => {
@@ -564,38 +747,62 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Practice 1".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(1, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(2, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(1, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(2, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Practice 2".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(5, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(5, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(6, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying 1".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(2, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(3, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(2, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(3, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(6, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(8, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying 2".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sun_date.and_hms_opt(2, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(3, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(2, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(3, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(5, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(5, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(7, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "tcr" | "tcr_world" => {
@@ -606,26 +813,42 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Practice 1".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(8, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(8, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(8, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(9, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(10, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(15, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(15, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "f1_academy" => {
@@ -636,26 +859,42 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Practice".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(8, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(9, 10, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(8, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(9, 10, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: fri_date.and_hms_opt(16, 10, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(16, 40, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(16, 10, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(16, 40, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(11, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(11, 50, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(11, 15, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(11, 50, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(9, 5, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(9, 40, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(9, 5, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(9, 40, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "indy_nxt" => {
@@ -666,20 +905,32 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Practice".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(17, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(18, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(17, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(18, 15, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(17, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(17, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(17, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(17, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(15, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(16, 35, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(15, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(16, 35, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "porsche_supercup" => {
@@ -690,20 +941,32 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Practice".to_string(),
                 session_type: SessionType::Practice,
-                start_time: fri_date.and_hms_opt(16, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(16, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(16, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(16, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(10, 20, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(10, 50, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(10, 20, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(10, 50, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(10, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(11, 20, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(10, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(11, 20, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "nls" => {
@@ -711,14 +974,22 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(6, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(6, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(8, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race (4h / 6h)".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(10, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(10, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "extreme_e" => {
@@ -727,39 +998,59 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Qualifying 1 & 2".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(11, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(9, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(11, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Round 1 Grand Final".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(15, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(15, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Round 2 Grand Final".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(15, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(15, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "dakar" => {
             sessions.push(Session {
                 name: "Prologue / Stage 1".to_string(),
                 session_type: SessionType::Practice,
-                start_time: start_date.and_hms_opt(5, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: start_date
+                    .and_hms_opt(5, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 end_time: None,
             });
             sessions.push(Session {
                 name: "Marathon Stages".to_string(),
                 session_type: SessionType::Other("Rally Raid".to_string()),
-                start_time: start_date.succ_opt().unwrap_or(start_date).and_hms_opt(4, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: start_date
+                    .succ_opt()
+                    .unwrap_or(start_date)
+                    .and_hms_opt(4, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 end_time: None,
             });
             sessions.push(Session {
                 name: "Final Stage".to_string(),
                 session_type: SessionType::Race,
-                start_time: end_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: end_date
+                    .and_hms_opt(6, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 end_time: None,
             });
         }
@@ -769,32 +1060,52 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Free Practice 1".to_string(),
                 session_type: SessionType::Practice,
-                start_time: sat_date.and_hms_opt(8, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(9, 10, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(8, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(9, 10, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(14, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(15, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(14, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(15, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(10, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(11, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(10, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(11, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(13, 25, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(14, 10, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(13, 25, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(14, 10, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 3".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(16, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(17, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(16, 15, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(17, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "dtm" => {
@@ -803,26 +1114,42 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Qualifying 1".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(7, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(7, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(8, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(11, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(12, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(11, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(12, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying 2".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sun_date.and_hms_opt(7, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(7, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(8, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Race 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(11, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sun_date.and_hms_opt(12, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sun_date
+                    .and_hms_opt(11, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sun_date
+                    .and_hms_opt(12, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
         }
         "super_gt" => {
@@ -831,16 +1158,26 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Official Practice".to_string(),
                 session_type: SessionType::Practice,
-                start_time: sat_date.and_hms_opt(0, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(1, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(0, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(1, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(5, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(6, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(5, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(6, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
-            let race_start = sun_date.and_hms_opt(5, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_start = sun_date
+                .and_hms_opt(5, 30, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
             sessions.push(Session {
                 name: "Race".to_string(),
                 session_type: SessionType::Race,
@@ -854,16 +1191,26 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Free Practice".to_string(),
                 session_type: SessionType::Practice,
-                start_time: sat_date.and_hms_opt(0, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(1, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(0, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(1, 30, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Qualifying".to_string(),
                 session_type: SessionType::Qualifying,
-                start_time: sat_date.and_hms_opt(5, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(5, 45, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(5, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(5, 45, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
-            let race_start = sun_date.and_hms_opt(5, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+            let race_start = sun_date
+                .and_hms_opt(5, 30, 0)
+                .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
             sessions.push(Session {
                 name: "Race".to_string(),
                 session_type: SessionType::Race,
@@ -879,26 +1226,44 @@ pub fn build_series_sessions(
             sessions.push(Session {
                 name: "Shakedown".to_string(),
                 session_type: SessionType::Practice,
-                start_time: thu_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: thu_date.and_hms_opt(11, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: thu_date
+                    .and_hms_opt(8, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: thu_date
+                    .and_hms_opt(11, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Leg 1".to_string(),
                 session_type: SessionType::Race,
-                start_time: fri_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: fri_date.and_hms_opt(17, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: fri_date
+                    .and_hms_opt(7, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: fri_date
+                    .and_hms_opt(17, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Leg 2".to_string(),
                 session_type: SessionType::Race,
-                start_time: sat_date.and_hms_opt(7, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: sat_date.and_hms_opt(17, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                start_time: sat_date
+                    .and_hms_opt(7, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: sat_date
+                    .and_hms_opt(17, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
             });
             sessions.push(Session {
                 name: "Power Stage (Final Leg)".to_string(),
                 session_type: SessionType::Race,
-                start_time: sun_date.and_hms_opt(11, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                end_time: end_time.or_else(|| sun_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))),
+                start_time: sun_date
+                    .and_hms_opt(11, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                end_time: end_time.or_else(|| {
+                    sun_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
+                }),
             });
         }
         "wec" => {
@@ -911,16 +1276,26 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Free Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: thu_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: thu_date.and_hms_opt(16, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: thu_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: thu_date
+                        .and_hms_opt(16, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Hyperpole".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: thu_date.and_hms_opt(18, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: thu_date.and_hms_opt(19, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: thu_date
+                        .and_hms_opt(18, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: thu_date
+                        .and_hms_opt(19, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sat_date
+                    .and_hms_opt(14, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "24 Hours of Le Mans".to_string(),
                     session_type: SessionType::Race,
@@ -931,57 +1306,97 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Free Practice 1".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(8, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(9, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(8, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(9, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
 
-                let race_day = if name_lower.contains("qatar") || name_lower.contains("bahrain") || name_lower.contains("spa") {
+                let race_day = if name_lower.contains("qatar")
+                    || name_lower.contains("bahrain")
+                    || name_lower.contains("spa")
+                {
                     sat_date
                 } else {
                     sun_date
                 };
-                let race_start = race_day.and_hms_opt(11, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = race_day
+                    .and_hms_opt(11, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Race (6 Hours)".to_string(),
                     session_type: SessionType::Race,
                     start_time: race_start,
-                    end_time: end_time.or_else(|| race_start.map(|t| t + chrono::Duration::hours(6))),
+                    end_time: end_time
+                        .or_else(|| race_start.map(|t| t + chrono::Duration::hours(6))),
                 });
             }
         }
         "imsa" => {
-            let sat_date = if start_date == end_date { start_date } else { end_date.pred_opt().unwrap_or(start_date) };
+            let sat_date = if start_date == end_date {
+                start_date
+            } else {
+                end_date.pred_opt().unwrap_or(start_date)
+            };
             let sun_date = end_date;
 
-            if name_lower.contains("daytona") || name_lower.contains("24 hours") || name_lower.contains("rolex 24") {
+            if name_lower.contains("daytona")
+                || name_lower.contains("24 hours")
+                || name_lower.contains("rolex 24")
+            {
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.pred_opt().unwrap_or(sat_date).and_hms_opt(18, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.pred_opt().unwrap_or(sat_date).and_hms_opt(19, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .pred_opt()
+                        .unwrap_or(sat_date)
+                        .and_hms_opt(18, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .pred_opt()
+                        .unwrap_or(sat_date)
+                        .and_hms_opt(19, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sat_date.and_hms_opt(18, 40, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sat_date
+                    .and_hms_opt(18, 40, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Rolex 24 at Daytona".to_string(),
                     session_type: SessionType::Race,
                     start_time: race_start,
                     end_time: race_start.map(|t| t + chrono::Duration::hours(24)),
                 });
-            } else if name_lower.contains("sebring") || name_lower.contains("twelve hours") || name_lower.contains("12 hours") {
+            } else if name_lower.contains("sebring")
+                || name_lower.contains("twelve hours")
+                || name_lower.contains("12 hours")
+            {
                 let fri_date = sat_date.pred_opt().unwrap_or(sat_date);
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: fri_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(14, 15, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(14, 15, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sat_date.and_hms_opt(13, 40, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sat_date
+                    .and_hms_opt(13, 40, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Mobil 1 Twelve Hours of Sebring".to_string(),
                     session_type: SessionType::Race,
@@ -993,21 +1408,32 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Practice 1".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: fri_date.and_hms_opt(15, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: fri_date.and_hms_opt(16, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: fri_date
+                        .and_hms_opt(15, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: fri_date
+                        .and_hms_opt(16, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sun_date.and_hms_opt(17, 40, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = sun_date
+                    .and_hms_opt(17, 40, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Race".to_string(),
                     session_type: SessionType::Race,
                     start_time: race_start,
-                    end_time: end_time.or_else(|| race_start.map(|t| t + chrono::Duration::minutes(160))),
+                    end_time: end_time
+                        .or_else(|| race_start.map(|t| t + chrono::Duration::minutes(160))),
                 });
             }
         }
@@ -1017,21 +1443,32 @@ pub fn build_series_sessions(
                 sessions.push(Session {
                     name: "Practice".to_string(),
                     session_type: SessionType::Practice,
-                    start_time: start_date.and_hms_opt(9, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: start_date.and_hms_opt(10, 30, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: start_date
+                        .and_hms_opt(9, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: start_date
+                        .and_hms_opt(10, 30, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
                 sessions.push(Session {
                     name: "Qualifying".to_string(),
                     session_type: SessionType::Qualifying,
-                    start_time: sat_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
-                    end_time: sat_date.and_hms_opt(14, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    start_time: sat_date
+                        .and_hms_opt(13, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
+                    end_time: sat_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = end_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = end_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Race".to_string(),
                     session_type: SessionType::Race,
                     start_time: race_start,
-                    end_time: end_time.or_else(|| race_start.map(|t| t + chrono::Duration::hours(2))),
+                    end_time: end_time
+                        .or_else(|| race_start.map(|t| t + chrono::Duration::hours(2))),
                 });
             } else if let Some(st) = start_time {
                 sessions.push(Session {
@@ -1041,12 +1478,15 @@ pub fn build_series_sessions(
                     end_time: end_time.or_else(|| Some(st + chrono::Duration::hours(2))),
                 });
             } else {
-                let race_start = end_date.and_hms_opt(13, 0, 0).map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                let race_start = end_date
+                    .and_hms_opt(13, 0, 0)
+                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
                 sessions.push(Session {
                     name: "Race".to_string(),
                     session_type: SessionType::Race,
                     start_time: race_start,
-                    end_time: end_time.or_else(|| race_start.map(|t| t + chrono::Duration::hours(2))),
+                    end_time: end_time
+                        .or_else(|| race_start.map(|t| t + chrono::Duration::hours(2))),
                 });
             }
         }

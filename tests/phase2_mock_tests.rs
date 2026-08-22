@@ -12,7 +12,8 @@ use tokio::sync::mpsc;
 fn test_mock_nascar_live_timing_parsing() {
     let json_data = fs::read_to_string("tests/fixtures/nascar_live_timing.json")
         .expect("Failed to read nascar_live_timing fixture");
-    let feed: NascarLiveFeed = serde_json::from_str(&json_data).expect("deserialize nascar live feed");
+    let feed: NascarLiveFeed =
+        serde_json::from_str(&json_data).expect("deserialize nascar live feed");
     let timing = parse_nascar_live_feed(&feed, "nascar_cup");
 
     assert_eq!(timing.series_id, "nascar_cup");
@@ -44,7 +45,8 @@ fn test_mock_nascar_live_timing_parsing() {
 fn test_mock_indycar_live_timing_parsing() {
     let json_data = fs::read_to_string("tests/fixtures/indycar_live_timing.json")
         .expect("Failed to read indycar_live_timing fixture");
-    let feed: IndyCarLiveFeed = serde_json::from_str(&json_data).expect("deserialize indycar live feed");
+    let feed: IndyCarLiveFeed =
+        serde_json::from_str(&json_data).expect("deserialize indycar live feed");
     let timing = parse_indycar_live_feed(&feed, "indycar");
 
     assert_eq!(timing.series_id, "indycar");
@@ -82,7 +84,8 @@ fn test_mock_indycar_live_timing_parsing() {
 fn test_mock_alkamel_wec_live_timing_parsing() {
     let json_data = fs::read_to_string("tests/fixtures/wec_live_timing.json")
         .expect("Failed to read wec_live_timing fixture");
-    let feed: AlKamelLiveFeed = serde_json::from_str(&json_data).expect("deserialize alkamel wec live feed");
+    let feed: AlKamelLiveFeed =
+        serde_json::from_str(&json_data).expect("deserialize alkamel wec live feed");
     let timing = parse_alkamel_live_feed(&feed, "wec");
 
     assert_eq!(timing.series_id, "wec");
@@ -128,11 +131,15 @@ fn test_mock_alkamel_wec_live_timing_parsing() {
 fn test_mock_motogp_live_timing_parsing() {
     let json_data = fs::read_to_string("tests/fixtures/motogp_live_timing.json")
         .expect("Failed to read motogp_live_timing fixture");
-    let feed: MotoGPLiveFeed = serde_json::from_str(&json_data).expect("deserialize motogp live feed");
+    let feed: MotoGPLiveFeed =
+        serde_json::from_str(&json_data).expect("deserialize motogp live feed");
     let timing = parse_motogp_live_feed(&feed, "motogp");
 
     assert_eq!(timing.series_id, "motogp");
-    assert_eq!(timing.session_name, "MotoGP Grand Prix of the Americas - Race");
+    assert_eq!(
+        timing.session_name,
+        "MotoGP Grand Prix of the Americas - Race"
+    );
     assert_eq!(timing.circuit_name, "Circuit of the Americas");
     assert_eq!(timing.session_status, "Green");
     assert_eq!(timing.current_lap, Some(18));
@@ -192,7 +199,10 @@ fn test_mock_wrc_live_timing_parsing() {
     assert_eq!(d1.position, 1);
     assert_eq!(d1.driver_name, "Sebastien Ogier / Vincent Landais");
     assert_eq!(d1.driver_number, Some(17));
-    assert_eq!(d1.team_name, "Toyota Gazoo Racing WRT (Toyota GR Yaris Rally1)");
+    assert_eq!(
+        d1.team_name,
+        "Toyota Gazoo Racing WRT (Toyota GR Yaris Rally1)"
+    );
     assert_eq!(d1.gap_to_leader, "LEADER");
     assert_eq!(d1.last_lap_time.as_deref(), Some("14:52.3"));
     assert_eq!(d1.best_lap_time.as_deref(), Some("2:10:45.0"));
@@ -204,7 +214,10 @@ fn test_mock_wrc_live_timing_parsing() {
     assert_eq!(d2.position, 2);
     assert_eq!(d2.driver_name, "Ott Tanak / Martin Jarveoja");
     assert_eq!(d2.driver_number, Some(8));
-    assert_eq!(d2.team_name, "Hyundai Shell Mobis WRT (Hyundai i20 N Rally1)");
+    assert_eq!(
+        d2.team_name,
+        "Hyundai Shell Mobis WRT (Hyundai i20 N Rally1)"
+    );
     assert_eq!(d2.gap_to_leader, "+3.1");
     assert_eq!(d2.last_lap_time.as_deref(), Some("14:55.4"));
     assert_eq!(d2.best_lap_time.as_deref(), Some("2:10:48.1"));
@@ -220,7 +233,8 @@ async fn test_mock_live_timing_serialization_and_event_channel() {
 
     // Test serialization roundtrip
     let serialized = serde_json::to_string(&timing).expect("serialize LiveTimingData");
-    let deserialized: LiveTimingData = serde_json::from_str(&serialized).expect("deserialize LiveTimingData");
+    let deserialized: LiveTimingData =
+        serde_json::from_str(&serialized).expect("deserialize LiveTimingData");
     assert_eq!(deserialized.series_id, "indycar");
     assert_eq!(deserialized.drivers.len(), 2);
     assert_eq!(deserialized.drivers[0].driver_name, "Alex Palou");
@@ -246,9 +260,24 @@ async fn test_mock_live_timing_serialization_and_event_channel() {
 
     // Verify all Phase 2 providers are registered in get_live_provider
     for series in &[
-        "f1", "nascar_cup", "nascar_xfinity", "nascar_trucks", "arca",
-        "indycar", "indy_nxt", "imsa", "wec", "formula_e", "elms", "24h_series",
-        "motogp", "moto2", "moto3", "worldsbk", "wrc", "erc",
+        "f1",
+        "nascar_cup",
+        "nascar_xfinity",
+        "nascar_trucks",
+        "arca",
+        "indycar",
+        "indy_nxt",
+        "imsa",
+        "wec",
+        "formula_e",
+        "elms",
+        "24h_series",
+        "motogp",
+        "moto2",
+        "moto3",
+        "worldsbk",
+        "wrc",
+        "erc",
     ] {
         assert!(
             get_live_provider(series).is_some(),

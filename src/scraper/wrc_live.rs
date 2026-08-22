@@ -19,7 +19,13 @@ pub struct WrcLiveFeed {
     pub stage: Option<WrcStageInfo>,
     #[serde(alias = "weather", alias = "conditions", default)]
     pub weather: Option<WrcWeatherInfo>,
-    #[serde(alias = "entries", alias = "drivers", alias = "cars", alias = "classification", default)]
+    #[serde(
+        alias = "entries",
+        alias = "drivers",
+        alias = "cars",
+        alias = "classification",
+        default
+    )]
     pub entries: Vec<WrcDriverEntry>,
     #[serde(alias = "status", alias = "stage_status", default)]
     pub status: Option<String>,
@@ -65,7 +71,13 @@ pub struct WrcWeatherInfo {
 /// Driver / Car timing entry in WRC feed.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct WrcDriverEntry {
-    #[serde(alias = "pos", alias = "position", alias = "rank", alias = "overall_pos", default)]
+    #[serde(
+        alias = "pos",
+        alias = "position",
+        alias = "rank",
+        alias = "overall_pos",
+        default
+    )]
     pub pos: Option<u32>,
     #[serde(alias = "car_number", alias = "number", alias = "no", default)]
     pub number: Option<String>,
@@ -75,7 +87,12 @@ pub struct WrcDriverEntry {
     pub first_name: Option<String>,
     #[serde(alias = "last_name", default)]
     pub last_name: Option<String>,
-    #[serde(alias = "codriver", alias = "co_driver", alias = "codriver_name", default)]
+    #[serde(
+        alias = "codriver",
+        alias = "co_driver",
+        alias = "codriver_name",
+        default
+    )]
     pub codriver: Option<String>,
     #[serde(alias = "team", alias = "team_name", alias = "entrant", default)]
     pub team: Option<String>,
@@ -89,7 +106,12 @@ pub struct WrcDriverEntry {
     pub interval: Option<serde_json::Value>,
     #[serde(alias = "stage_time", alias = "time", alias = "last_lap", default)]
     pub stage_time: Option<serde_json::Value>,
-    #[serde(alias = "total_time", alias = "best_lap", alias = "overall_time", default)]
+    #[serde(
+        alias = "total_time",
+        alias = "best_lap",
+        alias = "overall_time",
+        default
+    )]
     pub total_time: Option<serde_json::Value>,
     #[serde(alias = "stages_completed", alias = "laps", default)]
     pub stages_completed: Option<u32>,
@@ -234,10 +256,7 @@ pub fn parse_wrc_live_feed(feed: &WrcLiveFeed, series_id: &str) -> LiveTimingDat
             None
         };
 
-        let driver_number = e
-            .number
-            .as_ref()
-            .and_then(|n| n.parse::<u32>().ok());
+        let driver_number = e.number.as_ref().and_then(|n| n.parse::<u32>().ok());
 
         let team = if let Some(ref t) = e.team {
             if let Some(ref c) = e.car {
@@ -250,7 +269,8 @@ pub fn parse_wrc_live_feed(feed: &WrcLiveFeed, series_id: &str) -> LiveTimingDat
         };
 
         let gap = format_json_val_or_default(e.gap.as_ref(), if pos == 1 { "LEADER" } else { "-" });
-        let interval = format_json_val_or_default(e.interval.as_ref(), if pos == 1 { "-" } else { "-" });
+        let interval =
+            format_json_val_or_default(e.interval.as_ref(), if pos == 1 { "-" } else { "-" });
 
         let last_lap_str = format_json_val_opt(e.stage_time.as_ref());
         let best_lap_str = format_json_val_opt(e.total_time.as_ref());
@@ -359,15 +379,9 @@ pub fn parse_wrc_live_feed(feed: &WrcLiveFeed, series_id: &str) -> LiveTimingDat
         .or_else(|| feed.status.clone())
         .unwrap_or_else(|| "Live".to_string());
 
-    let current_lap = feed
-        .rally
-        .as_ref()
-        .and_then(|r| r.current_stage_number);
+    let current_lap = feed.rally.as_ref().and_then(|r| r.current_stage_number);
 
-    let total_laps = feed
-        .rally
-        .as_ref()
-        .and_then(|r| r.total_stages);
+    let total_laps = feed.rally.as_ref().and_then(|r| r.total_stages);
 
     let weather = feed.weather.as_ref().map(|w| WeatherInfo {
         air_temp_c: w.air_temp,
@@ -522,7 +536,10 @@ mod tests {
         assert_eq!(d1.position, 1);
         assert_eq!(d1.driver_name, "Thierry Neuville / Martijn Wydaeghe");
         assert_eq!(d1.driver_number, Some(11));
-        assert_eq!(d1.team_name, "Hyundai Shell Mobis WRT (Hyundai i20 N Rally1)");
+        assert_eq!(
+            d1.team_name,
+            "Hyundai Shell Mobis WRT (Hyundai i20 N Rally1)"
+        );
         assert_eq!(d1.tire.as_ref().unwrap().compound, "Snow");
         assert!(d1.fastest_lap);
         assert_eq!(d1.sectors.s1_str.as_deref(), Some("1:45.2"));

@@ -164,14 +164,9 @@ pub enum LiveEvent {
         session_name: String,
     },
     /// Live session ended
-    SessionEnded {
-        series_id: String,
-    },
+    SessionEnded { series_id: String },
     /// Error occurred during live timing fetch
-    LiveError {
-        series_id: String,
-        error: String,
-    },
+    LiveError { series_id: String, error: String },
 }
 
 #[cfg(test)]
@@ -251,12 +246,16 @@ mod tests {
         };
 
         let json = serde_json::to_string_pretty(&timing_data).expect("serialize live timing data");
-        let deserialized: LiveTimingData = serde_json::from_str(&json).expect("deserialize live timing data");
+        let deserialized: LiveTimingData =
+            serde_json::from_str(&json).expect("deserialize live timing data");
 
         assert_eq!(timing_data.series_id, deserialized.series_id);
         assert_eq!(timing_data.session_name, deserialized.session_name);
         assert_eq!(timing_data.drivers.len(), deserialized.drivers.len());
-        assert_eq!(timing_data.drivers[0].driver_name, deserialized.drivers[0].driver_name);
+        assert_eq!(
+            timing_data.drivers[0].driver_name,
+            deserialized.drivers[0].driver_name
+        );
         assert_eq!(timing_data.drivers[0].tire, deserialized.drivers[0].tire);
         assert_eq!(timing_data.weather, deserialized.weather);
     }
@@ -269,7 +268,10 @@ mod tests {
         };
         let cloned = event.clone();
         match cloned {
-            LiveEvent::SessionStarted { series_id, session_name } => {
+            LiveEvent::SessionStarted {
+                series_id,
+                session_name,
+            } => {
                 assert_eq!(series_id, "f1");
                 assert_eq!(session_name, "Qualifying");
             }

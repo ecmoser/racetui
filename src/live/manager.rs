@@ -31,7 +31,10 @@ impl LiveSessionManager {
             None => {
                 let _ = self.tx.send(LiveEvent::LiveError {
                     series_id: series_id.to_string(),
-                    error: format!("No live timing provider available for series '{}'", series_id),
+                    error: format!(
+                        "No live timing provider available for series '{}'",
+                        series_id
+                    ),
                 });
                 return;
             }
@@ -50,8 +53,9 @@ impl LiveSessionManager {
             loop {
                 match provider.fetch_timing_boxed().await {
                     Ok(timing_data) => {
-                        let is_finished = timing_data.session_status.eq_ignore_ascii_case("finished")
-                            || timing_data.session_status.eq_ignore_ascii_case("completed");
+                        let is_finished =
+                            timing_data.session_status.eq_ignore_ascii_case("finished")
+                                || timing_data.session_status.eq_ignore_ascii_case("completed");
 
                         let _ = tx.send(LiveEvent::TimingUpdate {
                             series_id: sid.clone(),

@@ -57,14 +57,12 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::LightRed));
 
-    let list = List::new(list_items)
-        .block(block)
-        .highlight_style(
-            Style::default()
-                .bg(Color::Rgb(60, 20, 20))
-                .fg(Color::White)
-                .add_modifier(Modifier::BOLD),
-        );
+    let list = List::new(list_items).block(block).highlight_style(
+        Style::default()
+            .bg(Color::Rgb(60, 20, 20))
+            .fg(Color::White)
+            .add_modifier(Modifier::BOLD),
+    );
 
     frame.render_stateful_widget(list, popup_area, &mut app.live_session_picker_state);
 }

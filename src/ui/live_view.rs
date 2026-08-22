@@ -74,7 +74,12 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-fn draw_session_header(frame: &mut Frame, app: &App, area: Rect, data: &crate::live::event::LiveTimingData) {
+fn draw_session_header(
+    frame: &mut Frame,
+    app: &App,
+    area: Rect,
+    data: &crate::live::event::LiveTimingData,
+) {
     let series_name = app
         .series_registry
         .get(&data.series_id)
@@ -104,11 +109,20 @@ fn draw_session_header(frame: &mut Frame, app: &App, area: Rect, data: &crate::l
     };
 
     let header_spans = vec![
-        Span::styled(format!(" {} ", series_name), Style::default().fg(Color::Black).bg(series_color).bold()),
+        Span::styled(
+            format!(" {} ", series_name),
+            Style::default().fg(Color::Black).bg(series_color).bold(),
+        ),
         Span::raw(" "),
         Span::styled(&data.event_name, Style::default().bold()),
-        Span::styled(format!(" — {}", data.session_name), Style::default().fg(Color::Yellow)),
-        Span::styled(format!(" ({})", data.circuit_name), Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            format!(" — {}", data.session_name),
+            Style::default().fg(Color::Yellow),
+        ),
+        Span::styled(
+            format!(" ({})", data.circuit_name),
+            Style::default().fg(Color::DarkGray),
+        ),
         Span::styled(lap_info, Style::default().fg(Color::Cyan).bold()),
         Span::raw("  "),
         Span::styled(status_badge, status_style),
@@ -153,7 +167,10 @@ fn draw_sub_tabs(frame: &mut Frame, app: &App, area: Rect) {
         Span::raw(" "),
         Span::styled(" [ 2. Track Map ] ", track_map_style),
         Span::raw("  "),
-        Span::styled("(←/→ or h/l to switch sub-tabs)", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            "(←/→ or h/l to switch sub-tabs)",
+            Style::default().fg(Color::DarkGray),
+        ),
     ]);
 
     frame.render_widget(Paragraph::new(line), area);
@@ -167,7 +184,10 @@ fn draw_track_map_placeholder(frame: &mut Frame, area: Rect) {
 
     let text = vec![
         Line::from(""),
-        Line::from(Span::styled("🗺️ Track Map View", Style::default().fg(Color::Cyan).bold())),
+        Line::from(Span::styled(
+            "🗺️ Track Map View",
+            Style::default().fg(Color::Cyan).bold(),
+        )),
         Line::from(""),
         Line::from(Span::styled(
             "Track map braille rendering engine will be implemented in Phase 3.",
@@ -180,7 +200,9 @@ fn draw_track_map_placeholder(frame: &mut Frame, area: Rect) {
         )),
     ];
 
-    let p = Paragraph::new(text).block(block).alignment(Alignment::Center);
+    let p = Paragraph::new(text)
+        .block(block)
+        .alignment(Alignment::Center);
     frame.render_widget(p, area);
 }
 
@@ -235,7 +257,9 @@ fn draw_empty_live_view(frame: &mut Frame, app: &App, area: Rect) {
 mod tests {
     use super::*;
     use crate::config::UserConfig;
-    use crate::live::event::{LiveDriverEntry, LiveTimingData, PitInfo, SectorTimes, TireInfo, WeatherInfo};
+    use crate::live::event::{
+        LiveDriverEntry, LiveTimingData, PitInfo, SectorTimes, TireInfo, WeatherInfo,
+    };
     use chrono::Utc;
     use ratatui::backend::TestBackend;
     use std::collections::HashMap;

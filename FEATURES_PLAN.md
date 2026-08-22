@@ -1060,7 +1060,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 32: Implement track map braille rendering engine
+### [x] Step 32: Implement track map braille rendering engine
 
 **What to do**: Flesh out `src/live/track_map.rs` with the full braille rendering engine using ratatui's `Canvas` widget. Include `TrackPoint`, `DriverPosition`, `TrackMapData`, `draw_track_map()`, and `draw_driver_legend()`.
 

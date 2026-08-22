@@ -67,7 +67,9 @@ pub fn draw(frame: &mut Frame, app: &App, area: Rect) {
         let target_width = chunks[1].width as usize;
         let prefix_len = prefix.chars().count();
 
-        let display_text = if target_width > prefix_len + 5 && prefix_len + full_desc.chars().count() + 1 > target_width {
+        let display_text = if target_width > prefix_len + 5
+            && prefix_len + full_desc.chars().count() + 1 > target_width
+        {
             let avail_width = target_width.saturating_sub(prefix_len + 1);
             let loop_text = format!("{}   ***   ", full_desc);
             let loop_chars: Vec<char> = loop_text.chars().collect();

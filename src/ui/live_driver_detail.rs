@@ -110,7 +110,10 @@ pub fn draw(frame: &mut Frame, _app: &mut App, area: Rect, driver: &LiveDriverEn
     };
 
     let mut col2_lines = vec![
-        Line::from(Span::styled("⏱️ Sector Times", Style::default().fg(Color::Yellow).bold())),
+        Line::from(Span::styled(
+            "⏱️ Sector Times",
+            Style::default().fg(Color::Yellow).bold(),
+        )),
         Line::from(vec![
             Span::styled("Sector 1: ", Style::default().fg(Color::DarkGray)),
             Span::styled(driver.sectors.s1_str.as_deref().unwrap_or("-"), s1_style),
@@ -125,7 +128,10 @@ pub fn draw(frame: &mut Frame, _app: &mut App, area: Rect, driver: &LiveDriverEn
         ]),
         Line::from(vec![
             Span::styled("Laps Completed: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", driver.laps_completed), Style::default().bold().fg(Color::White)),
+            Span::styled(
+                format!("{}", driver.laps_completed),
+                Style::default().bold().fg(Color::White),
+            ),
         ]),
     ];
 
@@ -164,7 +170,10 @@ pub fn draw(frame: &mut Frame, _app: &mut App, area: Rect, driver: &LiveDriverEn
         .unwrap_or_else(|| "-".to_string());
 
     let mut col3_lines = vec![
-        Line::from(Span::styled("🛞 Tires & Pit Strategy", Style::default().fg(Color::Yellow).bold())),
+        Line::from(Span::styled(
+            "🛞 Tires & Pit Strategy",
+            Style::default().fg(Color::Yellow).bold(),
+        )),
         Line::from(vec![
             Span::styled("Compound: ", Style::default().fg(Color::DarkGray)),
             Span::styled(tire_info.0, Style::default().fg(tire_info.1).bold()),
@@ -172,11 +181,17 @@ pub fn draw(frame: &mut Frame, _app: &mut App, area: Rect, driver: &LiveDriverEn
         ]),
         Line::from(vec![
             Span::styled("Pit Stops: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{}", driver.pits.stops_count), Style::default().bold().fg(Color::White)),
+            Span::styled(
+                format!("{}", driver.pits.stops_count),
+                Style::default().bold().fg(Color::White),
+            ),
         ]),
         Line::from(vec![
             Span::styled("Last Stop: ", Style::default().fg(Color::DarkGray)),
-            Span::styled(format!("{} ({})", last_stop_lap_str, pit_duration_str), Style::default().bold().fg(Color::White)),
+            Span::styled(
+                format!("{} ({})", last_stop_lap_str, pit_duration_str),
+                Style::default().bold().fg(Color::White),
+            ),
         ]),
     ];
 

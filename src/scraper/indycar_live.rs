@@ -2,9 +2,7 @@ use anyhow::{Context, Result};
 use chrono::Utc;
 use serde::Deserialize;
 
-use crate::live::event::{
-    LiveDriverEntry, LiveTimingData, PitInfo, SectorTimes, TireInfo,
-};
+use crate::live::event::{LiveDriverEntry, LiveTimingData, PitInfo, SectorTimes, TireInfo};
 use crate::live::LiveProvider;
 use crate::scraper::fetcher::create_http_client;
 
@@ -15,7 +13,13 @@ const INDYCAR_LIVE_TIMINGS_URL: &str = "https://racecontrol.indycar.com/xml/timi
 pub struct IndyCarLiveFeed {
     #[serde(alias = "session", alias = "session_info", default)]
     pub session: Option<IndyCarSessionInfo>,
-    #[serde(alias = "drivers", alias = "cars", alias = "timing_data", alias = "records", default)]
+    #[serde(
+        alias = "drivers",
+        alias = "cars",
+        alias = "timing_data",
+        alias = "records",
+        default
+    )]
     pub drivers: Vec<IndyCarDriverTiming>,
     #[serde(alias = "flag_status", alias = "flag", alias = "track_status", default)]
     pub flag_status: Option<String>,
@@ -61,9 +65,19 @@ pub struct IndyCarDriverTiming {
     pub gap: Option<serde_json::Value>,
     #[serde(alias = "interval", alias = "int", default)]
     pub interval: Option<serde_json::Value>,
-    #[serde(alias = "last_lap_time", alias = "last_lap", alias = "last_time", default)]
+    #[serde(
+        alias = "last_lap_time",
+        alias = "last_lap",
+        alias = "last_time",
+        default
+    )]
     pub last_lap_time: Option<serde_json::Value>,
-    #[serde(alias = "best_lap_time", alias = "best_lap", alias = "fastest_lap_time", default)]
+    #[serde(
+        alias = "best_lap_time",
+        alias = "best_lap",
+        alias = "fastest_lap_time",
+        default
+    )]
     pub best_lap_time: Option<serde_json::Value>,
     #[serde(alias = "laps_completed", alias = "laps", default)]
     pub laps_completed: Option<u32>,
@@ -77,7 +91,12 @@ pub struct IndyCarDriverTiming {
     pub status: Option<String>,
     #[serde(alias = "tire_compound", alias = "tire", alias = "compound", default)]
     pub tire_compound: Option<String>,
-    #[serde(alias = "tires_laps", alias = "tire_laps", alias = "stint_laps", default)]
+    #[serde(
+        alias = "tires_laps",
+        alias = "tire_laps",
+        alias = "stint_laps",
+        default
+    )]
     pub tires_laps: Option<u32>,
     #[serde(alias = "s1", alias = "sector1", default)]
     pub s1: Option<String>,
@@ -209,7 +228,8 @@ pub fn parse_indycar_live_feed(feed: &IndyCarLiveFeed, series_id: &str) -> LiveT
             .unwrap_or_else(|| "IndyCar Team".to_string());
 
         let gap = format_json_val_or_default(d.gap.as_ref(), if pos == 1 { "LEADER" } else { "-" });
-        let interval = format_json_val_or_default(d.interval.as_ref(), if pos == 1 { "-" } else { "-" });
+        let interval =
+            format_json_val_or_default(d.interval.as_ref(), if pos == 1 { "-" } else { "-" });
 
         let last_lap_str = format_json_val_opt(d.last_lap_time.as_ref());
         let best_lap_str = format_json_val_opt(d.best_lap_time.as_ref());
@@ -228,7 +248,10 @@ pub fn parse_indycar_live_feed(feed: &IndyCarLiveFeed, series_id: &str) -> LiveT
             }
         });
 
-        let in_pit = d.in_pit == Some(true) || d.status.as_deref().map_or(false, |s| s.eq_ignore_ascii_case("pit"));
+        let in_pit = d.in_pit == Some(true)
+            || d.status
+                .as_deref()
+                .map_or(false, |s| s.eq_ignore_ascii_case("pit"));
 
         let pit_info = PitInfo {
             stops_count: d.pit_stops.unwrap_or(0),
@@ -332,10 +355,7 @@ pub fn parse_indycar_live_feed(feed: &IndyCarLiveFeed, series_id: &str) -> LiveT
         .and_then(|s| s.total_laps)
         .or(feed.total_laps);
 
-    let time_remaining = feed
-        .session
-        .as_ref()
-        .and_then(|s| s.time_remaining.clone());
+    let time_remaining = feed.session.as_ref().and_then(|s| s.time_remaining.clone());
 
     LiveTimingData {
         series_id: series_id.to_string(),
@@ -455,7 +475,8 @@ mod tests {
             ]
         }"#;
 
-        let feed: IndyCarLiveFeed = serde_json::from_str(sample_json).expect("parse sample indycar live feed");
+        let feed: IndyCarLiveFeed =
+            serde_json::from_str(sample_json).expect("parse sample indycar live feed");
         let timing = parse_indycar_live_feed(&feed, "indycar");
 
         assert_eq!(timing.series_id, "indycar");

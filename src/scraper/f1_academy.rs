@@ -4,9 +4,7 @@ use chrono::{Datelike, NaiveDate, Utc};
 use super::fetcher::create_http_client;
 use super::json_ld::fetch_json_ld_calendar;
 use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
-use crate::data::models::{
-    EventStatus, RaceEvent, Series, StreamAccess, StreamLink,
-};
+use crate::data::models::{EventStatus, RaceEvent, Series, StreamAccess, StreamLink};
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
 

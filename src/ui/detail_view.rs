@@ -28,12 +28,7 @@ pub fn format_duration(dur: chrono::Duration) -> String {
 }
 
 /// Draw the race results table widget with a custom title.
-pub fn draw_results_with_title(
-    frame: &mut Frame,
-    results: &RaceResults,
-    title: &str,
-    area: Rect,
-) {
+pub fn draw_results_with_title(frame: &mut Frame, results: &RaceResults, title: &str, area: Rect) {
     let header = Row::new(vec![
         Cell::from("Pos").style(Style::default().bold().fg(Color::White)),
         Cell::from("#").style(Style::default().bold().fg(Color::White)),
@@ -665,11 +660,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
             let s_res =
                 round_opt.and_then(|r| app.sprint_results.get(&(event.series_id.clone(), r)));
             let is_fetching = round_opt.map_or(false, |r| {
-                app.results_fetching.contains(&(
-                    event.series_id.clone(),
-                    r,
-                    "sprint".to_string(),
-                ))
+                app.results_fetching
+                    .contains(&(event.series_id.clone(), r, "sprint".to_string()))
             });
             if let Some(results) = s_res {
                 draw_sprint_grid(frame, results, chunks[1]);

@@ -155,12 +155,7 @@ pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
                 .pred_opt()
                 .unwrap_or(race_date);
             let sessions = super::json_ld::build_series_sessions(
-                series_id,
-                name,
-                fri_date,
-                race_date,
-                start_time,
-                None,
+                series_id, name, fri_date, race_date, start_time, None,
             );
 
             RaceEvent {
@@ -264,12 +259,7 @@ pub fn get_official_2027_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
                     .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
 
                 let sessions = super::json_ld::build_series_sessions(
-                    series_id,
-                    name,
-                    fri_date,
-                    race_date,
-                    start_time,
-                    None,
+                    series_id, name, fri_date, race_date, start_time, None,
                 );
 
                 RaceEvent {

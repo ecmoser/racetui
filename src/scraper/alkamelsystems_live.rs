@@ -15,7 +15,13 @@ pub struct AlKamelLiveFeed {
     pub session: Option<AlKamelSessionInfo>,
     #[serde(alias = "weather", alias = "weather_info", default)]
     pub weather: Option<AlKamelWeatherInfo>,
-    #[serde(alias = "cars", alias = "drivers", alias = "entries", alias = "records", default)]
+    #[serde(
+        alias = "cars",
+        alias = "drivers",
+        alias = "entries",
+        alias = "records",
+        default
+    )]
     pub cars: Vec<AlKamelCarEntry>,
     #[serde(alias = "status", alias = "flag", alias = "session_status", default)]
     pub status: Option<String>,
@@ -43,9 +49,19 @@ pub struct AlKamelSessionInfo {
 /// Weather data in Al Kamel live feed.
 #[derive(Debug, Clone, Deserialize, Default)]
 pub struct AlKamelWeatherInfo {
-    #[serde(alias = "air_temp", alias = "air_temperature", alias = "temp_air", default)]
+    #[serde(
+        alias = "air_temp",
+        alias = "air_temperature",
+        alias = "temp_air",
+        default
+    )]
     pub air_temp: Option<f64>,
-    #[serde(alias = "track_temp", alias = "track_temperature", alias = "temp_track", default)]
+    #[serde(
+        alias = "track_temp",
+        alias = "track_temperature",
+        alias = "temp_track",
+        default
+    )]
     pub track_temp: Option<f64>,
     #[serde(alias = "humidity", default)]
     pub humidity: Option<f64>,
@@ -62,7 +78,13 @@ pub struct AlKamelWeatherInfo {
 pub struct AlKamelCarEntry {
     #[serde(alias = "pos", alias = "position", alias = "rank", default)]
     pub pos: Option<u32>,
-    #[serde(alias = "number", alias = "car_number", alias = "no", alias = "num", default)]
+    #[serde(
+        alias = "number",
+        alias = "car_number",
+        alias = "no",
+        alias = "num",
+        default
+    )]
     pub number: Option<String>,
     #[serde(alias = "driver", alias = "driver_name", alias = "name", default)]
     pub driver: Option<String>,
@@ -78,9 +100,19 @@ pub struct AlKamelCarEntry {
     pub gap: Option<serde_json::Value>,
     #[serde(alias = "interval", alias = "int", alias = "diff_prev", default)]
     pub interval: Option<serde_json::Value>,
-    #[serde(alias = "last_lap", alias = "last_lap_time", alias = "last_time", default)]
+    #[serde(
+        alias = "last_lap",
+        alias = "last_lap_time",
+        alias = "last_time",
+        default
+    )]
     pub last_lap: Option<serde_json::Value>,
-    #[serde(alias = "best_lap", alias = "best_lap_time", alias = "fastest_lap", default)]
+    #[serde(
+        alias = "best_lap",
+        alias = "best_lap_time",
+        alias = "fastest_lap",
+        default
+    )]
     pub best_lap: Option<serde_json::Value>,
     #[serde(alias = "laps", alias = "laps_completed", alias = "num_laps", default)]
     pub laps: Option<u32>,
@@ -214,10 +246,7 @@ pub fn parse_alkamel_live_feed(feed: &AlKamelLiveFeed, series_id: &str) -> LiveT
                 .to_uppercase()
         });
 
-        let driver_number = c
-            .number
-            .as_ref()
-            .and_then(|n| n.parse::<u32>().ok());
+        let driver_number = c.number.as_ref().and_then(|n| n.parse::<u32>().ok());
 
         let team = if let Some(ref t) = c.team {
             if let Some(ref cls) = c.class_name {
@@ -226,11 +255,14 @@ pub fn parse_alkamel_live_feed(feed: &AlKamelLiveFeed, series_id: &str) -> LiveT
                 t.clone()
             }
         } else {
-            c.class_name.clone().unwrap_or_else(|| "Racing Team".to_string())
+            c.class_name
+                .clone()
+                .unwrap_or_else(|| "Racing Team".to_string())
         };
 
         let gap = format_json_val_or_default(c.gap.as_ref(), if pos == 1 { "LEADER" } else { "-" });
-        let interval = format_json_val_or_default(c.interval.as_ref(), if pos == 1 { "-" } else { "-" });
+        let interval =
+            format_json_val_or_default(c.interval.as_ref(), if pos == 1 { "-" } else { "-" });
 
         let last_lap_str = format_json_val_opt(c.last_lap.as_ref());
         let best_lap_str = format_json_val_opt(c.best_lap.as_ref());
@@ -251,7 +283,10 @@ pub fn parse_alkamel_live_feed(feed: &AlKamelLiveFeed, series_id: &str) -> LiveT
             }
         });
 
-        let in_pit = c.in_pit == Some(true) || c.state.as_deref().map_or(false, |s| s.eq_ignore_ascii_case("pit"));
+        let in_pit = c.in_pit == Some(true)
+            || c.state
+                .as_deref()
+                .map_or(false, |s| s.eq_ignore_ascii_case("pit"));
 
         let pit_info = PitInfo {
             stops_count: c.pits.unwrap_or(0),
@@ -344,20 +379,11 @@ pub fn parse_alkamel_live_feed(feed: &AlKamelLiveFeed, series_id: &str) -> LiveT
         .or_else(|| feed.status.clone())
         .unwrap_or_else(|| "Green".to_string());
 
-    let current_lap = feed
-        .session
-        .as_ref()
-        .and_then(|s| s.laps);
+    let current_lap = feed.session.as_ref().and_then(|s| s.laps);
 
-    let total_laps = feed
-        .session
-        .as_ref()
-        .and_then(|s| s.total_laps);
+    let total_laps = feed.session.as_ref().and_then(|s| s.total_laps);
 
-    let time_remaining = feed
-        .session
-        .as_ref()
-        .and_then(|s| s.time_remaining.clone());
+    let time_remaining = feed.session.as_ref().and_then(|s| s.time_remaining.clone());
 
     let weather = feed.weather.as_ref().map(|w| WeatherInfo {
         air_temp_c: w.air_temp,

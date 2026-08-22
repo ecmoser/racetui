@@ -2,9 +2,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
 use std::collections::HashMap;
 
-use crate::data::models::{
-    EventStatus, RaceEvent, Session, SessionType, StreamLink,
-};
+use crate::data::models::{EventStatus, RaceEvent, Session, SessionType, StreamLink};
 
 /// A parsed VEVENT from an iCalendar (.ics) feed.
 #[allow(dead_code)]
@@ -100,7 +98,11 @@ fn parse_vevents(lines: &[String]) -> Vec<IcsVEvent> {
             }
         } else if in_vevent {
             if let Some((key_part, val_part)) = line.split_once(':') {
-                let key_name = key_part.split(';').next().unwrap_or(key_part).to_uppercase();
+                let key_name = key_part
+                    .split(';')
+                    .next()
+                    .unwrap_or(key_part)
+                    .to_uppercase();
                 // Store raw key with parameters or base key
                 props.insert(key_name, val_part.to_string());
                 if key_part.contains(';') {
@@ -115,27 +117,25 @@ fn parse_vevents(lines: &[String]) -> Vec<IcsVEvent> {
 
 fn build_vevent_from_props(props: &HashMap<String, String>) -> Option<IcsVEvent> {
     let summary = props.get("SUMMARY")?.trim().to_string();
-    let description = props.get("DESCRIPTION").map(|s| unescape_ics_text(s.trim()));
+    let description = props
+        .get("DESCRIPTION")
+        .map(|s| unescape_ics_text(s.trim()));
     let location = props.get("LOCATION").map(|s| unescape_ics_text(s.trim()));
     let url = props.get("URL").map(|s| s.trim().to_string());
 
-    let (start_time, start_date) = parse_ics_datetime_or_date(
-        props.get("DTSTART").or_else(|| {
-            props
-                .iter()
-                .find(|(k, _)| k.starts_with("DTSTART;"))
-                .map(|(_, v)| v)
-        }),
-    );
+    let (start_time, start_date) = parse_ics_datetime_or_date(props.get("DTSTART").or_else(|| {
+        props
+            .iter()
+            .find(|(k, _)| k.starts_with("DTSTART;"))
+            .map(|(_, v)| v)
+    }));
 
-    let (end_time, end_date) = parse_ics_datetime_or_date(
-        props.get("DTEND").or_else(|| {
-            props
-                .iter()
-                .find(|(k, _)| k.starts_with("DTEND;"))
-                .map(|(_, v)| v)
-        }),
-    );
+    let (end_time, end_date) = parse_ics_datetime_or_date(props.get("DTEND").or_else(|| {
+        props
+            .iter()
+            .find(|(k, _)| k.starts_with("DTEND;"))
+            .map(|(_, v)| v)
+    }));
 
     Some(IcsVEvent {
         summary,
@@ -188,7 +188,8 @@ fn classify_session_type(name: &str) -> SessionType {
     let lower = name.to_lowercase();
     if lower.contains("qualif") || lower.contains("superpole") || lower.contains("pole") {
         SessionType::Qualifying
-    } else if lower.contains("sprint") || lower.contains("superpole race") || lower.contains("heat") {
+    } else if lower.contains("sprint") || lower.contains("superpole race") || lower.contains("heat")
+    {
         SessionType::Sprint
     } else if lower.contains("practice")
         || lower.contains("fp1")
@@ -213,7 +214,8 @@ fn group_vevents_into_events(
     // Sort vevents chronologically by start date/time
     vevents.sort_by_key(|v| {
         (
-            v.start_date.unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 1, 1).unwrap()),
+            v.start_date
+                .unwrap_or_else(|| NaiveDate::from_ymd_opt(2026, 1, 1).unwrap()),
             v.start_time,
         )
     });
@@ -221,9 +223,7 @@ fn group_vevents_into_events(
     let mut race_events: Vec<RaceEvent> = Vec::new();
 
     for vevent in vevents {
-        let start_date = vevent
-            .start_date
-            .unwrap_or_else(|| Utc::now().date_naive());
+        let start_date = vevent.start_date.unwrap_or_else(|| Utc::now().date_naive());
         let end_date = vevent.end_date.unwrap_or(start_date);
 
         let session_type = classify_session_type(&vevent.summary);
@@ -237,7 +237,10 @@ fn group_vevents_into_events(
         // Check if this session belongs to an existing event (within 4 days and similar location/name)
         let mut attached = false;
         for ev in race_events.iter_mut().rev() {
-            let days_diff = start_date.signed_duration_since(ev.start_date).num_days().abs();
+            let days_diff = start_date
+                .signed_duration_since(ev.start_date)
+                .num_days()
+                .abs();
             if days_diff <= 4 {
                 // If same weekend, extend end_date and add session
                 if end_date > ev.end_date {

@@ -54,7 +54,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
             ListItem::new(Line::from(vec![
                 Span::styled(
                     format!(" {:<9} ", time_str),
-                    if is_live { Style::default().bold().fg(Color::Red) } else { Style::default().fg(Color::Gray) },
+                    if is_live {
+                        Style::default().bold().fg(Color::Red)
+                    } else {
+                        Style::default().fg(Color::Gray)
+                    },
                 ),
                 live_span,
                 Span::styled(
@@ -63,7 +67,11 @@ pub fn draw(frame: &mut Frame, app: &mut App) {
                 ),
                 Span::styled(
                     session.display_title(),
-                    if is_live { Style::default().bold().fg(Color::Red) } else { Style::default().bold().fg(Color::White) },
+                    if is_live {
+                        Style::default().bold().fg(Color::Red)
+                    } else {
+                        Style::default().bold().fg(Color::White)
+                    },
                 ),
                 Span::styled(
                     format!(" · {}", event.circuit_name),
