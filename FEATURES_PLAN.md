@@ -1140,7 +1140,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 42: Update help popup for Phase 3
+### [x] Step 42: Update help popup for Phase 3
 
 **What to do**: Final help popup with all keybindings and daemon mode note.
 
