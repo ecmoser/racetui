@@ -8,7 +8,7 @@ license = "MIT"
 [dependencies]
 ratatui = "0.30"
 crossterm = { version = "0.29", features = ["event-stream"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "sync", "signal"] }
 reqwest = { version = "0.12", features = ["json", "cookies"] }
 scraper = "0.27"
 chromiumoxide = { version = "0.7", features = ["tokio-runtime"], optional = true }

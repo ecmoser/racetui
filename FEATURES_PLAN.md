@@ -1116,7 +1116,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 39: Implement daemon mode (--daemon CLI flag)
+### [x] Step 39: Implement daemon mode (--daemon CLI flag)
 
 **What to do**: Add `--daemon` flag to CLI. Implement `run_daemon()` — headless loop that loads data and sends notifications.
 

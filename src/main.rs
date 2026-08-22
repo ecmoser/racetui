@@ -4,6 +4,7 @@ mod config;
 mod data;
 mod event;
 mod live;
+mod notify;
 mod scraper;
 mod ui;
 
@@ -40,6 +41,10 @@ struct Cli {
     /// Start in calendar view instead of list view
     #[arg(long)]
     calendar: bool,
+
+    /// Run in headless daemon mode to send notifications for upcoming sessions
+    #[arg(long)]
+    daemon: bool,
 }
 
 /// Spawn background tasks to load data for all series.
@@ -506,6 +511,104 @@ fn check_live_sessions_prompt(app: &mut App) {
     }
 }
 
+/// Load all events for all series (checking cache, running scrapers if missing/stale).
+pub async fn load_all_events(
+    registry: &std::collections::HashMap<String, data::models::Series>,
+    config: &config::UserConfig,
+    force_refresh: bool,
+) -> std::collections::HashMap<String, Vec<data::models::RaceEvent>> {
+    let mut events = std::collections::HashMap::new();
+    let mut fetch_tasks = Vec::new();
+
+    for (series_id, series) in registry {
+        if config.hidden_series.contains(series_id) {
+            continue;
+        }
+
+        // 1. Try reading cache
+        if !force_refresh {
+            if let Ok(Some((cached_events, fetched_at))) = data::cache::read_cache(series_id) {
+                let age_hours = chrono::Utc::now()
+                    .signed_duration_since(fetched_at)
+                    .num_hours() as u64;
+                if age_hours < config.cache_ttl_hours {
+                    events.insert(series_id.clone(), cached_events);
+                    continue;
+                }
+            }
+        }
+
+        // 2. Fetch if scraper is available
+        if let Some(scraper_impl) = scraper::get_scraper(series_id) {
+            let sid = series_id.clone();
+            let series_clone = series.clone();
+            fetch_tasks.push(tokio::spawn(async move {
+                let res = scraper_impl.scrape_boxed(&series_clone).await;
+                (sid, res)
+            }));
+        }
+    }
+
+    for task in fetch_tasks {
+        if let Ok((sid, Ok(fetched_events))) = task.await {
+            let _ = data::cache::write_cache(&sid, &fetched_events);
+            events.insert(sid, fetched_events);
+        }
+    }
+
+    events
+}
+
+/// Headless background daemon mode that periodically loads data and sends notifications.
+pub async fn run_daemon(
+    registry: std::collections::HashMap<String, data::models::Series>,
+    config: config::UserConfig,
+) -> Result<()> {
+    println!("Starting racetui daemon mode...");
+    println!(
+        "Monitoring upcoming sessions {} min before start (filter: '{}', session types: {:?}, interval: {}s)",
+        config.daemon.notify_minutes_before,
+        config.daemon.notify_series_filter,
+        config.daemon.notify_session_types,
+        config.daemon.poll_interval_secs,
+    );
+    println!("Press Ctrl+C to exit.");
+
+    let mut tracker = notify::scheduler::NotificationTracker::new();
+    let poll_interval_secs = config.daemon.poll_interval_secs.max(10);
+    let mut ticker = tokio::time::interval(std::time::Duration::from_secs(poll_interval_secs));
+
+    loop {
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                println!("\nDaemon received shutdown signal. Exiting...");
+                break;
+            }
+            _ = ticker.tick() => {
+                tracing::debug!("Daemon checking for upcoming sessions...");
+                let events = load_all_events(&registry, &config, false).await;
+                let sent = notify::scheduler::check_and_notify(
+                    &events,
+                    &registry,
+                    &config,
+                    &mut tracker,
+                    notify::NotificationBackend::Auto,
+                );
+                for n in sent {
+                    println!(
+                        "[{}] Alert: {} — {}",
+                        chrono::Local::now().format("%Y-%m-%d %H:%M:%S"),
+                        n.summary,
+                        n.body
+                    );
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -534,6 +637,11 @@ async fn main() -> Result<()> {
     // Handle --calendar: override default view
     if cli.calendar {
         config.default_view = "calendar".to_string();
+    }
+
+    // Handle --daemon: run headless daemon mode
+    if cli.daemon {
+        return run_daemon(registry, config).await;
     }
 
     // Create app state
@@ -2013,6 +2121,12 @@ mod tests {
         assert!(!clear_cli.refresh);
         assert!(!clear_cli.calendar);
         assert!(clear_cli.series.is_none());
+        assert!(!clear_cli.daemon);
+
+        let daemon_cli = Cli::try_parse_from(["racetui", "--daemon"]).unwrap();
+        assert!(daemon_cli.daemon);
+        assert!(!daemon_cli.refresh);
+        assert!(!daemon_cli.clear_cache);
     }
 
     #[test]
@@ -2491,5 +2605,29 @@ mod tests {
         assert_eq!(app.view_mode, app::ViewMode::Live);
         assert_eq!(app.live_active_series.as_deref(), Some("f1"));
         assert!(!app.show_detail);
+    }
+
+    #[tokio::test]
+    async fn test_load_all_events_respects_hidden_series() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "International".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut config = config::UserConfig::default();
+        config.hidden_series.insert("f1".to_string());
+
+        let events = load_all_events(&registry, &config, false).await;
+        assert!(!events.contains_key("f1"));
     }
 }
