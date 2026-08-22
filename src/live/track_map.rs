@@ -401,7 +401,7 @@ pub async fn fetch_circuit_geometry_from_url(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::live::event::{DriverPosition, LiveDriverEntry, PitInfo, SectorTimes, TireInfo};
+    use crate::live::event::{DriverPosition, LiveDriverEntry, PitInfo, SectorTimes};
     use chrono::Utc;
     use ratatui::backend::TestBackend;
 

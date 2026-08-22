@@ -28,20 +28,64 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect, data: &LiveTimingData)
         return;
     }
 
-    let header_cells = [
-        Cell::from("Pos").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("#").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("Driver").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("Team").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("Gap").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("Int").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("Last Lap").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("S1").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("S2").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("S3").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("Tire").style(Style::default().fg(Color::Yellow).bold()),
-        Cell::from("Pits").style(Style::default().fg(Color::Yellow).bold()),
+    let has_numbers = data.drivers.iter().any(|d| d.driver_number.is_some());
+    let has_sectors = data.drivers.iter().any(|d| {
+        d.sectors.s1_str.is_some()
+            || d.sectors.s2_str.is_some()
+            || d.sectors.s3_str.is_some()
+            || d.sectors.s1_ms.is_some()
+            || d.sectors.s2_ms.is_some()
+            || d.sectors.s3_ms.is_some()
+    });
+    let has_tires = data.drivers.iter().any(|d| d.tire.is_some());
+    let has_pits = data
+        .drivers
+        .iter()
+        .any(|d| d.pits.stops_count > 0 || d.pits.in_pit || d.status == "In Pit");
+
+    let mut header_cells = vec![Cell::from("Pos").style(Style::default().fg(Color::Yellow).bold())];
+    let mut widths = vec![
+        Constraint::Length(4), // Pos
     ];
+
+    if has_numbers {
+        header_cells.push(Cell::from("#").style(Style::default().fg(Color::Yellow).bold()));
+        widths.push(Constraint::Length(4));
+    }
+
+    header_cells.push(Cell::from("Driver").style(Style::default().fg(Color::Yellow).bold()));
+    widths.push(Constraint::Min(16));
+
+    header_cells.push(Cell::from("Team").style(Style::default().fg(Color::Yellow).bold()));
+    widths.push(Constraint::Min(14));
+
+    header_cells.push(Cell::from("Gap").style(Style::default().fg(Color::Yellow).bold()));
+    widths.push(Constraint::Length(10));
+
+    header_cells.push(Cell::from("Int").style(Style::default().fg(Color::Yellow).bold()));
+    widths.push(Constraint::Length(9));
+
+    header_cells.push(Cell::from("Last Lap").style(Style::default().fg(Color::Yellow).bold()));
+    widths.push(Constraint::Length(15)); // Accommodate times with " [FL]"
+
+    if has_sectors {
+        header_cells.push(Cell::from("S1").style(Style::default().fg(Color::Yellow).bold()));
+        widths.push(Constraint::Length(8));
+        header_cells.push(Cell::from("S2").style(Style::default().fg(Color::Yellow).bold()));
+        widths.push(Constraint::Length(8));
+        header_cells.push(Cell::from("S3").style(Style::default().fg(Color::Yellow).bold()));
+        widths.push(Constraint::Length(8));
+    }
+
+    if has_tires {
+        header_cells.push(Cell::from("Tire").style(Style::default().fg(Color::Yellow).bold()));
+        widths.push(Constraint::Length(14));
+    }
+
+    if has_pits {
+        header_cells.push(Cell::from("Pits").style(Style::default().fg(Color::Yellow).bold()));
+        widths.push(Constraint::Length(9));
+    }
 
     let header = Row::new(header_cells)
         .height(1)
@@ -86,57 +130,46 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect, data: &LiveTimingData)
                 Span::styled("-", Style::default().fg(Color::DarkGray))
             };
 
-            let s1_cell = format_sector_cell(&d.sectors.s1_str, d.sectors.s1_fastest);
-            let s2_cell = format_sector_cell(&d.sectors.s2_str, d.sectors.s2_fastest);
-            let s3_cell = format_sector_cell(&d.sectors.s3_str, d.sectors.s3_fastest);
+            let mut cells = vec![Cell::from(pos_str).style(Style::default().bold())];
 
-            let tire_cell = format_tire_cell(d.tire.as_ref());
+            if has_numbers {
+                cells.push(Cell::from(num_str).style(Style::default().fg(Color::Cyan)));
+            }
 
-            let pit_str = if d.status == "In Pit" {
-                Span::styled("IN PIT", Style::default().fg(Color::Yellow).bold())
-            } else if d.pits.stops_count > 0 {
-                if let Some(lap) = d.pits.last_stop_lap {
-                    Span::raw(format!("{} (L{})", d.pits.stops_count, lap))
+            cells.push(Cell::from(driver_span).style(Style::default().bold()));
+            cells.push(Cell::from(d.team_name.clone()).style(Style::default().fg(team_color)));
+            cells.push(Cell::from(d.gap_to_leader.clone()));
+            cells.push(Cell::from(d.interval.clone()));
+            cells.push(Cell::from(last_lap_span));
+
+            if has_sectors {
+                cells.push(format_sector_cell(&d.sectors.s1_str, d.sectors.s1_fastest));
+                cells.push(format_sector_cell(&d.sectors.s2_str, d.sectors.s2_fastest));
+                cells.push(format_sector_cell(&d.sectors.s3_str, d.sectors.s3_fastest));
+            }
+
+            if has_tires {
+                cells.push(format_tire_cell(d.tire.as_ref()));
+            }
+
+            if has_pits {
+                let pit_str = if d.status == "In Pit" {
+                    Span::styled("IN PIT", Style::default().fg(Color::Yellow).bold())
+                } else if d.pits.stops_count > 0 {
+                    if let Some(lap) = d.pits.last_stop_lap {
+                        Span::raw(format!("{} (L{})", d.pits.stops_count, lap))
+                    } else {
+                        Span::raw(format!("{}", d.pits.stops_count))
+                    }
                 } else {
-                    Span::raw(format!("{}", d.pits.stops_count))
-                }
-            } else {
-                Span::styled("0", Style::default().fg(Color::DarkGray))
-            };
-
-            let cells = vec![
-                Cell::from(pos_str).style(Style::default().bold()),
-                Cell::from(num_str).style(Style::default().fg(Color::Cyan)),
-                Cell::from(driver_span).style(Style::default().bold()),
-                Cell::from(d.team_name.clone()).style(Style::default().fg(team_color)),
-                Cell::from(d.gap_to_leader.clone()),
-                Cell::from(d.interval.clone()),
-                Cell::from(last_lap_span),
-                s1_cell,
-                s2_cell,
-                s3_cell,
-                tire_cell,
-                Cell::from(pit_str),
-            ];
+                    Span::styled("0", Style::default().fg(Color::DarkGray))
+                };
+                cells.push(Cell::from(pit_str));
+            }
 
             Row::new(cells).style(Style::default().bg(row_bg))
         })
         .collect();
-
-    let widths = [
-        Constraint::Length(4),  // Pos
-        Constraint::Length(4),  // #
-        Constraint::Min(16),    // Driver
-        Constraint::Min(14),    // Team
-        Constraint::Length(10), // Gap
-        Constraint::Length(9),  // Int
-        Constraint::Length(10), // Last Lap
-        Constraint::Length(7),  // S1
-        Constraint::Length(7),  // S2
-        Constraint::Length(7),  // S3
-        Constraint::Length(12), // Tire
-        Constraint::Length(8),  // Pits
-    ];
 
     let table = Table::new(rows, widths)
         .header(header)
@@ -287,5 +320,65 @@ mod tests {
         assert!(content.contains("Red Bull Racing"));
         assert!(content.contains("Soft (12L)"));
         assert!(content.contains("LEADER"));
+        assert!(content.contains("[FL]"));
+    }
+
+    #[test]
+    fn test_draw_live_timing_table_omits_missing_columns() {
+        let backend = TestBackend::new(100, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+
+        let driver = LiveDriverEntry {
+            position: 1,
+            driver_number: Some(24),
+            driver_name: "William Byron".to_string(),
+            driver_code: None,
+            team_name: "Hendrick Motorsports".to_string(),
+            team_color: None,
+            gap_to_leader: "LEADER".to_string(),
+            interval: "-".to_string(),
+            last_lap_time: Some("28.456".to_string()),
+            best_lap_time: Some("28.123".to_string()),
+            sectors: SectorTimes::default(), // No sector times
+            tire: None,                      // No tire data
+            pits: PitInfo::default(),        // No pits
+            laps_completed: 100,
+            status: "On Track".to_string(),
+            current_position: None,
+            fastest_lap: true,
+        };
+
+        let timing = LiveTimingData {
+            series_id: "nascar_cup".to_string(),
+            session_name: "Race".to_string(),
+            event_name: "Daytona 500".to_string(),
+            circuit_name: "Daytona International Speedway".to_string(),
+            total_laps: Some(200),
+            current_lap: Some(100),
+            time_remaining: None,
+            session_status: "Green".to_string(),
+            drivers: vec![driver],
+            weather: None,
+            updated_at: Utc::now(),
+        };
+
+        terminal
+            .draw(|f| {
+                draw(f, &mut app, f.area(), &timing);
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Pos"));
+        assert!(content.contains("William Byron"));
+        assert!(content.contains("28.456 [FL]"));
+        // Verify S1, S2, S3, Tire, Pits headers are NOT present
+        assert!(!content.contains("S1"));
+        assert!(!content.contains("S2"));
+        assert!(!content.contains("S3"));
+        assert!(!content.contains("Tire"));
+        assert!(!content.contains("Pits"));
     }
 }

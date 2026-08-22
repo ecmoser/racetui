@@ -47,7 +47,7 @@ fn default_notification_threshold_hours() -> u64 {
 }
 
 fn default_live_poll_interval_secs() -> u64 {
-    5
+    2
 }
 
 fn default_open_command() -> String {
@@ -147,7 +147,7 @@ mod tests {
         assert_eq!(config.cache_ttl_hours, 24);
         assert_eq!(config.notification_threshold_hours, 2);
         assert_eq!(config.default_view, "list");
-        assert_eq!(config.live_poll_interval_secs, 5);
+        assert_eq!(config.live_poll_interval_secs, 2);
         assert!(config.favorites.is_empty());
         assert!(config.hidden_series.is_empty());
     }

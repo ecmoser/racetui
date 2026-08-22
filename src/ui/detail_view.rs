@@ -514,16 +514,26 @@ pub fn draw(frame: &mut Frame, app: &App) {
         ])
         .split(popup_area);
 
-    let status_span = match event.current_status() {
-        EventStatus::Completed => {
-            Span::styled(" [Completed] ", Style::default().bold().fg(Color::Green))
-        }
-        EventStatus::Live => Span::styled(" [LIVE] ", Style::default().bold().fg(Color::Red)),
-        EventStatus::Upcoming => {
-            Span::styled(" [Upcoming] ", Style::default().bold().fg(Color::Cyan))
-        }
-        EventStatus::Cancelled => {
-            Span::styled(" [Cancelled] ", Style::default().bold().fg(Color::DarkGray))
+    let is_event_live = event.current_status() == EventStatus::Live
+        || event.sessions.iter().any(|s| s.is_live(&event.series_id));
+
+    let status_span = if is_event_live {
+        Span::styled(
+            " [ LIVE - Press 'L' to view Live Timing ] ",
+            Style::default().bold().fg(Color::Black).bg(Color::Red),
+        )
+    } else {
+        match event.current_status() {
+            EventStatus::Completed => {
+                Span::styled(" [Completed] ", Style::default().bold().fg(Color::Green))
+            }
+            EventStatus::Live => Span::styled(" [LIVE] ", Style::default().bold().fg(Color::Red)),
+            EventStatus::Upcoming => {
+                Span::styled(" [Upcoming] ", Style::default().bold().fg(Color::Cyan))
+            }
+            EventStatus::Cancelled => {
+                Span::styled(" [Cancelled] ", Style::default().bold().fg(Color::DarkGray))
+            }
         }
     };
 
@@ -582,12 +592,22 @@ pub fn draw(frame: &mut Frame, app: &App) {
     summary_lines.push(Line::from(""));
     summary_lines.push(Line::from(tab_spans));
 
-    let top_block = Block::default()
-        .title(format!(
+    let title = if is_event_live {
+        format!(
+            " {} (Press 'L' for Live Timing, Esc/q to close, Tab / 1-{} / h,l to switch tabs) ",
+            event.event_name,
+            available_tabs.len()
+        )
+    } else {
+        format!(
             " {} (Esc/q to close, Tab / 1-{} / h,l to switch tabs) ",
             event.event_name,
             available_tabs.len()
-        ))
+        )
+    };
+
+    let top_block = Block::default()
+        .title(title)
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan));
     let top_paragraph = Paragraph::new(summary_lines)

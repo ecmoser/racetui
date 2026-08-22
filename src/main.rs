@@ -1040,6 +1040,18 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
                 app.show_detail = false;
                 return;
             }
+            KeyCode::Char('L') => {
+                if let Some(event) = app.selected_event() {
+                    let is_live = event.current_status() == data::models::EventStatus::Live
+                        || event.sessions.iter().any(|s| s.is_live(&event.series_id));
+                    if is_live {
+                        app.live_active_series = Some(event.series_id.clone());
+                        app.show_detail = false;
+                        app.view_mode = app::ViewMode::Live;
+                        return;
+                    }
+                }
+            }
             KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
                 app.next_detail_tab();
                 return;
@@ -2433,5 +2445,42 @@ mod tests {
                 .contains(&("f1".to_string(), 15, "sprint".to_string())),
             "Expected sprint results to be fetched for ongoing weekend round 15"
         );
+    }
+
+    #[test]
+    fn test_detail_view_l_key_opens_live_timing() {
+        let mut app = App::new(HashMap::new(), crate::config::UserConfig::default());
+        let today = chrono::Utc::now().date_naive();
+        let now = chrono::Utc::now();
+
+        let live_event = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Monaco Grand Prix".to_string(),
+            circuit_name: "Circuit de Monaco".to_string(),
+            location: "Monte Carlo".to_string(),
+            country: "Monaco".to_string(),
+            start_date: today,
+            end_date: today,
+            round: Some(6),
+            sessions: vec![data::models::Session {
+                name: "Race".to_string(),
+                session_type: data::models::SessionType::Race,
+                start_time: Some(now - chrono::Duration::minutes(30)),
+                end_time: Some(now + chrono::Duration::minutes(90)),
+            }],
+            stream_links: vec![],
+            status: data::models::EventStatus::Live,
+        };
+
+        app.update_series_data("f1".to_string(), vec![live_event]);
+        app.table_state.select(Some(0));
+        app.show_detail = true;
+
+        // Press 'L' inside detail view on live event
+        handle_key_event(&mut app, key(KeyCode::Char('L')));
+
+        assert_eq!(app.view_mode, app::ViewMode::Live);
+        assert_eq!(app.live_active_series.as_deref(), Some("f1"));
+        assert!(!app.show_detail);
     }
 }
