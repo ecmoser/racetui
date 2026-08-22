@@ -160,9 +160,9 @@ impl TrackMapData {
 /// Draw the track map widget using Ratatui's Canvas with braille characters.
 pub fn draw_track_map(frame: &mut Frame, area: Rect, data: &TrackMapData) {
     let title = if data.circuit_name.is_empty() {
-        " 🗺️ Track Map ".to_string()
+        " Track Map ".to_string()
     } else {
-        format!(" 🗺️ Track Map: {} ", data.circuit_name)
+        format!(" Track Map: {} ", data.circuit_name)
     };
 
     let block = Block::default()

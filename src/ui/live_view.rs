@@ -2,12 +2,12 @@ use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph};
 
 use crate::app::{App, LiveSubTab};
-use crate::ui::{live_driver_detail, live_timing_table};
+use crate::ui::{live_driver_detail, live_timing_table, track_map_view};
 
 /// Draw the Live view UI (header + weather bar + sub-tabs + timing table / track map).
 pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     let block = Block::default()
-        .title(" 🔴 Live Timing ")
+        .title(" [LIVE] Live Timing ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::LightRed));
 
@@ -47,7 +47,13 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
     draw_sub_tabs(frame, app, chunks[2]);
 
     // 4. Content Area based on active sub-tab
-    match app.live_sub_tab {
+    let active_sub_tab = if app.is_track_map_available() {
+        app.live_sub_tab
+    } else {
+        LiveSubTab::Timing
+    };
+
+    match active_sub_tab {
         LiveSubTab::Timing => {
             if app.live_driver_detail_open {
                 let timing_chunks = Layout::default()
@@ -69,7 +75,7 @@ pub fn draw(frame: &mut Frame, app: &mut App, area: Rect) {
             }
         }
         LiveSubTab::TrackMap => {
-            draw_track_map_placeholder(frame, chunks[3]);
+            track_map_view::draw(frame, app, chunks[3], &timing_data);
         }
     }
 }
@@ -135,11 +141,11 @@ fn draw_weather_bar(frame: &mut Frame, area: Rect, data: &crate::live::event::Li
     let weather_str = if let Some(ref w) = data.weather {
         w.display_string()
     } else {
-        "☀️ Track Conditions: Dry / Normal  |  Weather feed connecting...".to_string()
+        "Track Conditions: Dry / Normal  |  Weather feed connecting...".to_string()
     };
 
     let line = Line::from(vec![
-        Span::styled(" ⛅ Weather: ", Style::default().fg(Color::Cyan).bold()),
+        Span::styled(" Weather: ", Style::default().fg(Color::Cyan).bold()),
         Span::styled(weather_str, Style::default().fg(Color::White)),
     ]);
 
@@ -147,8 +153,9 @@ fn draw_weather_bar(frame: &mut Frame, area: Rect, data: &crate::live::event::Li
 }
 
 fn draw_sub_tabs(frame: &mut Frame, app: &App, area: Rect) {
-    let is_timing = app.live_sub_tab == LiveSubTab::Timing;
-    let is_track_map = app.live_sub_tab == LiveSubTab::TrackMap;
+    let has_track_map = app.is_track_map_available();
+    let is_timing = app.live_sub_tab == LiveSubTab::Timing || !has_track_map;
+    let is_track_map = app.live_sub_tab == LiveSubTab::TrackMap && has_track_map;
 
     let timing_style = if is_timing {
         Style::default().fg(Color::Black).bg(Color::Yellow).bold()
@@ -156,54 +163,25 @@ fn draw_sub_tabs(frame: &mut Frame, app: &App, area: Rect) {
         Style::default().fg(Color::DarkGray)
     };
 
-    let track_map_style = if is_track_map {
-        Style::default().fg(Color::Black).bg(Color::Yellow).bold()
-    } else {
-        Style::default().fg(Color::DarkGray)
-    };
+    let mut spans = vec![Span::styled(" [ 1. Timing Leaderboard ] ", timing_style)];
 
-    let line = Line::from(vec![
-        Span::styled(" [ 1. Timing Leaderboard ] ", timing_style),
-        Span::raw(" "),
-        Span::styled(" [ 2. Track Map ] ", track_map_style),
-        Span::raw("  "),
-        Span::styled(
+    if has_track_map {
+        let track_map_style = if is_track_map {
+            Style::default().fg(Color::Black).bg(Color::Yellow).bold()
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        spans.push(Span::raw(" "));
+        spans.push(Span::styled(" [ 2. Track Map ] ", track_map_style));
+        spans.push(Span::raw("  "));
+        spans.push(Span::styled(
             "(←/→ or h/l to switch sub-tabs)",
             Style::default().fg(Color::DarkGray),
-        ),
-    ]);
+        ));
+    }
 
-    frame.render_widget(Paragraph::new(line), area);
-}
-
-fn draw_track_map_placeholder(frame: &mut Frame, area: Rect) {
-    let block = Block::default()
-        .title(" Track Map ")
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::DarkGray));
-
-    let text = vec![
-        Line::from(""),
-        Line::from(Span::styled(
-            "🗺️ Track Map View",
-            Style::default().fg(Color::Cyan).bold(),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "Track map braille rendering engine will be implemented in Phase 3.",
-            Style::default().fg(Color::Yellow),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            "Press Left Arrow (← or 'h') to switch back to the Timing Leaderboard.",
-            Style::default().fg(Color::DarkGray),
-        )),
-    ];
-
-    let p = Paragraph::new(text)
-        .block(block)
-        .alignment(Alignment::Center);
-    frame.render_widget(p, area);
+    frame.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
 fn draw_empty_live_view(frame: &mut Frame, app: &App, area: Rect) {
@@ -212,7 +190,7 @@ fn draw_empty_live_view(frame: &mut Frame, app: &App, area: Rect) {
     let mut lines = vec![
         Line::from(""),
         Line::from(Span::styled(
-            "🔴 No Live Session Selected",
+            "No Live Session Selected",
             Style::default().fg(Color::LightRed).bold(),
         )),
         Line::from(""),
@@ -412,5 +390,54 @@ mod tests {
         assert!(content.contains("Driver Detail:"));
         assert!(content.contains("Max Verstappen"));
         assert!(content.contains("Red Bull Racing"));
+    }
+
+    #[test]
+    fn test_draw_live_view_track_map_sub_tab() {
+        let backend = TestBackend::new(120, 24);
+        let mut terminal = Terminal::new(backend).unwrap();
+        let mut app = App::new(HashMap::new(), UserConfig::default());
+        app.view_mode = crate::app::ViewMode::Live;
+        app.live_sub_tab = LiveSubTab::TrackMap;
+
+        app.live_timing_data = Some(LiveTimingData {
+            series_id: "f1".to_string(),
+            session_name: "Race".to_string(),
+            event_name: "Bahrain Grand Prix".to_string(),
+            circuit_name: "Bahrain International Circuit".to_string(),
+            total_laps: Some(57),
+            current_lap: Some(25),
+            time_remaining: None,
+            session_status: "Green".to_string(),
+            drivers: vec![],
+            weather: None,
+            updated_at: Utc::now(),
+        });
+
+        // When no track map geometry is available, Track Map tab button is not rendered
+        terminal
+            .draw(|f| {
+                draw(f, &mut app, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(!content.contains("2. Track Map"));
+        assert!(content.contains("1. Timing Leaderboard"));
+
+        // When track map geometry is loaded, Track Map is available and rendered
+        app.track_map_geometry = Some(vec![crate::live::track_map::TrackPoint { x: 0.0, y: 0.0 }]);
+
+        terminal
+            .draw(|f| {
+                draw(f, &mut app, f.area());
+            })
+            .unwrap();
+
+        let buffer = terminal.backend().buffer();
+        let content: String = buffer.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("Track Map"));
+        assert!(content.contains("Bahrain Grand Prix"));
     }
 }

@@ -193,9 +193,13 @@ impl LiveProvider for IndyCarLiveProvider {
 
 /// Parse IndyCar live feed into standard LiveTimingData.
 pub fn parse_indycar_live_feed(feed: &IndyCarLiveFeed, series_id: &str) -> LiveTimingData {
-    let mut driver_entries = Vec::new();
+    let mut sorted_drivers = feed.drivers.clone();
+    sorted_drivers.sort_by_key(|d| d.rank.unwrap_or(99));
 
-    for d in &feed.drivers {
+    let mut driver_entries = Vec::new();
+    let mut prev_gap_sec: Option<f64> = None;
+
+    for d in &sorted_drivers {
         let pos = d.rank.unwrap_or(99);
 
         let name = if let Some(ref n) = d.driver_name {
@@ -227,9 +231,39 @@ pub fn parse_indycar_live_feed(feed: &IndyCarLiveFeed, series_id: &str) -> LiveT
             .clone()
             .unwrap_or_else(|| "IndyCar Team".to_string());
 
+        let cur_gap_sec = parse_json_f64(d.gap.as_ref());
         let gap = format_json_val_or_default(d.gap.as_ref(), if pos == 1 { "LEADER" } else { "-" });
-        let interval =
-            format_json_val_or_default(d.interval.as_ref(), if pos == 1 { "-" } else { "-" });
+
+        let interval = if pos == 1 {
+            "-".to_string()
+        } else if let Some(ref int_val) = d.interval {
+            let s = format_json_val_or_default(Some(int_val), "-");
+            if s == "-" && cur_gap_sec.is_some() && prev_gap_sec.is_some() {
+                let diff = cur_gap_sec.unwrap() - prev_gap_sec.unwrap();
+                if diff >= 0.0 {
+                    format!("+{:.3}s", diff)
+                } else {
+                    format!("+{:.3}s", cur_gap_sec.unwrap())
+                }
+            } else {
+                s
+            }
+        } else if let (Some(cur_g), Some(prev_g)) = (cur_gap_sec, prev_gap_sec) {
+            let diff = cur_g - prev_g;
+            if diff >= 0.0 {
+                format!("+{:.3}s", diff)
+            } else {
+                format!("+{:.3}s", cur_g)
+            }
+        } else {
+            "-".to_string()
+        };
+
+        if pos == 1 && cur_gap_sec.is_none() {
+            prev_gap_sec = Some(0.0);
+        } else if cur_gap_sec.is_some() {
+            prev_gap_sec = cur_gap_sec;
+        }
 
         let last_lap_str = format_json_val_opt(d.last_lap_time.as_ref());
         let best_lap_str = format_json_val_opt(d.best_lap_time.as_ref());
@@ -369,6 +403,17 @@ pub fn parse_indycar_live_feed(feed: &IndyCarLiveFeed, series_id: &str) -> LiveT
         drivers: driver_entries,
         weather: None,
         updated_at: Utc::now(),
+    }
+}
+
+fn parse_json_f64(val: Option<&serde_json::Value>) -> Option<f64> {
+    match val {
+        Some(serde_json::Value::Number(n)) => n.as_f64(),
+        Some(serde_json::Value::String(s)) => {
+            let clean = s.trim().trim_start_matches('+').trim_end_matches('s');
+            clean.parse::<f64>().ok()
+        }
+        _ => None,
     }
 }
 

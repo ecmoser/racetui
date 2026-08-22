@@ -11,6 +11,7 @@ pub mod live_timing_table;
 pub mod live_view;
 pub mod standings_view;
 pub mod status_bar;
+pub mod track_map_view;
 
 use crate::app::{App, ViewMode};
 use ratatui::prelude::*;

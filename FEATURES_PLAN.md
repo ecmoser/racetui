@@ -1084,7 +1084,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 35: Integrate track map into Live view Track Map sub-tab
+### [x] Step 35: Integrate track map into Live view Track Map sub-tab
 
 **What to do**: Create `src/ui/track_map_view.rs`. Split area: 75% map, 25% legend. Wire into Live view sub-tab.
 

@@ -51,8 +51,23 @@ pub struct NascarLiveVehicle {
     pub driver: Option<NascarLiveDriverInfo>,
     #[serde(alias = "driver_name", default)]
     pub driver_name: Option<String>,
-    #[serde(alias = "delta", alias = "time_delta", alias = "gap", default)]
+    #[serde(
+        alias = "delta",
+        alias = "time_delta",
+        alias = "gap",
+        alias = "time_to_leader",
+        default
+    )]
     pub delta: Option<serde_json::Value>,
+    #[serde(
+        alias = "interval",
+        alias = "gap_to_next",
+        alias = "time_to_next",
+        alias = "diff_prev",
+        alias = "interval_to_previous",
+        default
+    )]
+    pub interval: Option<serde_json::Value>,
     #[serde(alias = "sponsor_name", alias = "sponsor", default)]
     pub sponsor_name: Option<String>,
     #[serde(alias = "team_name", default)]
@@ -189,9 +204,14 @@ pub fn parse_nascar_live_feed(feed: &NascarLiveFeed, racetui_series_id: &str) ->
         }
     }
 
-    let mut driver_entries = Vec::new();
+    let mut sorted_vehicles = feed.vehicles.clone();
+    sorted_vehicles.sort_by_key(|v| v.running_position.unwrap_or(99));
 
-    for v in &feed.vehicles {
+    let mut driver_entries = Vec::new();
+    let mut prev_delta_sec: Option<f64> = None;
+    let mut prev_laps: Option<u32> = None;
+
+    for v in &sorted_vehicles {
         let pos = v.running_position.unwrap_or(99);
 
         // Driver name
@@ -230,12 +250,43 @@ pub fn parse_nascar_live_feed(feed: &NascarLiveFeed, racetui_series_id: &str) ->
             .or_else(|| v.vehicle_manufacturer.clone())
             .unwrap_or_else(|| "NASCAR Team".to_string());
 
+        let cur_delta_sec = parse_json_f64(v.delta.as_ref());
+        let cur_laps = v.laps_completed;
+
         let gap = format_nascar_gap(v.delta.as_ref(), pos == 1);
+
         let interval = if pos == 1 {
             "-".to_string()
+        } else if let Some(ref int_val) = v.interval {
+            format_nascar_gap(Some(int_val), false)
+        } else if let (Some(cur_d), Some(prev_d)) = (cur_delta_sec, prev_delta_sec) {
+            let diff = cur_d - prev_d;
+            if diff >= 0.0 {
+                format!("+{:.3}s", diff)
+            } else {
+                format!("+{:.3}s", cur_d)
+            }
+        } else if let (Some(cl), Some(pl)) = (cur_laps, prev_laps) {
+            if cl < pl {
+                let diff_laps = pl - cl;
+                if diff_laps == 1 {
+                    "+1 Lap".to_string()
+                } else {
+                    format!("+{} Laps", diff_laps)
+                }
+            } else {
+                gap.clone()
+            }
         } else {
             gap.clone()
         };
+
+        if pos == 1 && cur_delta_sec.is_none() {
+            prev_delta_sec = Some(0.0);
+        } else if cur_delta_sec.is_some() {
+            prev_delta_sec = cur_delta_sec;
+        }
+        prev_laps = cur_laps;
 
         let is_fastest = match (v.best_lap_time, best_lap_overall) {
             (Some(b), Some(overall)) => (b - overall).abs() < 0.0001,
@@ -312,6 +363,17 @@ pub fn parse_nascar_live_feed(feed: &NascarLiveFeed, racetui_series_id: &str) ->
         drivers: driver_entries,
         weather: None,
         updated_at: Utc::now(),
+    }
+}
+
+fn parse_json_f64(val: Option<&serde_json::Value>) -> Option<f64> {
+    match val {
+        Some(serde_json::Value::Number(n)) => n.as_f64(),
+        Some(serde_json::Value::String(s)) => {
+            let clean = s.trim().trim_start_matches('+').trim_end_matches('s');
+            clean.parse::<f64>().ok()
+        }
+        _ => None,
     }
 }
 
@@ -447,7 +509,58 @@ mod tests {
         assert_eq!(d2.position, 2);
         assert_eq!(d2.driver_name, "Chase Elliott");
         assert_eq!(d2.gap_to_leader, "+0.150s");
+        assert_eq!(d2.interval, "+0.150s");
         assert!(!d2.fastest_lap);
         assert_eq!(d2.pits.stops_count, 0);
+    }
+
+    #[test]
+    fn test_nascar_gap_and_interval_distinct() {
+        let sample_json = r#"{
+            "lap_number": 100,
+            "laps_in_race": 250,
+            "flag_state": 1,
+            "race_name": "Truck Series 250",
+            "vehicles": [
+                {
+                    "running_position": 1,
+                    "vehicle_number": "38",
+                    "driver_name": "Layne Riggs",
+                    "delta": 0.0,
+                    "laps_completed": 100
+                },
+                {
+                    "running_position": 2,
+                    "vehicle_number": "19",
+                    "driver_name": "Christian Eckes",
+                    "delta": 0.500,
+                    "laps_completed": 100
+                },
+                {
+                    "running_position": 3,
+                    "vehicle_number": "98",
+                    "driver_name": "Ty Majeski",
+                    "delta": 1.750,
+                    "laps_completed": 100
+                }
+            ]
+        }"#;
+
+        let feed: NascarLiveFeed = serde_json::from_str(sample_json).unwrap();
+        let timing = parse_nascar_live_feed(&feed, "nascar_trucks");
+
+        assert_eq!(timing.drivers.len(), 3);
+
+        // P1
+        assert_eq!(timing.drivers[0].gap_to_leader, "LEADER");
+        assert_eq!(timing.drivers[0].interval, "-");
+
+        // P2
+        assert_eq!(timing.drivers[1].gap_to_leader, "+0.500s");
+        assert_eq!(timing.drivers[1].interval, "+0.500s");
+
+        // P3: Gap is +1.750s, Interval to P2 is +1.250s (1.750 - 0.500)
+        assert_eq!(timing.drivers[2].gap_to_leader, "+1.750s");
+        assert_eq!(timing.drivers[2].interval, "+1.250s");
     }
 }

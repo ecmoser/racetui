@@ -18,7 +18,7 @@ pub enum ViewMode {
 }
 
 /// Sub-tabs within the Live view.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LiveSubTab {
     /// Timing leaderboard
     Timing,
@@ -500,6 +500,21 @@ impl App {
         let sessions = self.get_live_sessions();
         let idx = self.live_session_picker_state.selected()?;
         sessions.get(idx).cloned()
+    }
+
+    /// Returns true if track map geometry or driver GPS coordinates are available for the current live session.
+    pub fn is_track_map_available(&self) -> bool {
+        if let Some(ref points) = self.track_map_geometry {
+            if !points.is_empty() {
+                return true;
+            }
+        }
+        if let Some(ref data) = self.live_timing_data {
+            if data.drivers.iter().any(|d| d.current_position.is_some()) {
+                return true;
+            }
+        }
+        false
     }
 
     /// Get notification messages for upcoming favorited events.

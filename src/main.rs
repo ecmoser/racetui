@@ -1128,7 +1128,11 @@ fn handle_key_event(app: &mut App, key: KeyEvent) {
         },
         KeyCode::Char('l') | KeyCode::Right => match app.view_mode {
             app::ViewMode::Calendar => app.calendar_select_next_day(),
-            app::ViewMode::Live => app.live_sub_tab = app::LiveSubTab::TrackMap,
+            app::ViewMode::Live => {
+                if app.is_track_map_available() {
+                    app.live_sub_tab = app::LiveSubTab::TrackMap;
+                }
+            }
             app::ViewMode::Standings => app.standings_cycle_series(1),
             _ => {}
         },
@@ -2260,7 +2264,12 @@ mod tests {
         assert_eq!(app.view_mode, app::ViewMode::Live);
         assert_eq!(app.live_sub_tab, app::LiveSubTab::Timing);
 
-        // Switch sub-tab to Track Map
+        // Without track map geometry, switching sub-tab to Track Map is ignored
+        handle_key_event(&mut app, key(KeyCode::Right));
+        assert_eq!(app.live_sub_tab, app::LiveSubTab::Timing);
+
+        // With track map geometry, switching sub-tab to Track Map works
+        app.track_map_geometry = Some(vec![crate::live::track_map::TrackPoint { x: 0.0, y: 0.0 }]);
         handle_key_event(&mut app, key(KeyCode::Right));
         assert_eq!(app.live_sub_tab, app::LiveSubTab::TrackMap);
 

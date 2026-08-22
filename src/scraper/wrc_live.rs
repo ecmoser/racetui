@@ -214,9 +214,13 @@ impl LiveProvider for WrcLiveProvider {
 
 /// Parse WRC live timing feed into standard LiveTimingData.
 pub fn parse_wrc_live_feed(feed: &WrcLiveFeed, series_id: &str) -> LiveTimingData {
-    let mut driver_entries = Vec::new();
+    let mut sorted_entries = feed.entries.clone();
+    sorted_entries.sort_by_key(|e| e.pos.unwrap_or(99));
 
-    for e in &feed.entries {
+    let mut driver_entries = Vec::new();
+    let mut prev_gap_sec: Option<f64> = None;
+
+    for e in &sorted_entries {
         let pos = e.pos.unwrap_or(99);
 
         let driver_name = if let Some(ref d) = e.driver {
@@ -268,9 +272,39 @@ pub fn parse_wrc_live_feed(feed: &WrcLiveFeed, series_id: &str) -> LiveTimingDat
             e.car.clone().unwrap_or_else(|| "WRC Team".to_string())
         };
 
+        let cur_gap_sec = parse_json_f64(e.gap.as_ref());
         let gap = format_json_val_or_default(e.gap.as_ref(), if pos == 1 { "LEADER" } else { "-" });
-        let interval =
-            format_json_val_or_default(e.interval.as_ref(), if pos == 1 { "-" } else { "-" });
+
+        let interval = if pos == 1 {
+            "-".to_string()
+        } else if let Some(ref int_val) = e.interval {
+            let s = format_json_val_or_default(Some(int_val), "-");
+            if s == "-" && cur_gap_sec.is_some() && prev_gap_sec.is_some() {
+                let diff = cur_gap_sec.unwrap() - prev_gap_sec.unwrap();
+                if diff >= 0.0 {
+                    format!("+{:.3}s", diff)
+                } else {
+                    format!("+{:.3}s", cur_gap_sec.unwrap())
+                }
+            } else {
+                s
+            }
+        } else if let (Some(cur_g), Some(prev_g)) = (cur_gap_sec, prev_gap_sec) {
+            let diff = cur_g - prev_g;
+            if diff >= 0.0 {
+                format!("+{:.3}s", diff)
+            } else {
+                format!("+{:.3}s", cur_g)
+            }
+        } else {
+            "-".to_string()
+        };
+
+        if pos == 1 && cur_gap_sec.is_none() {
+            prev_gap_sec = Some(0.0);
+        } else if cur_gap_sec.is_some() {
+            prev_gap_sec = cur_gap_sec;
+        }
 
         let last_lap_str = format_json_val_opt(e.stage_time.as_ref());
         let best_lap_str = format_json_val_opt(e.total_time.as_ref());
@@ -406,6 +440,17 @@ pub fn parse_wrc_live_feed(feed: &WrcLiveFeed, series_id: &str) -> LiveTimingDat
         drivers: driver_entries,
         weather,
         updated_at: Utc::now(),
+    }
+}
+
+fn parse_json_f64(val: Option<&serde_json::Value>) -> Option<f64> {
+    match val {
+        Some(serde_json::Value::Number(n)) => n.as_f64(),
+        Some(serde_json::Value::String(s)) => {
+            let clean = s.trim().trim_start_matches('+').trim_end_matches('s');
+            clean.parse::<f64>().ok()
+        }
+        _ => None,
     }
 }
 
