@@ -1,6 +1,7 @@
 use anyhow::Result;
 
 pub mod desktop;
+pub mod scheduler;
 pub mod terminal;
 
 /// Structured notification payload containing the notification content and metadata.

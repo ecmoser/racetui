@@ -1108,7 +1108,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 38: Implement notification scheduler
+### [x] Step 38: Implement notification scheduler
 
 **What to do**: Create `src/notify/scheduler.rs` with `NotificationTracker` and `check_and_notify()` function.
 
