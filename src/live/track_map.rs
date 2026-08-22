@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use ratatui::prelude::*;
 use ratatui::symbols::Marker;
 use ratatui::widgets::canvas::{Canvas, Line as CanvasLine, Points as CanvasPoints};
@@ -5,6 +6,9 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use serde::{Deserialize, Serialize};
 
 use crate::live::event::LiveTimingData;
+use crate::scraper::fetcher::create_http_client;
+
+pub const MULTIVIEWER_CIRCUITS_BASE_URL: &str = "https://api.multiviewer.app/api/v1/circuits";
 
 /// A single coordinate point on the circuit track outline.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -299,6 +303,101 @@ pub fn parse_hex_color(hex: Option<&str>) -> Option<Color> {
     Some(Color::Rgb(r, g, b))
 }
 
+/// MultiViewer circuit geometry response format.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged)]
+pub enum MultiViewerCircuitResponse {
+    /// Standard MultiViewer format with parallel x and y coordinate vectors
+    Coordinates {
+        #[serde(default)]
+        circuit_key: Option<u64>,
+        #[serde(default)]
+        circuit_name: Option<String>,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        #[serde(default)]
+        rotation: Option<f64>,
+    },
+    /// List of TrackPoints
+    PointsList(Vec<TrackPoint>),
+    /// Object containing a list of TrackPoints
+    PointsObject { points: Vec<TrackPoint> },
+}
+
+/// Parse MultiViewer circuit JSON response into a list of TrackPoints.
+pub fn parse_multiviewer_circuit_json(json_str: &str) -> Result<Vec<TrackPoint>> {
+    let response: MultiViewerCircuitResponse = serde_json::from_str(json_str)
+        .context("Failed to parse MultiViewer circuit geometry JSON")?;
+
+    match response {
+        MultiViewerCircuitResponse::Coordinates { x, y, rotation, .. } => {
+            let points: Vec<TrackPoint> = x
+                .into_iter()
+                .zip(y.into_iter())
+                .map(|(px, py)| {
+                    if let Some(rot_deg) = rotation {
+                        if rot_deg.abs() > 1e-6 {
+                            let rad = rot_deg.to_radians();
+                            let cos_a = rad.cos();
+                            let sin_a = rad.sin();
+                            let rx = px * cos_a - py * sin_a;
+                            let ry = px * sin_a + py * cos_a;
+                            return TrackPoint { x: rx, y: ry };
+                        }
+                    }
+                    TrackPoint { x: px, y: py }
+                })
+                .collect();
+            Ok(points)
+        }
+        MultiViewerCircuitResponse::PointsList(pts) => Ok(pts),
+        MultiViewerCircuitResponse::PointsObject { points } => Ok(points),
+    }
+}
+
+/// Fetch circuit geometry from MultiViewer API for a given circuit key and year.
+pub async fn fetch_circuit_geometry(circuit_key: u64, year: u32) -> Result<Vec<TrackPoint>> {
+    let client = create_http_client().unwrap_or_else(|_| reqwest::Client::new());
+    fetch_circuit_geometry_with_client(&client, circuit_key, year).await
+}
+
+/// Fetch circuit geometry with a custom HTTP client.
+pub async fn fetch_circuit_geometry_with_client(
+    client: &reqwest::Client,
+    circuit_key: u64,
+    year: u32,
+) -> Result<Vec<TrackPoint>> {
+    let url = format!("{}/{}/{}", MULTIVIEWER_CIRCUITS_BASE_URL, circuit_key, year);
+    fetch_circuit_geometry_from_url(client, &url).await
+}
+
+/// Fetch circuit geometry directly from a given URL.
+pub async fn fetch_circuit_geometry_from_url(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<Vec<TrackPoint>> {
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .with_context(|| format!("Failed to fetch circuit geometry from {}", url))?;
+
+    if !resp.status().is_success() {
+        anyhow::bail!(
+            "MultiViewer API returned status {} for {}",
+            resp.status(),
+            url
+        );
+    }
+
+    let text = resp
+        .text()
+        .await
+        .with_context(|| format!("Failed to read circuit geometry response from {}", url))?;
+
+    parse_multiviewer_circuit_json(&text)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -563,5 +662,75 @@ mod tests {
         );
         assert_eq!(parse_hex_color(Some("invalid")), None);
         assert_eq!(parse_hex_color(None), None);
+    }
+
+    #[test]
+    fn test_parse_multiviewer_circuit_coordinates_format() {
+        let json = r#"{
+            "circuit_key": 63,
+            "circuit_name": "Bahrain International Circuit",
+            "x": [0.0, 100.5, 200.0, 150.0],
+            "y": [0.0, 50.2, 100.0, -25.0],
+            "rotation": 0.0
+        }"#;
+
+        let points = parse_multiviewer_circuit_json(json).expect("parse coordinates format");
+        assert_eq!(points.len(), 4);
+        assert_eq!(points[0], TrackPoint { x: 0.0, y: 0.0 });
+        assert_eq!(points[1], TrackPoint { x: 100.5, y: 50.2 });
+        assert_eq!(points[2], TrackPoint { x: 200.0, y: 100.0 });
+        assert_eq!(points[3], TrackPoint { x: 150.0, y: -25.0 });
+    }
+
+    #[test]
+    fn test_parse_multiviewer_circuit_with_rotation() {
+        let json = r#"{
+            "circuit_key": 63,
+            "x": [10.0, 0.0],
+            "y": [0.0, 10.0],
+            "rotation": 90.0
+        }"#;
+
+        let points = parse_multiviewer_circuit_json(json).expect("parse rotated coordinates");
+        assert_eq!(points.len(), 2);
+        // (10, 0) rotated 90 deg -> (0, 10)
+        assert!((points[0].x - 0.0).abs() < 1e-4);
+        assert!((points[0].y - 10.0).abs() < 1e-4);
+        // (0, 10) rotated 90 deg -> (-10, 0)
+        assert!((points[1].x - -10.0).abs() < 1e-4);
+        assert!((points[1].y - 0.0).abs() < 1e-4);
+    }
+
+    #[test]
+    fn test_parse_multiviewer_circuit_points_list_format() {
+        let json = r#"[
+            {"x": 10.0, "y": 20.0},
+            {"x": 30.0, "y": 40.0}
+        ]"#;
+
+        let points = parse_multiviewer_circuit_json(json).expect("parse points list");
+        assert_eq!(points.len(), 2);
+        assert_eq!(points[0], TrackPoint { x: 10.0, y: 20.0 });
+        assert_eq!(points[1], TrackPoint { x: 30.0, y: 40.0 });
+    }
+
+    #[test]
+    fn test_parse_multiviewer_circuit_points_object_format() {
+        let json = r#"{
+            "points": [
+                {"x": -5.0, "y": 15.0},
+                {"x": 25.0, "y": -35.0}
+            ]
+        }"#;
+
+        let points = parse_multiviewer_circuit_json(json).expect("parse points object");
+        assert_eq!(points.len(), 2);
+        assert_eq!(points[0], TrackPoint { x: -5.0, y: 15.0 });
+        assert_eq!(points[1], TrackPoint { x: 25.0, y: -35.0 });
+    }
+
+    #[test]
+    fn test_parse_multiviewer_circuit_invalid_json() {
+        assert!(parse_multiviewer_circuit_json("invalid json").is_err());
     }
 }

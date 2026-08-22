@@ -1068,7 +1068,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 33: Implement circuit geometry fetcher (MultiViewer API)
+### [x] Step 33: Implement circuit geometry fetcher (MultiViewer API)
 
 **What to do**: Add function to fetch circuit outline from `api.multiviewer.app/api/v1/circuits/{key}/{year}`.
 
