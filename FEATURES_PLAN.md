@@ -1092,7 +1092,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 36: Implement notification infrastructure
+### [x] Step 36: Implement notification infrastructure
 
 **What to do**: Create `src/notify/` module with `desktop.rs` (notify-rust), `terminal.rs` (OSC 777/99), and `mod.rs` (fallback logic).
 

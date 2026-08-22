@@ -4,5 +4,6 @@ pub mod config;
 pub mod data;
 pub mod event;
 pub mod live;
+pub mod notify;
 pub mod scraper;
 pub mod ui;
