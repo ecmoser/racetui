@@ -50,6 +50,23 @@ impl LiveSessionManager {
                 session_name: "Live Session".to_string(),
             });
 
+            // If F1, attempt to load circuit geometry once in the background at session start
+            if sid == "f1" {
+                let tx_geom = tx.clone();
+                let sid_geom = sid.clone();
+                tokio::spawn(async move {
+                    let f1_provider = crate::scraper::f1_live::F1LiveProvider::new();
+                    if let Ok(points) = f1_provider.fetch_current_circuit_geometry().await {
+                        if !points.is_empty() {
+                            let _ = tx_geom.send(LiveEvent::TrackGeometryLoaded {
+                                series_id: sid_geom,
+                                points,
+                            });
+                        }
+                    }
+                });
+            }
+
             loop {
                 match provider.fetch_timing_boxed().await {
                     Ok(timing_data) => {

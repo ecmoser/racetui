@@ -1076,7 +1076,7 @@ Wire up to `src/ui/mod.rs` dispatch.
 
 ---
 
-### [ ] Step 34: Add F1 GPS position data to live timing
+### [x] Step 34: Add F1 GPS position data to live timing
 
 **What to do**: Update F1 live provider to fetch `/location` for all drivers and populate `x`/`y` fields.
 

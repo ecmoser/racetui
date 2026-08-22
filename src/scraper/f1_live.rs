@@ -131,6 +131,41 @@ impl F1LiveProvider {
         let client = create_http_client().unwrap_or_else(|_| reqwest::Client::new());
         Self { client, base_url }
     }
+
+    /// Fetch circuit geometry from MultiViewer API for the current active/latest F1 session.
+    pub async fn fetch_current_circuit_geometry(
+        &self,
+    ) -> Result<Vec<crate::live::track_map::TrackPoint>> {
+        let session_url = format!("{}/sessions?session_key=latest", self.base_url);
+        let sessions: Vec<OpenF1Session> = self
+            .client
+            .get(&session_url)
+            .send()
+            .await
+            .context("Failed to query OpenF1 latest session for circuit geometry")?
+            .json()
+            .await
+            .context("Failed to parse OpenF1 session response")?;
+
+        let session = sessions
+            .into_iter()
+            .next()
+            .context("No session data available to determine circuit key")?;
+
+        let circuit_key = session
+            .circuit_key
+            .context("OpenF1 session did not provide a circuit_key")?;
+
+        let year = session.year.unwrap_or_else(|| {
+            session
+                .date_start
+                .map(|d| d.format("%Y").to_string().parse::<u32>().unwrap_or(2026))
+                .unwrap_or(2026)
+        });
+
+        crate::live::track_map::fetch_circuit_geometry_with_client(&self.client, circuit_key, year)
+            .await
+    }
 }
 
 impl Default for F1LiveProvider {
@@ -809,5 +844,109 @@ mod tests {
         assert_eq!(w.air_temp_c, Some(26.0));
         assert_eq!(w.track_temp_c, Some(35.0));
         assert_eq!(w.rainfall, false);
+    }
+
+    #[test]
+    fn test_parse_openf1_locations() {
+        let session = OpenF1Session {
+            session_key: 9472,
+            session_name: Some("Race".to_string()),
+            session_type: Some("Race".to_string()),
+            circuit_key: Some(63),
+            circuit_short_name: Some("Bahrain".to_string()),
+            country_name: Some("Bahrain".to_string()),
+            location: Some("Sakhir".to_string()),
+            date_start: None,
+            date_end: None,
+            year: Some(2026),
+        };
+
+        let drivers = vec![
+            OpenF1Driver {
+                driver_number: 1,
+                broadcast_name: Some("M VERSTAPPEN".to_string()),
+                full_name: Some("Max Verstappen".to_string()),
+                name_acronym: Some("VER".to_string()),
+                team_name: Some("Red Bull Racing".to_string()),
+                team_colour: Some("3671C6".to_string()),
+            },
+            OpenF1Driver {
+                driver_number: 44,
+                broadcast_name: Some("L HAMILTON".to_string()),
+                full_name: Some("Lewis Hamilton".to_string()),
+                name_acronym: Some("HAM".to_string()),
+                team_name: Some("Ferrari".to_string()),
+                team_colour: Some("E8002D".to_string()),
+            },
+        ];
+
+        let positions = vec![
+            OpenF1Position {
+                date: None,
+                driver_number: 1,
+                position: 1,
+            },
+            OpenF1Position {
+                date: None,
+                driver_number: 44,
+                position: 2,
+            },
+        ];
+
+        let now = Utc::now();
+        let locations = vec![
+            OpenF1Location {
+                date: Some(now - chrono::Duration::seconds(5)),
+                driver_number: 1,
+                x: 100.0,
+                y: 200.0,
+                z: Some(10.0),
+            },
+            OpenF1Location {
+                date: Some(now),
+                driver_number: 1,
+                x: 150.0,
+                y: 250.0,
+                z: Some(10.0),
+            },
+            OpenF1Location {
+                date: Some(now),
+                driver_number: 44,
+                x: 140.0,
+                y: 240.0,
+                z: Some(10.0),
+            },
+        ];
+
+        let timing = parse_openf1_data(
+            &session,
+            drivers,
+            positions,
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            vec![],
+            locations,
+        );
+
+        assert_eq!(timing.drivers.len(), 2);
+        let p1 = &timing.drivers[0];
+        assert_eq!(p1.driver_number, Some(1));
+        assert!(p1.current_position.is_some());
+        let pos1 = p1.current_position.as_ref().unwrap();
+        assert_eq!(pos1.driver_number, Some(1));
+        assert_eq!(pos1.driver_code.as_deref(), Some("VER"));
+        assert_eq!(pos1.x, 150.0);
+        assert_eq!(pos1.y, 250.0);
+
+        let p2 = &timing.drivers[1];
+        assert_eq!(p2.driver_number, Some(44));
+        assert!(p2.current_position.is_some());
+        let pos2 = p2.current_position.as_ref().unwrap();
+        assert_eq!(pos2.driver_number, Some(44));
+        assert_eq!(pos2.driver_code.as_deref(), Some("HAM"));
+        assert_eq!(pos2.x, 140.0);
+        assert_eq!(pos2.y, 240.0);
     }
 }
