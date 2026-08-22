@@ -623,8 +623,8 @@ async fn main() -> Result<()> {
     setup_panic_hook();
     setup_logging();
 
-    // Load series registry
-    let registry = data::series_registry::load_series_registry(Path::new("data/series.toml"))?;
+    // Load series registry (auto checks ~/.config/racetui/series.toml, ./data/series.toml, or embedded)
+    let registry = data::series_registry::load_series_registry_auto()?;
 
     // Load user config
     let mut config = config::UserConfig::load()?;

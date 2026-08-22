@@ -49,19 +49,51 @@ impl SeriesTomlEntry {
     }
 }
 
-/// Load all series definitions from a `series.toml` file.
-/// Returns a HashMap keyed by series ID for fast lookup.
-pub fn load_series_registry(path: &Path) -> Result<HashMap<String, Series>> {
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read series registry at {}", path.display()))?;
+const DEFAULT_SERIES_TOML: &str = include_str!("../../data/series.toml");
+
+/// Parse series definitions from a TOML string.
+pub fn parse_series_registry(content: &str) -> Result<HashMap<String, Series>> {
     let parsed: SeriesToml =
-        toml::from_str(&content).with_context(|| "Failed to parse series.toml")?;
+        toml::from_str(content).with_context(|| "Failed to parse series.toml")?;
     let mut map = HashMap::new();
     for entry in parsed.series {
         let id = entry.id.clone();
         map.insert(id, entry.into_series());
     }
     Ok(map)
+}
+
+/// Load series definitions automatically.
+/// Checks user override at `~/.config/racetui/series.toml`,
+/// then local `./data/series.toml`, and falls back to embedded `series.toml`.
+pub fn load_series_registry_auto() -> Result<HashMap<String, Series>> {
+    // 1. User config override: ~/.config/racetui/series.toml
+    if let Some(config_dir) = dirs::config_dir() {
+        let user_override = config_dir.join("racetui").join("series.toml");
+        if user_override.exists() {
+            return load_series_registry(&user_override);
+        }
+    }
+
+    // 2. Working directory relative: ./data/series.toml
+    let local_path = Path::new("data/series.toml");
+    if local_path.exists() {
+        return load_series_registry(local_path);
+    }
+
+    // 3. Embedded fallback
+    parse_series_registry(DEFAULT_SERIES_TOML)
+}
+
+/// Load all series definitions from a `series.toml` file.
+/// Returns a HashMap keyed by series ID for fast lookup.
+pub fn load_series_registry(path: &Path) -> Result<HashMap<String, Series>> {
+    if !path.exists() {
+        return parse_series_registry(DEFAULT_SERIES_TOML);
+    }
+    let content = std::fs::read_to_string(path)
+        .with_context(|| format!("Failed to read series registry at {}", path.display()))?;
+    parse_series_registry(&content)
 }
 
 #[cfg(test)]
