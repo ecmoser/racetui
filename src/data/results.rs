@@ -190,6 +190,46 @@ pub fn read_qualifying_cache(series_id: &str, round: u32) -> Result<Option<Quali
     Ok(Some(results))
 }
 
+/// Build the cache file path for sprint results.
+/// Format: ~/.local/share/racetui/results/{series_id}_sprint_round_{round}.json
+fn sprint_cache_path(series_id: &str, round: u32) -> Result<PathBuf> {
+    let dir = results_cache_dir()?;
+    Ok(dir.join(format!("{}_sprint_round_{}.json", series_id, round)))
+}
+
+/// Write sprint race results to the cache file.
+pub fn write_sprint_cache(results: &RaceResults) -> Result<()> {
+    let path = sprint_cache_path(&results.series_id, results.round)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("Failed to create results cache dir {}", parent.display()))?;
+    }
+    let json =
+        serde_json::to_string_pretty(results).context("Failed to serialize sprint results")?;
+    std::fs::write(&path, json)
+        .with_context(|| format!("Failed to write sprint cache to {}", path.display()))?;
+    tracing::debug!(
+        "Cached sprint results for {} round {} at {}",
+        results.series_id,
+        results.round,
+        path.display()
+    );
+    Ok(())
+}
+
+/// Read sprint race results from the cache file. Returns None if no cache exists.
+pub fn read_sprint_cache(series_id: &str, round: u32) -> Result<Option<RaceResults>> {
+    let path = sprint_cache_path(series_id, round)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = std::fs::read_to_string(&path)
+        .with_context(|| format!("Failed to read sprint cache at {}", path.display()))?;
+    let results: RaceResults = serde_json::from_str(&content)
+        .with_context(|| format!("Failed to parse sprint cache at {}", path.display()))?;
+    Ok(Some(results))
+}
+
 /// List all cached result files for a series. Returns (round, path) pairs.
 pub fn list_cached_results(series_id: &str) -> Result<Vec<(u32, PathBuf)>> {
     let dir = results_cache_dir()?;
@@ -355,5 +395,37 @@ mod tests {
         assert_eq!(q_results.series_id, deserialized.series_id);
         assert_eq!(q_results.round, deserialized.round);
         assert_eq!(q_results.results, deserialized.results);
+    }
+
+    #[test]
+    fn test_sprint_results_serialization_and_cache() {
+        let sprint_results = RaceResults {
+            series_id: "f1".to_string(),
+            round: 2,
+            event_name: "Chinese Grand Prix".to_string(),
+            circuit_name: "Shanghai International Circuit".to_string(),
+            race_date: NaiveDate::from_ymd_opt(2026, 3, 14).unwrap(),
+            results: vec![DriverResult {
+                position: Some(1),
+                driver_name: "Max Verstappen".to_string(),
+                driver_code: Some("VER".to_string()),
+                driver_number: Some(1),
+                team: "Red Bull Racing".to_string(),
+                gap_to_leader: "Leader".to_string(),
+                gap_to_ahead: "Leader".to_string(),
+                grid_position: Some(4),
+                points: 8.0,
+                fastest_lap: true,
+                penalty: None,
+                status: "Finished".to_string(),
+            }],
+            fetched_at: Utc::now(),
+        };
+
+        let json = serde_json::to_string_pretty(&sprint_results).unwrap();
+        let deserialized: RaceResults = serde_json::from_str(&json).unwrap();
+        assert_eq!(sprint_results.series_id, deserialized.series_id);
+        assert_eq!(sprint_results.round, deserialized.round);
+        assert_eq!(sprint_results.results, deserialized.results);
     }
 }

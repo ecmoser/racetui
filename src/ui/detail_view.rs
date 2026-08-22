@@ -27,8 +27,13 @@ pub fn format_duration(dur: chrono::Duration) -> String {
     }
 }
 
-/// Draw the race results table widget.
-pub fn draw_results(frame: &mut Frame, results: &RaceResults, area: Rect) {
+/// Draw the race results table widget with a custom title.
+pub fn draw_results_with_title(
+    frame: &mut Frame,
+    results: &RaceResults,
+    title: &str,
+    area: Rect,
+) {
     let header = Row::new(vec![
         Cell::from("Pos").style(Style::default().bold().fg(Color::White)),
         Cell::from("#").style(Style::default().bold().fg(Color::White)),
@@ -131,7 +136,7 @@ pub fn draw_results(frame: &mut Frame, results: &RaceResults, area: Rect) {
         .collect();
 
     let block = Block::default()
-        .title(" Official Race Results ")
+        .title(format!(" {} ", title))
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Green));
 
@@ -145,6 +150,82 @@ pub fn draw_results(frame: &mut Frame, results: &RaceResults, area: Rect) {
         Constraint::Length(5),  // +/-
         Constraint::Length(5),  // Pts
         Constraint::Max(15),    // Status
+    ];
+
+    let table = Table::new(rows, widths)
+        .header(header)
+        .block(block)
+        .highlight_spacing(HighlightSpacing::Always);
+
+    frame.render_widget(table, area);
+}
+
+/// Draw the race results table widget.
+pub fn draw_results(frame: &mut Frame, results: &RaceResults, area: Rect) {
+    draw_results_with_title(frame, results, "Official Race Results", area);
+}
+
+/// Draw the sprint results table widget.
+pub fn draw_sprint_results(frame: &mut Frame, results: &RaceResults, area: Rect) {
+    draw_results_with_title(frame, results, "Official Sprint Results", area);
+}
+
+/// Draw the sprint starting grid table widget based on Sprint Qualifying / Shootout results.
+pub fn draw_sprint_grid(frame: &mut Frame, sprint_results: &RaceResults, area: Rect) {
+    let header = Row::new(vec![
+        Cell::from("Grid").style(Style::default().bold().fg(Color::White)),
+        Cell::from("#").style(Style::default().bold().fg(Color::White)),
+        Cell::from("Driver").style(Style::default().bold().fg(Color::White)),
+        Cell::from("Team").style(Style::default().bold().fg(Color::White)),
+    ])
+    .height(1)
+    .bottom_margin(1);
+
+    let mut sorted_drivers = sprint_results.results.clone();
+    sorted_drivers.sort_by_key(|r| r.grid_position.unwrap_or(999));
+
+    let rows: Vec<Row> = sorted_drivers
+        .iter()
+        .map(|r| {
+            let grid_str = r
+                .grid_position
+                .map(|g| format!("{}", g))
+                .unwrap_or_else(|| "-".to_string());
+            let num_str = r
+                .driver_number
+                .map(|n| format!("{}", n))
+                .unwrap_or_else(|| "-".to_string());
+
+            let name_code = match &r.driver_code {
+                Some(code) => format!("{} ({})", r.driver_name, code),
+                None => r.driver_name.clone(),
+            };
+
+            let pos_style = match r.grid_position {
+                Some(1..=3) => Style::default().bold().fg(Color::Yellow),
+                Some(4..=10) => Style::default().bold().fg(Color::Green),
+                _ => Style::default().fg(Color::White),
+            };
+
+            Row::new(vec![
+                Cell::from(grid_str).style(pos_style),
+                Cell::from(num_str).style(Style::default().fg(Color::DarkGray)),
+                Cell::from(name_code).style(Style::default().bold().fg(Color::White)),
+                Cell::from(r.team.clone()).style(Style::default().fg(Color::Cyan)),
+            ])
+        })
+        .collect();
+
+    let block = Block::default()
+        .title(" Sprint Starting Grid (Sprint Shootout) ")
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan));
+
+    let widths = [
+        Constraint::Length(6),  // Grid
+        Constraint::Length(4),  // #
+        Constraint::Min(26),    // Driver
+        Constraint::Length(25), // Team
     ];
 
     let table = Table::new(rows, widths)
@@ -438,7 +519,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         ])
         .split(popup_area);
 
-    let status_span = match event.status {
+    let status_span = match event.current_status() {
         EventStatus::Completed => {
             Span::styled(" [Completed] ", Style::default().bold().fg(Color::Green))
         }
@@ -569,33 +650,33 @@ pub fn draw(frame: &mut Frame, app: &App) {
                     .contains(&(event.series_id.clone(), r, "sprint".to_string()))
             });
             if let Some(results) = s_res {
-                draw_results(frame, results, chunks[1]);
+                draw_sprint_results(frame, results, chunks[1]);
             } else if is_fetching {
                 draw_loading(frame, "Fetching official sprint results...", chunks[1]);
             } else {
                 draw_empty_tab(
                     frame,
-                    "No sprint race held for this event. (Press Tab or 1-4 to switch)",
+                    "No sprint results available for this round. (Press Tab or 1-5 to switch)",
                     chunks[1],
                 );
             }
         }
         crate::app::DetailTab::SprintQualifying => {
-            let q_res =
-                round_opt.and_then(|r| app.qualifying_results.get(&(event.series_id.clone(), r)));
+            let s_res =
+                round_opt.and_then(|r| app.sprint_results.get(&(event.series_id.clone(), r)));
             let is_fetching = round_opt.map_or(false, |r| {
                 app.results_fetching.contains(&(
                     event.series_id.clone(),
                     r,
-                    "qualifying".to_string(),
+                    "sprint".to_string(),
                 ))
             });
-            if let Some(results) = q_res {
-                draw_qualifying_results(frame, results, chunks[1]);
+            if let Some(results) = s_res {
+                draw_sprint_grid(frame, results, chunks[1]);
             } else if is_fetching {
                 draw_loading(
                     frame,
-                    "Fetching official sprint qualifying results...",
+                    "Fetching official sprint qualifying / starting grid...",
                     chunks[1],
                 );
             } else {

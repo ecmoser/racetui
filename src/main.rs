@@ -182,24 +182,34 @@ fn spawn_standings_loaders(
     }
 }
 
-/// Spawn background tasks to load race results and qualifying for the most recent completed event per series.
+/// Spawn background tasks to load race results, qualifying, and sprint for the most recent completed or ongoing event per series.
 fn spawn_results_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
     let series_ids: Vec<String> = app.series_registry.keys().cloned().collect();
+    let today = chrono::Utc::now().date_naive();
 
     for series_id in series_ids {
-        // Find most recent completed event with a round number for this series
-        let recent_completed = app.events.get(&series_id).and_then(|evs| {
+        // Find most recent completed or active event with a round number for this series
+        let recent_event = app.events.get(&series_id).and_then(|evs| {
             evs.iter()
-                .filter(|e| e.status == data::models::EventStatus::Completed && e.round.is_some())
+                .filter(|e| {
+                    (e.status == data::models::EventStatus::Completed || e.start_date <= today)
+                        && e.round.is_some()
+                })
                 .max_by_key(|e| e.end_date)
+                .or_else(|| {
+                    evs.iter()
+                        .filter(|e| e.status == data::models::EventStatus::Completed && e.round.is_some())
+                        .max_by_key(|e| e.end_date)
+                })
         });
 
-        if let Some(event) = recent_completed {
+        if let Some(event) = recent_event {
             let round = match event.round {
                 Some(r) => r,
                 None => continue,
             };
             let season = event.end_date.year() as u32;
+            let has_sprint = event.has_sprint();
 
             // 1. Race results cache / fetch
             if let Ok(Some(cached)) = data::results::read_results_cache(&series_id, round) {
@@ -255,6 +265,36 @@ fn spawn_results_loaders(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
                     }
                 });
             }
+
+            // 3. Sprint results cache / fetch (if event has sprint)
+            if has_sprint {
+                if let Ok(Some(cached)) = data::results::read_sprint_cache(&series_id, round) {
+                    app.sprint_results
+                        .insert((series_id.clone(), round), cached);
+                } else if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
+                    let fetch_tx = tx.clone();
+                    let sid = series_id.clone();
+                    tokio::spawn(async move {
+                        match fetcher.fetch_sprint_boxed(season, round).await {
+                            Ok(results) => {
+                                let _ = data::results::write_sprint_cache(&results);
+                                let _ = fetch_tx.send(AppEvent::SprintFetched {
+                                    series_id: sid,
+                                    round,
+                                    results,
+                                });
+                            }
+                            Err(e) => {
+                                let _ = fetch_tx.send(AppEvent::SprintFetchError {
+                                    series_id: sid,
+                                    round,
+                                    error: e.to_string(),
+                                });
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
 }
@@ -265,7 +305,7 @@ fn fetch_results_on_demand(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
         return;
     }
     let event = match app.selected_event() {
-        Some(e) if e.status == data::models::EventStatus::Completed && e.round.is_some() => e,
+        Some(e) if e.round.is_some() => e,
         _ => return,
     };
     let round = event.round.unwrap();
@@ -284,6 +324,7 @@ fn fetch_results_on_demand(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
                 .qualifying_results
                 .contains_key(&(series_id.clone(), round))
                 && !app.results_fetching.contains(&key)
+                && !app.results_failed.contains(&key)
             {
                 if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
                     app.results_fetching.insert(key);
@@ -311,9 +352,15 @@ fn fetch_results_on_demand(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
             }
         }
         app::DetailTab::Sprint => {
+            if let Ok(Some(cached)) = data::results::read_sprint_cache(&series_id, round) {
+                app.sprint_results
+                    .insert((series_id.clone(), round), cached);
+                return;
+            }
             let key = (series_id.clone(), round, "sprint".to_string());
             if !app.sprint_results.contains_key(&(series_id.clone(), round))
                 && !app.results_fetching.contains(&key)
+                && !app.results_failed.contains(&key)
             {
                 if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
                     app.results_fetching.insert(key);
@@ -321,6 +368,7 @@ fn fetch_results_on_demand(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
                     tokio::spawn(async move {
                         match fetcher.fetch_sprint_boxed(season, round).await {
                             Ok(results) => {
+                                let _ = data::results::write_sprint_cache(&results);
                                 let _ = tx.send(AppEvent::SprintFetched {
                                     series_id: sid,
                                     round,
@@ -340,32 +388,32 @@ fn fetch_results_on_demand(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
             }
         }
         app::DetailTab::SprintQualifying => {
-            if let Ok(Some(cached)) = data::results::read_qualifying_cache(&series_id, round) {
-                app.qualifying_results
+            // Sprint Qualifying determines the Sprint starting grid from sprint results.
+            if let Ok(Some(cached)) = data::results::read_sprint_cache(&series_id, round) {
+                app.sprint_results
                     .insert((series_id.clone(), round), cached);
                 return;
             }
-            let key = (series_id.clone(), round, "qualifying".to_string());
-            if !app
-                .qualifying_results
-                .contains_key(&(series_id.clone(), round))
+            let key = (series_id.clone(), round, "sprint".to_string());
+            if !app.sprint_results.contains_key(&(series_id.clone(), round))
                 && !app.results_fetching.contains(&key)
+                && !app.results_failed.contains(&key)
             {
                 if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
                     app.results_fetching.insert(key);
                     let sid = series_id.clone();
                     tokio::spawn(async move {
-                        match fetcher.fetch_qualifying_boxed(season, round).await {
+                        match fetcher.fetch_sprint_boxed(season, round).await {
                             Ok(results) => {
-                                let _ = data::results::write_qualifying_cache(&results);
-                                let _ = tx.send(AppEvent::QualifyingFetched {
+                                let _ = data::results::write_sprint_cache(&results);
+                                let _ = tx.send(AppEvent::SprintFetched {
                                     series_id: sid,
                                     round,
                                     results,
                                 });
                             }
                             Err(e) => {
-                                let _ = tx.send(AppEvent::QualifyingFetchError {
+                                let _ = tx.send(AppEvent::SprintFetchError {
                                     series_id: sid,
                                     round,
                                     error: e.to_string(),
@@ -384,6 +432,7 @@ fn fetch_results_on_demand(app: &mut App, tx: mpsc::UnboundedSender<AppEvent>) {
             let key = (series_id.clone(), round, "race".to_string());
             if !app.results.contains_key(&(series_id.clone(), round))
                 && !app.results_fetching.contains(&key)
+                && !app.results_failed.contains(&key)
             {
                 if let Some(fetcher) = scraper::get_results_fetcher(&series_id) {
                     app.results_fetching.insert(key);
@@ -647,6 +696,7 @@ async fn main() -> Result<()> {
                         }
                     AppEvent::RefreshRequested => {
                         app.results_loading_started = false;
+                        app.results_failed.clear();
                         spawn_data_loaders(&mut app, tx.clone(), true);
                         spawn_standings_loaders(&mut app, tx.clone(), true);
                     }
@@ -683,6 +733,11 @@ async fn main() -> Result<()> {
                             round,
                             "race".to_string(),
                         ));
+                        app.results_failed.remove(&(
+                            series_id.clone(),
+                            round,
+                            "race".to_string(),
+                        ));
                         app.results.insert((series_id, round), results);
                     }
                     AppEvent::ResultsFetchError {
@@ -691,6 +746,11 @@ async fn main() -> Result<()> {
                         error,
                     } => {
                         app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "race".to_string(),
+                        ));
+                        app.results_failed.insert((
                             series_id.clone(),
                             round,
                             "race".to_string(),
@@ -712,6 +772,11 @@ async fn main() -> Result<()> {
                             round,
                             "qualifying".to_string(),
                         ));
+                        app.results_failed.remove(&(
+                            series_id.clone(),
+                            round,
+                            "qualifying".to_string(),
+                        ));
                         app.qualifying_results.insert((series_id, round), results);
                     }
                     AppEvent::QualifyingFetchError {
@@ -720,6 +785,11 @@ async fn main() -> Result<()> {
                         error,
                     } => {
                         app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "qualifying".to_string(),
+                        ));
+                        app.results_failed.insert((
                             series_id.clone(),
                             round,
                             "qualifying".to_string(),
@@ -741,6 +811,11 @@ async fn main() -> Result<()> {
                             round,
                             "sprint".to_string(),
                         ));
+                        app.results_failed.remove(&(
+                            series_id.clone(),
+                            round,
+                            "sprint".to_string(),
+                        ));
                         app.sprint_results.insert((series_id, round), results);
                     }
                     AppEvent::SprintFetchError {
@@ -749,6 +824,11 @@ async fn main() -> Result<()> {
                         error,
                     } => {
                         app.results_fetching.remove(&(
+                            series_id.clone(),
+                            round,
+                            "sprint".to_string(),
+                        ));
+                        app.results_failed.insert((
                             series_id.clone(),
                             round,
                             "sprint".to_string(),
@@ -2269,5 +2349,78 @@ mod tests {
         check_live_sessions_prompt(&mut app);
         assert!(app.status_message.is_some());
         assert!(app.status_message.as_ref().unwrap().contains("LIVE: f1 Race — press 3 to watch"));
+    }
+
+    #[tokio::test]
+    async fn test_ongoing_event_on_demand_results_fetching() {
+        let mut registry = HashMap::new();
+        registry.insert(
+            "f1".to_string(),
+            data::models::Series {
+                id: "f1".to_string(),
+                name: "Formula 1".to_string(),
+                short_name: "F1".to_string(),
+                car_style: data::models::CarStyle::OpenWheel,
+                color: (255, 0, 0),
+                region: "International".to_string(),
+                calendar_url: "https://example.com".to_string(),
+                requires_js: false,
+            },
+        );
+
+        let mut app = App::new(registry, config::UserConfig::default());
+        let today = chrono::Utc::now().date_naive();
+
+        // Ongoing event for this weekend: status is Upcoming (race is tomorrow), but qualifying happened today
+        let active_weekend_event = data::models::RaceEvent {
+            series_id: "f1".to_string(),
+            event_name: "Dutch Grand Prix".to_string(),
+            circuit_name: "Circuit Zandvoort".to_string(),
+            location: "Zandvoort".to_string(),
+            country: "Netherlands".to_string(),
+            start_date: today - chrono::Duration::days(1),
+            end_date: today + chrono::Duration::days(1),
+            round: Some(15),
+            sessions: vec![
+                data::models::Session {
+                    name: "Qualifying".to_string(),
+                    session_type: data::models::SessionType::Qualifying,
+                    start_time: Some(chrono::Utc::now() - chrono::Duration::hours(2)),
+                    end_time: None,
+                },
+                data::models::Session {
+                    name: "Race".to_string(),
+                    session_type: data::models::SessionType::Race,
+                    start_time: Some(chrono::Utc::now() + chrono::Duration::hours(20)),
+                    end_time: None,
+                },
+            ],
+            stream_links: vec![],
+            status: data::models::EventStatus::Upcoming,
+        };
+
+        app.update_series_data("f1".to_string(), vec![active_weekend_event]);
+        app.table_state.select(Some(0));
+        app.show_detail = true;
+
+        let (tx, _rx) = mpsc::unbounded_channel::<AppEvent>();
+
+        // Test Qualifying tab on-demand fetch for ongoing weekend
+        app.detail_tab = app::DetailTab::Qualifying;
+        fetch_results_on_demand(&mut app, tx.clone());
+        assert!(
+            app.results_fetching
+                .contains(&("f1".to_string(), 15, "qualifying".to_string())),
+            "Expected qualifying results to be fetched for ongoing weekend round 15"
+        );
+
+        // Test Sprint tab on-demand fetch
+        app.detail_tab = app::DetailTab::Sprint;
+        fetch_results_on_demand(&mut app, tx.clone());
+        assert!(
+            app.results_fetching
+                .contains(&("f1".to_string(), 15, "sprint".to_string())),
+            "Expected sprint results to be fetched for ongoing weekend round 15"
+        );
     }
 }

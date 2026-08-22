@@ -68,17 +68,17 @@ struct JolpicaRace {
 }
 
 #[derive(Debug, Deserialize)]
-struct JolpicaCircuit {
+pub struct JolpicaCircuit {
     #[serde(rename = "circuitName")]
-    circuit_name: String,
+    pub circuit_name: String,
     #[serde(rename = "Location")]
-    location: JolpicaLocation,
+    pub location: JolpicaLocation,
 }
 
 #[derive(Debug, Deserialize)]
-struct JolpicaLocation {
-    locality: String,
-    country: String,
+pub struct JolpicaLocation {
+    pub locality: String,
+    pub country: String,
 }
 
 #[derive(Debug, Deserialize)]

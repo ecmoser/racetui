@@ -210,6 +210,8 @@ pub struct App {
     pub sprint_results: HashMap<(String, u32), crate::data::results::RaceResults>,
     /// Set of (series_id, round, session_type_str) currently being fetched on-demand
     pub results_fetching: std::collections::HashSet<(String, u32, String)>,
+    /// Set of (series_id, round, session_type_str) that failed to fetch
+    pub results_failed: std::collections::HashSet<(String, u32, String)>,
     /// Whether results background loading has been triggered
     pub results_loading_started: bool,
 
@@ -293,6 +295,7 @@ impl App {
             qualifying_results: HashMap::new(),
             sprint_results: HashMap::new(),
             results_fetching: std::collections::HashSet::new(),
+            results_failed: std::collections::HashSet::new(),
             results_loading_started: false,
             live_sub_tab: LiveSubTab::Timing,
             live_active_series: None,
