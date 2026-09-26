@@ -2072,11 +2072,6 @@ mod tests {
         assert_eq!(imsa_events.len(), 11);
         assert!(imsa_events.iter().all(|e| e.start_date.year() == 2027));
 
-        // Test WEC 2027
-        let wec_events = scraper::wec::get_official_2027_wec_schedule("wec");
-        assert_eq!(wec_events.len(), 8);
-        assert!(wec_events.iter().all(|e| e.start_date.year() == 2027));
-
         // Test BTCC 2027
         let btcc_events = scraper::btcc::get_official_2027_btcc_schedule("btcc");
         assert_eq!(btcc_events.len(), 10);

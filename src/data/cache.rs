@@ -5,7 +5,9 @@ use std::path::PathBuf;
 
 use super::models::RaceEvent;
 
-const CURRENT_CACHE_VERSION: u32 = 4;
+// v8 corrects the status of past FIA entries whose sessions are still marked
+// TBC, preventing them from appearing in the default upcoming list.
+const CURRENT_CACHE_VERSION: u32 = 8;
 
 /// Metadata stored alongside cached events for a series.
 #[derive(Debug, Serialize, Deserialize)]

@@ -1,14 +1,21 @@
 use anyhow::Result;
-use chrono::{DateTime, Datelike, NaiveDate, Utc};
+#[cfg(test)]
+use chrono::{DateTime, Datelike};
+use chrono::{NaiveDate, Utc};
+use futures::stream::{self, StreamExt};
+use std::collections::BTreeSet;
 
-use super::fetcher::create_http_client;
-use super::json_ld::fetch_json_ld_calendar;
+use super::fetcher::{create_http_client, fetch_url};
+use super::ics::fetch_ics_calendar;
 use super::{ResultsFetcher, SeriesScraper, StandingsFetcher};
-use crate::data::models::{EventStatus, RaceEvent, Series, StreamLink};
+use crate::data::models::{EventStatus, RaceEvent, Series, SessionType, StreamLink};
 use crate::data::results::RaceResults;
 use crate::data::standings::SeasonStandings;
 
 pub struct WecScraper;
+
+/// Avoid serial round-trip delays while remaining gentle to FIA's calendar service.
+const WEC_FETCH_CONCURRENCY: usize = 6;
 
 impl StandingsFetcher for WecScraper {
     async fn fetch_standings(&self, season: u32) -> Result<SeasonStandings> {
@@ -210,33 +217,192 @@ pub fn parse_wec_results_html(html: &str, round: u32) -> Result<RaceResults> {
 impl SeriesScraper for WecScraper {
     async fn scrape(&self, series: &Series) -> Result<Vec<RaceEvent>> {
         let client = create_http_client()?;
-        let mut events = fetch_json_ld_calendar(
-            &client,
-            "https://raceweek.io/wec",
-            &series.id,
-            &wec_stream_links(),
-        )
-        .await
-        .unwrap_or_default();
-
-        if events.is_empty() {
-            events = get_official_2026_wec_schedule(&series.id);
-            events.extend(get_official_2027_wec_schedule(&series.id));
-        } else if !events
-            .iter()
-            .any(|e| e.start_date.year() == 2027 || e.end_date.year() == 2027)
-        {
-            events.extend(get_official_2027_wec_schedule(&series.id));
-        }
-
-        Ok(events)
+        fetch_official_wec_calendar(&client, &series.calendar_url, &series.id).await
     }
+}
+
+/// Fetch WEC session times from FIA WEC's own iCalendar feeds. The feeds contain
+/// timezone-aware timestamps, which are stored as UTC and converted only for display.
+async fn fetch_official_wec_calendar(
+    client: &reqwest::Client,
+    calendar_url: &str,
+    series_id: &str,
+) -> Result<Vec<RaceEvent>> {
+    let calendar_html = fetch_url(client, calendar_url).await?;
+    let event_pages = parse_official_wec_event_pages(&calendar_html);
+    if event_pages.is_empty() {
+        anyhow::bail!("FIA WEC calendar did not contain any event pages");
+    }
+
+    let mut events: Vec<RaceEvent> = stream::iter(event_pages)
+        .map(|event_page| fetch_official_wec_event(client, series_id, event_page))
+        .buffer_unordered(WEC_FETCH_CONCURRENCY)
+        .flat_map(stream::iter)
+        .collect()
+        .await;
+
+    if events.is_empty() {
+        anyhow::bail!("FIA WEC calendar did not yield any session timestamps");
+    }
+
+    events.sort_by_key(|event| (event.start_date, event.end_date));
+    Ok(events)
+}
+
+async fn fetch_official_wec_event(
+    client: &reqwest::Client,
+    series_id: &str,
+    event_page: String,
+) -> Vec<RaceEvent> {
+    let event_html = match fetch_url(client, &event_page).await {
+        Ok(html) => html,
+        Err(_) => return Vec::new(),
+    };
+    let Some((start_date, end_date)) = parse_official_wec_event_dates(&event_html) else {
+        return Vec::new();
+    };
+    let Some(ics_url) = parse_official_wec_ics_url(&event_html) else {
+        return Vec::new();
+    };
+    let Ok(mut event_sessions) =
+        fetch_ics_calendar(client, &ics_url, series_id, &wec_stream_links()).await
+    else {
+        return Vec::new();
+    };
+
+    for event in &mut event_sessions {
+        apply_official_wec_event_dates(event, start_date, end_date);
+        combine_qualifying_sessions(event);
+    }
+    event_sessions
+}
+
+fn apply_official_wec_event_dates(
+    event: &mut RaceEvent,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+) {
+    event.start_date = start_date;
+    event.end_date = end_date;
+
+    // A future official feed can contain TBC sessions with no timestamps. In
+    // that case, use the published event date to avoid treating a past weekend
+    // as Upcoming (which would incorrectly put it in the default list view).
+    event.status = if end_date < Utc::now().date_naive() {
+        EventStatus::Completed
+    } else {
+        event.current_status()
+    };
+}
+
+fn parse_official_wec_event_pages(html: &str) -> Vec<String> {
+    let document = scraper::Html::parse_document(html);
+    let selector = scraper::Selector::parse("a[href]").expect("valid anchor selector");
+    document
+        .select(&selector)
+        .filter_map(|anchor| anchor.value().attr("href"))
+        .filter(|href| href.contains("/en/race/") && !href.contains("/calendar/"))
+        .filter(|href| !href.contains("/result/"))
+        .map(absolute_fiawec_url)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
+}
+
+fn parse_official_wec_ics_url(html: &str) -> Option<String> {
+    let document = scraper::Html::parse_document(html);
+    let selector = scraper::Selector::parse("a[href]").expect("valid anchor selector");
+    document
+        .select(&selector)
+        .filter_map(|anchor| anchor.value().attr("href"))
+        .find(|href| href.contains("/en/race/calendar/"))
+        .map(absolute_fiawec_url)
+}
+
+fn parse_official_wec_event_dates(html: &str) -> Option<(NaiveDate, NaiveDate)> {
+    let document = scraper::Html::parse_document(html);
+    let text = document.root_element().text().collect::<Vec<_>>().join(" ");
+    let words: Vec<_> = text.split_whitespace().collect();
+
+    for window in words.windows(6) {
+        if !window[0].eq_ignore_ascii_case("from") || !window[2].eq_ignore_ascii_case("to") {
+            continue;
+        }
+        let start_day = window[1].trim_end_matches(|c: char| !c.is_ascii_digit());
+        let end_day = window[3].trim_end_matches(|c: char| !c.is_ascii_digit());
+        let month = window[4].trim_end_matches(|c: char| !c.is_ascii_alphabetic());
+        let year = window[5].trim_end_matches(|c: char| !c.is_ascii_digit());
+        let start =
+            NaiveDate::parse_from_str(&format!("{} {} {}", year, month, start_day), "%Y %B %d")
+                .ok()?;
+        let end = NaiveDate::parse_from_str(&format!("{} {} {}", year, month, end_day), "%Y %B %d")
+            .ok()?;
+        return Some((start, end));
+    }
+
+    None
+}
+
+fn absolute_fiawec_url(href: &str) -> String {
+    if href.starts_with("http://") || href.starts_with("https://") {
+        href.to_string()
+    } else {
+        format!("https://www.fiawec.com{}", href)
+    }
+}
+
+/// FIA WEC publishes separate qualifying and Hyperpole sessions for each class.
+/// Present them as one qualifying block so an event does not occupy four entries
+/// in the calendar/list views.
+fn combine_qualifying_sessions(event: &mut RaceEvent) {
+    let qualifying_indices: Vec<usize> = event
+        .sessions
+        .iter()
+        .enumerate()
+        .filter_map(|(index, session)| {
+            (session.session_type == SessionType::Qualifying).then_some(index)
+        })
+        .collect();
+
+    if qualifying_indices.len() <= 1 {
+        return;
+    }
+
+    let start_time = qualifying_indices
+        .iter()
+        .filter_map(|&index| event.sessions[index].start_time)
+        .min();
+    let end_time = qualifying_indices
+        .iter()
+        .filter_map(|&index| event.sessions[index].end_time)
+        .max();
+    let first_index = qualifying_indices[0];
+
+    event.sessions = event
+        .sessions
+        .drain(..)
+        .enumerate()
+        .filter_map(|(index, mut session)| {
+            if !qualifying_indices.contains(&index) {
+                return Some(session);
+            }
+            if index != first_index {
+                return None;
+            }
+
+            session.name = "Qualifying".to_string();
+            session.start_time = start_time;
+            session.end_time = end_time;
+            Some(session)
+        })
+        .collect();
 }
 
 fn wec_stream_links() -> Vec<StreamLink> {
     super::raceday_watch::get_raceday_stream_links("wec", "")
 }
 
+#[cfg(test)]
 pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
     let today = Utc::now().date_naive();
 
@@ -263,7 +429,8 @@ pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
             "Spa-Francorchamps",
             "Belgium",
             (2026, 5, 9),
-            (11, 0),
+            // Official 14:00 CEST start (12:00 UTC / 8:00 AM in Detroit).
+            (12, 0),
         ),
         (
             "24 Hours of Le Mans",
@@ -350,6 +517,7 @@ pub fn get_official_2026_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
         .collect()
 }
 
+#[cfg(test)]
 pub fn get_official_2027_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
     let raw_events = vec![
         (
@@ -357,24 +525,33 @@ pub fn get_official_2027_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
             "Lusail International Circuit",
             "Lusail",
             "Qatar",
-            (2027, 2, 27),
-            (8, 0),
+            // The official schedule lists a 13:00 AST start (10:00 UTC).
+            (2027, 3, 27),
+            (10, 0),
         ),
         (
             "6 Hours of Imola",
             "Autodromo Enzo e Dino Ferrari",
             "Imola",
             "Italy",
-            (2027, 4, 18),
+            (2027, 4, 11),
             (11, 0),
+        ),
+        (
+            "6 Hours of Silverstone",
+            "Silverstone Circuit",
+            "Silverstone",
+            "United Kingdom",
+            (2027, 4, 25),
+            (10, 0),
         ),
         (
             "6 Hours of Spa-Francorchamps",
             "Circuit de Spa-Francorchamps",
             "Spa-Francorchamps",
             "Belgium",
-            (2027, 5, 8),
-            (11, 0),
+            (2027, 5, 15),
+            (12, 0),
         ),
         (
             "24 Hours of Le Mans",
@@ -397,7 +574,7 @@ pub fn get_official_2027_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
             "Circuit of the Americas",
             "Austin, TX",
             "USA",
-            (2027, 9, 5),
+            (2027, 9, 12),
             (18, 0),
         ),
         (
@@ -458,6 +635,8 @@ pub fn get_official_2027_wec_schedule(series_id: &str) -> Vec<RaceEvent> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{TimeZone, Timelike};
+    use chrono_tz::America::Detroit;
 
     #[test]
     fn test_official_wec_schedule() {
@@ -468,6 +647,192 @@ mod tests {
         assert_eq!(events[3].event_name, "24 Hours of Le Mans");
         assert_eq!(events[7].event_name, "Bapco Energies 8 Hours of Bahrain");
         assert_eq!(events[7].round, Some(8));
+    }
+
+    #[test]
+    fn test_2026_wec_race_starts_are_correct_in_detroit() {
+        let events = get_official_2026_wec_schedule("wec");
+        let expected = [
+            // Qatar is on EST; the remainder through COTA are on EDT.
+            (2026, 2, 28, 3, 0),
+            (2026, 4, 19, 7, 0),
+            (2026, 5, 9, 8, 0),
+            (2026, 6, 13, 10, 0),
+            (2026, 7, 12, 10, 30),
+            (2026, 9, 6, 14, 0),
+            // Fuji begins late Saturday evening in Detroit, a day earlier locally.
+            (2026, 9, 26, 22, 0),
+            // Bahrain is after Detroit returns to EST.
+            (2026, 11, 7, 6, 0),
+        ];
+
+        for (event, (year, month, day, hour, minute)) in events.iter().zip(expected) {
+            let start = event.race_start_time().expect("WEC race start time");
+            let detroit = start.with_timezone(&Detroit);
+            assert_eq!(
+                (
+                    detroit.year(),
+                    detroit.month(),
+                    detroit.day(),
+                    detroit.hour(),
+                    detroit.minute(),
+                ),
+                (year, month, day, hour, minute),
+                "{}",
+                event.event_name
+            );
+        }
+    }
+
+    #[test]
+    fn test_2027_wec_calendar_and_timezone_conversion() {
+        let events = get_official_2027_wec_schedule("wec");
+        assert_eq!(events.len(), 9);
+        assert_eq!(events[0].event_name, "Qatar 1812 Km");
+        assert_eq!(
+            events[0].end_date,
+            NaiveDate::from_ymd_opt(2027, 3, 27).unwrap()
+        );
+        assert_eq!(events[2].event_name, "6 Hours of Silverstone");
+        assert_eq!(
+            events[2].end_date,
+            NaiveDate::from_ymd_opt(2027, 4, 25).unwrap()
+        );
+
+        // Store the race instant in UTC and convert only for display. This lets a
+        // user's system timezone change without changing the event itself.
+        let fuji_start = events[7].race_start_time().expect("Fuji race start");
+        assert_eq!(
+            fuji_start
+                .with_timezone(&chrono_tz::America::Detroit)
+                .to_rfc3339(),
+            "2027-09-25T22:00:00-04:00"
+        );
+        assert_eq!(
+            fuji_start
+                .with_timezone(&chrono_tz::America::Los_Angeles)
+                .to_rfc3339(),
+            "2027-09-25T19:00:00-07:00"
+        );
+        assert_eq!(
+            fuji_start
+                .with_timezone(&chrono_tz::Europe::London)
+                .to_rfc3339(),
+            "2027-09-26T03:00:00+01:00"
+        );
+    }
+
+    #[test]
+    fn test_parse_official_calendar_links() {
+        let html = r#"
+            <a href="/en/race/6-hours-of-fuji-2026">Fuji</a>
+            <a href="/en/race/calendar/4954">Calendar</a>
+            <a href="/en/race/result/6">Results</a>
+        "#;
+        assert_eq!(
+            parse_official_wec_event_pages(html),
+            vec!["https://www.fiawec.com/en/race/6-hours-of-fuji-2026"]
+        );
+        assert_eq!(
+            parse_official_wec_ics_url(html).as_deref(),
+            Some("https://www.fiawec.com/en/race/calendar/4954")
+        );
+    }
+
+    #[test]
+    fn test_parse_official_event_dates_without_session_times() {
+        let html = "<h1>24 Hours of Le Mans</h1><p>From 6 to 13 June 2027</p>";
+        assert_eq!(
+            parse_official_wec_event_dates(html),
+            Some((
+                NaiveDate::from_ymd_opt(2027, 6, 6).unwrap(),
+                NaiveDate::from_ymd_opt(2027, 6, 13).unwrap(),
+            ))
+        );
+    }
+
+    #[test]
+    fn test_combine_class_qualifying_sessions() {
+        let timestamp = |hour, minute| {
+            Utc.with_ymd_and_hms(2026, 9, 26, hour, minute, 0)
+                .single()
+                .unwrap()
+        };
+        let mut event = RaceEvent {
+            series_id: "wec".to_string(),
+            event_name: "6 Hours of Fuji".to_string(),
+            circuit_name: "Fuji Speedway".to_string(),
+            location: "Oyama".to_string(),
+            country: "Japan".to_string(),
+            start_date: NaiveDate::from_ymd_opt(2026, 9, 25).unwrap(),
+            end_date: NaiveDate::from_ymd_opt(2026, 9, 27).unwrap(),
+            round: Some(6),
+            sessions: vec![
+                crate::data::models::Session {
+                    name: "Qualifying - LMGT3".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: Some(timestamp(14, 0)),
+                    end_time: Some(timestamp(14, 20)),
+                },
+                crate::data::models::Session {
+                    name: "Hyperpole - LMGT3".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: Some(timestamp(14, 20)),
+                    end_time: Some(timestamp(14, 40)),
+                },
+                crate::data::models::Session {
+                    name: "Qualifying - Hypercar".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: Some(timestamp(14, 40)),
+                    end_time: Some(timestamp(15, 0)),
+                },
+                crate::data::models::Session {
+                    name: "Hyperpole - Hypercar".to_string(),
+                    session_type: SessionType::Qualifying,
+                    start_time: Some(timestamp(15, 0)),
+                    end_time: Some(timestamp(15, 20)),
+                },
+            ],
+            stream_links: vec![],
+            status: EventStatus::Upcoming,
+        };
+
+        combine_qualifying_sessions(&mut event);
+
+        assert_eq!(event.sessions.len(), 1);
+        assert_eq!(event.sessions[0].name, "Qualifying");
+        assert_eq!(event.sessions[0].start_time, Some(timestamp(14, 0)));
+        assert_eq!(event.sessions[0].end_time, Some(timestamp(15, 20)));
+    }
+
+    #[test]
+    fn test_tbd_sessions_on_a_past_weekend_are_completed() {
+        let yesterday = Utc::now()
+            .date_naive()
+            .pred_opt()
+            .expect("a previous calendar day");
+        let mut event = RaceEvent {
+            series_id: "wec".to_string(),
+            event_name: "24 Hours of Le Mans".to_string(),
+            circuit_name: "Circuit de la Sarthe".to_string(),
+            location: "Le Mans".to_string(),
+            country: "France".to_string(),
+            start_date: yesterday,
+            end_date: yesterday,
+            round: Some(3),
+            sessions: vec![crate::data::models::Session {
+                name: "24 Hours of Le Mans - Race".to_string(),
+                session_type: SessionType::Race,
+                start_time: None,
+                end_time: None,
+            }],
+            stream_links: vec![],
+            status: EventStatus::Upcoming,
+        };
+
+        apply_official_wec_event_dates(&mut event, yesterday, yesterday);
+
+        assert_eq!(event.status, EventStatus::Completed);
     }
 
     #[test]

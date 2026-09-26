@@ -1271,7 +1271,10 @@ pub fn build_series_sessions(
             let sat_date = fri_date.succ_opt().unwrap_or(fri_date);
             let sun_date = end_date;
 
-            if name_lower.contains("le mans") || name_lower.contains("24 hours") {
+            // "Lone Star Le Mans" is a six-hour race at COTA, not the 24 Hours of
+            // Le Mans.  Check for the event duration so it uses the normal WEC
+            // weekend schedule.
+            if name_lower.contains("24 hours") {
                 let thu_date = fri_date.pred_opt().unwrap_or(fri_date);
                 sessions.push(Session {
                     name: "Free Practice".to_string(),
@@ -1293,9 +1296,15 @@ pub fn build_series_sessions(
                         .and_hms_opt(19, 0, 0)
                         .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
-                let race_start = sat_date
-                    .and_hms_opt(14, 0, 0)
-                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                // A source-specific scraper may provide the official race start.
+                // Preserve that absolute timestamp rather than reconstructing it
+                // from the weekend dates; this is essential for correct local-time
+                // conversion, especially for the WEC's Saturday races.
+                let race_start = start_time.or_else(|| {
+                    sun_date
+                        .and_hms_opt(14, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
+                });
                 sessions.push(Session {
                     name: "24 Hours of Le Mans".to_string(),
                     session_type: SessionType::Race,
@@ -1324,17 +1333,11 @@ pub fn build_series_sessions(
                         .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc)),
                 });
 
-                let race_day = if name_lower.contains("qatar")
-                    || name_lower.contains("bahrain")
-                    || name_lower.contains("spa")
-                {
-                    sat_date
-                } else {
+                let race_start = start_time.or_else(|| {
                     sun_date
-                };
-                let race_start = race_day
-                    .and_hms_opt(11, 0, 0)
-                    .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc));
+                        .and_hms_opt(11, 0, 0)
+                        .map(|ndt| DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc))
+                });
                 sessions.push(Session {
                     name: "Race (6 Hours)".to_string(),
                     session_type: SessionType::Race,

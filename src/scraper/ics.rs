@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use chrono::{DateTime, NaiveDate, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use std::collections::HashMap;
 
 use crate::data::models::{EventStatus, RaceEvent, Session, SessionType, StreamLink};
@@ -106,7 +106,8 @@ fn parse_vevents(lines: &[String]) -> Vec<IcsVEvent> {
                 // Store raw key with parameters or base key
                 props.insert(key_name, val_part.to_string());
                 if key_part.contains(';') {
-                    props.insert(key_part.to_uppercase(), val_part.to_string());
+                    // Keep parameter values (notably TZID=Area/City) case-sensitive.
+                    props.insert(key_part.to_string(), val_part.to_string());
                 }
             }
         }
@@ -123,19 +124,10 @@ fn build_vevent_from_props(props: &HashMap<String, String>) -> Option<IcsVEvent>
     let location = props.get("LOCATION").map(|s| unescape_ics_text(s.trim()));
     let url = props.get("URL").map(|s| s.trim().to_string());
 
-    let (start_time, start_date) = parse_ics_datetime_or_date(props.get("DTSTART").or_else(|| {
-        props
-            .iter()
-            .find(|(k, _)| k.starts_with("DTSTART;"))
-            .map(|(_, v)| v)
-    }));
-
-    let (end_time, end_date) = parse_ics_datetime_or_date(props.get("DTEND").or_else(|| {
-        props
-            .iter()
-            .find(|(k, _)| k.starts_with("DTEND;"))
-            .map(|(_, v)| v)
-    }));
+    let (start_raw, start_tzid) = ics_datetime_property(props, "DTSTART");
+    let (end_raw, end_tzid) = ics_datetime_property(props, "DTEND");
+    let (start_time, start_date) = parse_ics_datetime_or_date(start_raw, start_tzid);
+    let (end_time, end_date) = parse_ics_datetime_or_date(end_raw, end_tzid);
 
     Some(IcsVEvent {
         summary,
@@ -149,7 +141,29 @@ fn build_vevent_from_props(props: &HashMap<String, String>) -> Option<IcsVEvent>
     })
 }
 
-fn parse_ics_datetime_or_date(val: Option<&String>) -> (Option<DateTime<Utc>>, Option<NaiveDate>) {
+fn ics_datetime_property<'a>(
+    props: &'a HashMap<String, String>,
+    name: &str,
+) -> (Option<&'a String>, Option<&'a str>) {
+    // Prefer the parameterized key: parse_vevents also stores a bare DTSTART
+    // entry for convenience, but that would discard a TZID.
+    if let Some((key, value)) = props
+        .iter()
+        .find(|(key, _)| key.starts_with(&format!("{};", name)))
+    {
+        let tzid = key
+            .split(';')
+            .find_map(|parameter| parameter.strip_prefix("TZID="));
+        return (Some(value), tzid);
+    }
+
+    (props.get(name), None)
+}
+
+fn parse_ics_datetime_or_date(
+    val: Option<&String>,
+    tzid: Option<&str>,
+) -> (Option<DateTime<Utc>>, Option<NaiveDate>) {
     let raw = match val {
         Some(s) => s.trim(),
         None => return (None, None),
@@ -161,8 +175,19 @@ fn parse_ics_datetime_or_date(val: Option<&String>) -> (Option<DateTime<Utc>>, O
         return (Some(utc), Some(utc.date_naive()));
     }
 
-    // 2. Format: YYYYMMDDTHHMMSS (local/naive without timezone)
+    // 2. Format: YYYYMMDDTHHMMSS with an IANA TZID parameter.
     if let Ok(ndt) = NaiveDateTime::parse_from_str(raw, "%Y%m%dT%H%M%S") {
+        if let Some(tzid) = tzid {
+            if let Ok(tz) = tzid.parse::<chrono_tz::Tz>() {
+                if let Some(local) = tz.from_local_datetime(&ndt).earliest() {
+                    let utc = local.with_timezone(&Utc);
+                    return (Some(utc), Some(utc.date_naive()));
+                }
+            }
+        }
+
+        // RFC 5545 permits a floating time without TZID. Retain the previous UTC
+        // interpretation for that ambiguous format; FIA WEC feeds use TZID/UTC.
         let utc = DateTime::<Utc>::from_naive_utc_and_offset(ndt, Utc);
         return (Some(utc), Some(ndt.date()));
     }
@@ -358,5 +383,21 @@ END:VCALENDAR"#;
         assert_eq!(ev.sessions[0].session_type, SessionType::Practice);
         assert_eq!(ev.sessions[1].session_type, SessionType::Qualifying);
         assert_eq!(ev.sessions[2].session_type, SessionType::Race);
+    }
+
+    #[test]
+    fn test_parse_ics_tzid_as_utc() {
+        let sample = r#"BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:wec-fuji-race
+DTSTART;TZID=Asia/Tokyo:20260927T110000
+DTEND;TZID=Asia/Tokyo:20260927T170000
+SUMMARY:6 Hours of Fuji - Race
+END:VEVENT
+END:VCALENDAR"#;
+
+        let events = parse_ics_str(sample, "wec", &[]).unwrap();
+        let start = events[0].sessions[0].start_time.unwrap();
+        assert_eq!(start.to_rfc3339(), "2026-09-27T02:00:00+00:00");
     }
 }
